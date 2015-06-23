@@ -1,0 +1,53 @@
+REQUIRMENTS
+
+glib 2.8+
+libpseudo (available from SourceForge)
+libviper 1.4.5+ (available from SouceForge)
+libgpm (no longer required as of build 1.1 but you will need to remove
+        the build definition -D_VIPER_MOUSE_GPM from the Makefile)
+ncurses 5.4+
+
+
+OPTIONAL REQUIRMENTS
+
+VWM is distributed with 2 basic applications:  ptyterm and sysmon.  ptyterm
+is a terminal emulator and sysmon monitors cpu and memory usage like top
+or gnome-system-monitor.
+
+--vwmterm---
+In order to build ptyterm, your system will need to support the terminfo
+facilites (most do) and have the following pieces of software installed:
+
+libutil (should be installed on most libc systems)
+libvterm
+
+--sysmon--
+In order to build sysmon, your system will need the additional libraries:
+
+libgtop2
+
+
+INSTALLATION
+
+By default, the Makefile tries to create a /usr/lib/vwm/modules directory.
+This is where all of the applications (plugins) for VWM will be installed.  At
+the present time, this location is hard-coded.  In the future, VWM should
+allow the user to specify otherwise.  You will need to creat this directory
+manually.
+
+For a simple installation run the following make commands as root:
+
+make
+make install
+
+If you built libviper with support for wide characters, you will need to
+compile the wide version of VWM.  Instead of using the make commands listed
+above you will need to do:
+
+make wide
+make install
+
+Currently, the Makefile does not build ptyterm or sysmon.  You will need to
+do that manually.  See the INSTALL file for each of those plugins.
+
+Enjoy!

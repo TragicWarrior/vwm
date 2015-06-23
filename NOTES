@@ -1,0 +1,19 @@
+BUILT IN BACKTRACE
+
+The default Makefile rule for vwm will build a verions with debugging
+symbols and a backtrace mechanism based on the GNU libc backtrace() 
+facility.  The result is a larger binary which should help me track down
+an obscure race condition bug which I have only seen once.  Should you
+encounter this bug, please copy and paste the backtrace into and email
+and send it to bryan.christ@gmail.com
+
+If you would like to disable this feature resulting in a leaner binary,
+simiply follow these steps:
+
+1.  Open the Makefile with your favorite text editor.
+2.  Remove "-ggdb" from CFLAGS
+3.  Remove "-D_DEBUG" from DEFS
+4.  Save the file, close your editor, and run "make".
+5.  Run "strip vmw".
+6.  Run "make install".
+7.  You're done!

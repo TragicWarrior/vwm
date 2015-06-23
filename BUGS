@@ -1,0 +1,16 @@
+* Stray charagers in Gnome Terminal and Terminal
+
+When VWM is running in Gnome Terminal or Terminal, you may experience some
+screen corruption.  This sometimes occurs when the terminal emulator places
+a character in the right-most column.  It appears to be a bug in libvte which
+is part of the GTK+ library.  The same corruption does not happen when VWM
+is running on xterm, rxvt, or a standard Linux tty.  A bug report has
+been filed with the maintainer of libvte but I am not aware of any fix.
+It is reported that this bug can be reproduced without using VWM but some
+other tool like Midnight Commander.
+
+* Control characters appear on the screen
+
+If VWM crashes on exit, somehow the terminal states are not completely
+restored to their previous condition.  This is _possibly_ fixed with VWM
+version 2.1.1 or higher.

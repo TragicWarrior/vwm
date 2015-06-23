@@ -1,0 +1,284 @@
+Version 2.2.0
+
+*  [Bryan Christ] A major rewrite of the module loading system.  This
+   rewrite simplifies the code, makes the module system more extensible,
+   and removes another set of glib dependencies.
+
+*  [Bryan Christ] Temporarily removed screensaver modules and the system
+   monitor module until they can be ported to the new module system.
+
+*  [Bryan Christ] Ported VTerm to the new module system.
+
+Version 2.1.3
+
+*  [Bryan Christ] Patch from Yan Seiner to fix build problem on
+   uclibc systems.
+
+*  [Bryan Christ] Minor type changes to accomodate libpseudo 1.2.0
+
+Version 2.1.2
+
+*  [Bryan Christ] Fixed a default color issue which was causing
+   problems with certain tools (like "man").
+
+Version 2.1.1
+
+*  [Bryan Christ] Build against libviper 1.4.5+ which includes
+   a graceful cleanup facility on program exit
+
+Version 2.1.0
+
+*  Integration of new libvterm based terminal emulator.
+
+*  Link to new libviper.
+
+*  Removal of old hotkey mechanisms which have been replaced
+   by the newer viper_kmio_dispatch() hook facilities.
+
+*  Temporary removal of screen-saver tools.
+
+*  Temporary removal of hotkey remapping.
+
+Version 2.0.3
+
+*  Makefile patch from Ben Sittler to build parallel
+   versions of the vwm (vwm/vwm_wide.so)
+
+Version 2.0.2
+
+*  Added version labele to desktop wallpaper
+
+*  Header fix for vwm_private.h
+
+*  Header fix for vwmterm/signals.h
+
+*  Makefile fix
+
+Version 2.0.1
+
+*  Header fix for vwm_signals.c
+
+*  Makefile fixes
+
+Version 2.0
+
+*  SIGIO event accelerator.
+
+*  New terminal shell.
+
+*  Link to improved libspeudo with leapfrog
+   task scheduler.
+
+Version 1.4.0
+
+*  Required code changes to sync with libviper 
+   1.4.x code base.
+
+*  Various Makefile enhancements.
+
+Version 1.3.5
+*  added debug facility using libc backtrace().
+
+*  implemented sigaction() instead of signal() for
+   improved portability.
+
+*  removed useles debug: rule from Makefile.
+
+*  the default Makefile rule builds a version with
+   debug facilities.  view the NOTES for additional
+   details.
+
+Version 1.3.4
+
+*  serious overhaul of the built-in terminal.
+
+*  fixed the 'ps aux' glitch introduced in 1.3.3.
+
+*  'top' now behaves correclty most of the time.
+
+*  removed the dual-buffer mechanism along with
+   some other optimzations which reduced each
+   terminal footprint by ~9K (from 27K to 18K).
+
+*  code cleanups.
+
+Version 1.3.3 (unreleased)
+
+*  removed smir and rmir definitions from terminfo
+   file.  they were confusing to bash and unnecessary.
+
+*  removed the dependency on the non-portable
+   ncurses win_st flag _WRAPPED.
+
+*  fixed the issue with writting to bottom right corner
+   which caused top to misbehave.  the fix causes
+   a small problem with 'ps aux' but that should be
+   relatively simple to fix. 
+
+Version 1.3.2
+
+*  minor bugfix to Makefile which prevented first-time
+   compilation of ptyterm from working.
+
+Version 1.3.1
+
+*  minor bugfix to ptyterm which keeps unhandled escape
+   codes from being written to the display.  (fixes
+   corruption caused by gcc errors and the odd glyphs
+   seen in man pages).
+
+Version 1.3.0
+
+*  major over-haul of help system.  old "help-bar" has
+   been replaced by an "information ticker" on the main
+   panel.
+
+*  added a new set of functions to control the srolling
+   marquee panel (not 100% implemented)
+
+*  sync with libviper to utilize SCREEN_WINDOW global.
+
+*  added delete key functionality to ptyterm and the
+   terminfo entry for vwmterm so that bash
+   command/history editing will work correctly.
+
+*  fixed an environment issue with ptyterm which caused
+   some environment variables to be trampled (tested
+   the change with Motor IDE which used to abort at
+   startup).
+
+*  added gcc -O2 optimizations to Makefile and moved
+   to C99 standard (mostly for long long int).
+
+Version 1.2.3
+
+*  screensaver bug fix.  the built-in screensaver was
+   not being resized with the terminal was resized.
+
+Version 1.2.2
+
+*  minor changes to accommodate API changes in libviper.
+
+*  update built-in modules for default NORESIZE state
+   set by libviper at window creation time.
+
+*  windows which cannot be resized will not display the
+   "resize grip" in the window frame.
+
+Version 1.2.1
+
+*  updated a few lines to accomodate msgbox changes in
+   libviper.
+
+Version 1.2.0
+
+*  new user profile API.
+
+*  preliminary support for private module/plugin loading
+   from ~/.vwm/modules directory.
+
+*  preliminary support for user specific configuration 
+   with the ~/.vwm/vwmrc file.
+
+*  new screensaver subsystem and API.
+
+*  set default screensaver timeout with vwmrc file
+
+*  set default menu hotkey with vwmrc file
+
+*  new "keycodes" tool provides VWM compatible keystroke
+
+   codes for definining a custom menu hotkey.
+*  updated Makefile to build ptyterm automatically.
+
+*  minor code cleanups.
+
+Version 1.1.6
+
+*  correcty a bug introduced in version 1.1.5 which
+   caused tab-stops to be unhandled by the ptyterm
+   parser.
+
+*  fixed a TODO item to promote *BSD porting.
+
+*  fixed the problem with ptyterm and the paging utility
+   "less" (may fix others also).
+
+*  better prevention and handling of broken escape
+   sequences in ptyterm.
+
+Version 1.1.5
+
+*  added termcap "rs1" (terminal reset) entry to
+   vwmterm tic file and corresponding escape code
+   parser to ptyterm.
+
+*  ptyterm adapts to tty settings +ONLCR and -ONLCR.  many
+   programs change these modes without asking :) which
+   was causing many incompatibilites.
+
+*  added termcap "cuf" (cursor forward) entry to
+   vwmterm tic file and corresponding escape code
+   parser to ptyterm.  this fixed rkhunter (and
+   probably others) that were sending cuf even though
+   it is was undefined.
+
+Version 1.1.4
+
+*  fixed a significant memory leak in the VWM main menu.
+
+*  added internal function vwm_menu_marshal() which makes
+   the main menu behave in a more "refined" manner.
+
+*  changed the sysmon mechanism for fetching load average to
+   getloadavg() instead of using libgtop2 for simplification.
+
+*  fixed a crash bug in screensaver configuration ui.
+
+*  colorized form in screensaver ui.
+
+*  mandatory change for API libviper window_fill() routine.
+
+*  fixed the 4k memory leak in ptyterm.
+
+*  fixed some theoretical leaks.
+
+*  added some additional saftey checks.
+
+*  general code cleanup.
+
+Version 1.1.3
+
+*  fixed a compile bug
+
+*  added this CHANGELOG file
+
+Version 1.1.2
+
+*  fixed a bug which caused keystrokes that had already been handled by
+   a hotkey handler to be propogated to the toplevel window.
+
+Version 1.1.1
+
+*  fixed a small, but critical bug which caused screensaver wake-up to be
+   handled incorrectly.
+
+Version 1.1
+
+*  added support for screensavers.  screensavers are normal windows which
+   belong to the category VWM_SCREENSAVER.
+
+*  added a broadcast event "vwm-clock-tick" which fires every 1/10 second
+   (#define VWM_CLOCK_TICK).  this replaced the individual clocks which
+   drove the default plugin 'sysmon' and the screensaver subsystem.
+
+*  added a default screensaver called 'syssaver'.
+
+*  changed the CPU enumeration mechanism for default plugin 'sysmon'.
+
+*  moved the hotkey support out of libviper and into vwm where it made
+   more sense.
+
+Version 1.0
+
+*  initial release.

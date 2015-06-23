@@ -1,0 +1,15 @@
+# this is a template for user specific profile settings.  place
+# this file in the ~/.vwm/ and it will automatically be read
+# when VWM starts
+
+# this value controls the inactivity timeout for the screensaver
+# screen_timout = 5
+
+screen_timeout=7
+
+# this value controls which keystroke/combination causes the VWM
+# main menu to be displayed.  use the "keycodes" tool to get the
+# value for your custom hotkeys.  in this example, 361b
+# corresponds to [alt 6]
+ 
+menu_hotkey=361b
