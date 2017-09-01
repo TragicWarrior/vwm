@@ -1,3 +1,8 @@
+Version 2.2.1
+
+*  [Bryan Christ] remove threaded locking primitives to improve
+   improve performance.
+
 Version 2.2.0
 
 *  [Bryan Christ] A major rewrite of the module loading system.  This
