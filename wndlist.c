@@ -38,14 +38,14 @@ WINDOW* vwm_fmod_wndlist(gpointer anything)
 	if(viper_window_find_by_class((gpointer)vwm_fmod_wndlist) != NULL)
         return NULL;
 
-	viper_thread_enter();
+	// viper_thread_enter();
 
 	titles = viper_deck_get_wndlist();
 	item_count = g_strv_length(titles);
 
 	if(item_count == 0)
 	{
-		viper_thread_leave();
+		// viper_thread_leave();
 		return NULL;
 	}
 
@@ -79,7 +79,7 @@ WINDOW* vwm_fmod_wndlist(gpointer anything)
 	viper_window_set_userptr(window,(gpointer)menu);
 	viper_window_set_state(window,STATE_EMINENT);
 
-	viper_thread_leave();
+	// viper_thread_leave();
 	g_strfreev(titles);
 
 	return window;
@@ -102,7 +102,7 @@ gint vwm_fmod_wndlist_ON_DESTROY(WINDOW *window,gpointer arg)
 //	gint	i;
 
 	menu=(MENU*)arg;
-	viper_thread_enter();
+	// viper_thread_enter();
 
 /*
 	unpost_menu(menu);
@@ -120,7 +120,7 @@ gint vwm_fmod_wndlist_ON_DESTROY(WINDOW *window,gpointer arg)
 
 	viper_menu_destroy(menu,TRUE);
 
-	viper_thread_leave();
+	// viper_thread_leave();
 
 	return 0;
 }
@@ -142,7 +142,7 @@ gint vwm_fmod_wndlist_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
 			keystroke = KEY_CRLF;
 	}
 
-	viper_thread_enter();
+	// viper_thread_enter();
 	if(keystroke == KEY_UP) menu_driver(menu,REQ_UP_ITEM);
 	if(keystroke == KEY_DOWN) menu_driver(menu,REQ_DOWN_ITEM);
 	if(keystroke == KEY_CRLF)
@@ -157,11 +157,11 @@ gint vwm_fmod_wndlist_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
 		viper_window_focus(TOPMOST_WINDOW);
 */
 		/* viper_screen_redraw(REDRAW_ALL); */
-		viper_thread_leave();
+		// viper_thread_leave();
 		return 1;
 	}
 	
 	viper_window_redraw(window);
-	viper_thread_leave();
+	// viper_thread_leave();
 	return 1;
 }

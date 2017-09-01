@@ -105,7 +105,7 @@ WINDOW* vwm_main_menu(void)
     if(height>(screen_height-4)) height=screen_height-4;
 	set_menu_format(menu,height,1);
 
-	viper_thread_enter();
+	// viper_thread_enter();
 	window = viper_window_create(" Menu ",1,2,width,height,TRUE);
     /*
         todo:   it would be nice if the user could resize the menu
@@ -128,7 +128,7 @@ WINDOW* vwm_main_menu(void)
 	viper_window_set_key_func(window,vwm_main_menu_ON_KEYSTROKE);
 	viper_window_set_userptr(window,(gpointer)menu);
 
-	viper_thread_leave();
+	// viper_thread_leave();
 	return window;
 }
 
@@ -142,9 +142,9 @@ gint vwm_main_menu_ON_ACTIVATE(WINDOW *window,gpointer arg)
 
 gint vwm_main_menu_ON_CLOSE(WINDOW *window,gpointer arg)
 {
-	viper_thread_enter();
+	// viper_thread_enter();
 	viper_menu_destroy((MENU*)arg,TRUE);
-	viper_thread_leave();
+	// viper_thread_leave();
 
 	return VIPER_EVENT_WINDOW_DESIST;
 }
@@ -161,7 +161,7 @@ vwm_main_menu_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
 	menu = (MENU*)viper_window_get_userptr(window);
     if(keystroke == -1) return 1;
 
-    viper_thread_enter();
+    // viper_thread_enter();
 
 	if(keystroke == KEY_MOUSE)
 	{
@@ -172,14 +172,14 @@ vwm_main_menu_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
         else
         {
             viper_window_redraw(window);
-            viper_thread_leave();
+            // viper_thread_leave();
             return 1;
         }
 	}
 
     if(keystroke == 's')
     {
-        viper_thread_enter();
+        // viper_thread_enter();
         /*
             new_window = viper_filedlg_create(window,
                 " Pick a file... ",0.5,0.5,0.5,0.5,
@@ -191,7 +191,7 @@ vwm_main_menu_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
         new_window = viper_filedlg_create(window," Pick a file... ",
 			0.5,0.5,0.8,0.5,NULL,FILEDLG_FULL);
         viper_window_set_top(new_window);
-        viper_thread_leave();
+        // viper_thread_leave();
     }
 
 	if(keystroke == KEY_UP)
@@ -216,13 +216,13 @@ vwm_main_menu_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
             new_window = vwm_module_exec(vwm_module);
             viper_window_close(window);
 			if(new_window != NULL) viper_window_set_top(new_window);
-			viper_thread_leave();
+			// viper_thread_leave();
 			return 1;
 		}
 	}
 
 	viper_window_redraw(window);
-	viper_thread_leave();
+	// viper_thread_leave();
 	return 1;
 }
 
@@ -255,17 +255,17 @@ vwm_main_menu_hotkey(void)
 
 	if(window != NULL)
 	{
-		viper_thread_enter();
+		// viper_thread_enter();
 		viper_window_close(window);
-		viper_thread_leave();
+		// viper_thread_leave();
 		return 0;
 	}
 
-	viper_thread_enter();
+	// viper_thread_enter();
 	window = vwm_main_menu();
 	viper_window_set_class(window,vwm_main_menu);
 	viper_window_set_top(window);
-	viper_thread_leave();
+	// viper_thread_leave();
 
 	return 0;
 }

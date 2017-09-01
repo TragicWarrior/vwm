@@ -102,12 +102,12 @@ vwm_modules_preload(void)
 
         if(error_msg != NULL)
         {
-            viper_thread_enter();
+            // viper_thread_enter();
             msgbox = viper_msgbox_create(" Module Warning! ",
                 0.5,0.5,0,0,error_msg,
                 MSGBOX_ICON_WARN | MSGBOX_TYPE_OK);
             viper_window_show(msgbox);
-            viper_thread_leave();
+            // viper_thread_leave();
             g_free(error_msg);
         }
     }
