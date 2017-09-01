@@ -12,9 +12,9 @@ gint vwmterm_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
 
 	if(keystroke==KEY_MOUSE) return 1;
 
-	viper_thread_enter();
+	// viper_thread_enter();
 	vterm=(vterm_t*)viper_window_get_userptr(window);
-	viper_thread_leave();
+	// viper_thread_leave();
 
    vterm_write_pipe(vterm,keystroke);
 
@@ -30,13 +30,13 @@ gint vwmterm_ON_RESIZE(WINDOW *window,gpointer anything)
 
 	vterm=(vterm_t*)anything;
 
-	viper_thread_enter();
+	// viper_thread_enter();
 
 	getmaxyx(window,height,width);
    vterm_resize(vterm,width,height);
    vterm_wnd_update(vterm);
 
-	viper_thread_leave();
+	// viper_thread_leave();
 
 	return 0;
 }

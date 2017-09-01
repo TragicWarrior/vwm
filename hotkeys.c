@@ -84,7 +84,7 @@ void vwm_default_VWM_START(WINDOW *topmost_window)
 
    vwm=vwm_get_instance();
 
-   viper_thread_enter();
+   // viper_thread_enter();
 
    wallpaper_wnd=viper_screen_get_wallpaper();
    vwm->wallpaper_agent(wallpaper_wnd,(gpointer)1);
@@ -100,7 +100,7 @@ void vwm_default_VWM_START(WINDOW *topmost_window)
    viper_screen_redraw(REDRAW_ALL);
    flash();
 
-   viper_thread_leave();
+   // viper_thread_leave();
 
    return;
 }
@@ -113,7 +113,7 @@ void vwm_default_VWM_STOP(WINDOW *topmost_window)
 
 	vwm=vwm_get_instance();
 
-   viper_thread_enter();
+   // viper_thread_enter();
 
    wallpaper_wnd=viper_screen_get_wallpaper();
    vwm->wallpaper_agent(wallpaper_wnd,(gpointer)0);

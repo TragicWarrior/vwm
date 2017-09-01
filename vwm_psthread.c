@@ -25,9 +25,9 @@ int16_t vwm_clock_driver(ps_task_t *task,void *anything)
    elapsed=g_timer_elapsed(timer,NULL);
    if(elapsed<VWM_CLOCK_TICK) return PSTHREAD_CONTINUE;
 
-   viper_thread_enter();
+   // viper_thread_enter();
    viper_event_run(VIPER_EVENT_BROADCAST,"vwm-clock-tick");
-   viper_thread_leave();
+   // viper_thread_leave();
 
    g_timer_start(timer);
    return PSTHREAD_CONTINUE;

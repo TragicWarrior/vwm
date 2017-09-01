@@ -44,7 +44,7 @@ WINDOW* vwm_panel_init(void)
    vwm_panel->tick_rate=2;
    vwm_panel->thaw_rate=3;
 
-	viper_thread_enter();
+	// viper_thread_enter();
 	window=viper_window_create("vwm panel",0,0,WSIZE_FULLSCREEN,1,FALSE);
 	wbkgdset(window,VIPER_COLORS(COLOR_BLACK,COLOR_WHITE));
    viper_event_set(window,"vwm-clock-tick",vwm_panel_ON_CLOCK_TICK,
@@ -61,7 +61,7 @@ WINDOW* vwm_panel_init(void)
    mvwprintw(window,0,0,"%*c",vwm_panel->display_sz,' ');
 
 	viper_window_redraw(window);
-	viper_thread_leave();
+	// viper_thread_leave();
 
 
 	return window;
@@ -76,7 +76,7 @@ gint vwm_panel_ON_TERM_RESIZED(WINDOW *window,gpointer arg)
    vwm_panel=(VWM_PANEL*)arg;
    getmaxyx(SCREEN_WINDOW,max_y,max_x);
 
-   viper_thread_enter();
+   // viper_thread_enter();
    viper_wresize_abs(window,WSIZE_FULLSCREEN,WSIZE_UNCHANGED);
    werase(window);
 
@@ -94,7 +94,7 @@ gint vwm_panel_ON_TERM_RESIZED(WINDOW *window,gpointer arg)
    }
 
    viper_window_redraw(window);
-   viper_thread_leave();
+   // viper_thread_leave();
 
    return 0;
 }
@@ -106,7 +106,7 @@ gint vwm_panel_ON_CLOCK_TICK(WINDOW *window,gpointer arg)
    vwm_panel=(VWM_PANEL*)arg;
    vwm_panel->clock++;
 
-   viper_thread_enter();
+   // viper_thread_enter();
    /* update throbber on every tick (currently 1/10 sec). */
    vwm_panel_update_throbber(window);
 
@@ -127,7 +127,7 @@ gint vwm_panel_ON_CLOCK_TICK(WINDOW *window,gpointer arg)
    }
 
    viper_window_redraw(window);
-   viper_thread_leave();
+   // viper_thread_leave();
 
    return 0;
 }

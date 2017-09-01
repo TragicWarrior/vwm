@@ -108,7 +108,7 @@ vwmterm_main(vwm_module_t *mod)
     fflags = fcntl(master_fd,F_GETFL);
     fcntl(master_fd,F_SETFL,fflags | FASYNC);
 
-    viper_thread_enter();
+    // viper_thread_enter();
 
     // create window
 	window = viper_window_create(" VTerm ",0.5,0.5,width,height,TRUE);
@@ -134,7 +134,7 @@ vwmterm_main(vwm_module_t *mod)
         vwmterm_ON_KEYSTROKE);
 	viper_window_set_userptr(window,(gpointer)vterm);
 
-	viper_thread_leave();
+	// viper_thread_leave();
 
     // push pseudo-thread onto run queue
 	psthread_add(vwm_runq,vwmterm_psthread,(gpointer)window);

@@ -52,7 +52,7 @@ vwm_bkgd_simple(WINDOW *window,gpointer arg)
    */
 	idx = (uintmax_t)arg;
 
-	viper_thread_enter();
+	// viper_thread_enter();
 
     viper_wresize_abs(window,WSIZE_FULLSCREEN,WSIZE_FULLSCREEN);
 
@@ -72,7 +72,7 @@ vwm_bkgd_simple(WINDOW *window,gpointer arg)
 	mvwprintw(window,height - 1,width - (strlen(version_str)),version_str);
 	wattron(window,A_NORMAL);
 
-	viper_thread_leave();
+	// viper_thread_leave();
 
 	return 0;
 }
@@ -108,7 +108,7 @@ vwm_bkgd_bricks(WINDOW *window,gpointer arg)
    */
    idx = (uintmax_t)arg;
 
-   viper_thread_enter();
+   // viper_thread_enter();
 
    viper_wresize_abs(window,WSIZE_FULLSCREEN,WSIZE_FULLSCREEN);
    wattroff(window,A_REVERSE);
@@ -148,7 +148,7 @@ vwm_bkgd_bricks(WINDOW *window,gpointer arg)
    mvwprintw(window,height - 1,width - (strlen(version_str)),version_str);
    wattron(window,A_NORMAL);
 
-   viper_thread_leave();
+   // viper_thread_leave();
 
    return 0;
 }

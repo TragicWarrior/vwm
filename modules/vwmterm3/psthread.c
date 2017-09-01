@@ -42,9 +42,9 @@ vwmterm_psthread(ps_task_t *task,void *anything)
 
     window = (WINDOW*)anything;
 
-    viper_thread_enter();
+    // viper_thread_enter();
     vterm = viper_window_get_userptr(window);
-    viper_thread_leave();
+    // viper_thread_leave();
 
     bytes_read = vterm_read_pipe(vterm);
 
@@ -54,19 +54,19 @@ vwmterm_psthread(ps_task_t *task,void *anything)
     // handle pipe error condition
     if(bytes_read == -1)
     {
-        viper_thread_enter();
+        // viper_thread_enter();
         viper_window_destroy(window);
-        viper_thread_leave();
+        // viper_thread_leave();
 
         return PSTHREAD_TERMINATE;
     }
 
     if(bytes_read > 0)
     {
-        viper_thread_enter();
+        // viper_thread_enter();
         vterm_wnd_update(vterm);
         viper_window_redraw(window);
-        viper_thread_leave();
+        // viper_thread_leave();
     }
 
     return PSTHREAD_CONTINUE;
