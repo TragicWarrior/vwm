@@ -23,10 +23,11 @@
 
 #include <viper.h>
 #include <vterm.h>
+#include <protothread.h>
 
 #include "vwmterm.h"
 #include "events.h"
-#include "psthread.h"
+#include "vwmterm_thd.h"
 #include "signals.h"
 
 #include "../../vwm.h"
@@ -42,8 +43,8 @@ vwmterm_main(vwm_module_t *mod);
 int
 vwm_mod_init(vwm_module_t *mod)
 {
-    void    *dynlib;
-    int     retval;
+    void            *dynlib;
+    int             retval;
 
 	// preload libutil for use with this module.
 	dynlib = dlopen("libutil.so",RTLD_LAZY | RTLD_GLOBAL);
@@ -64,21 +65,23 @@ vwm_mod_init(vwm_module_t *mod)
 
     if(retval != 0) exit(-1);
 
-
-
 	return 0;
 }
 
 WINDOW*
 vwmterm_main(vwm_module_t *mod)
 {
-    extern WINDOW       *SCREEN_WINDOW;
-	extern ps_runq_t	*vwm_runq;
-    vterm_t             *vterm;
-	WINDOW	      	    *window;
-	int		      	    width,height;
-    int                 master_fd;
-    int                 fflags;
+    extern WINDOW           *SCREEN_WINDOW;
+    vterm_t                 *vterm;
+	WINDOW	      	        *window;
+	int		      	        width,height;
+    int                     master_fd;
+    int                     fflags;
+
+    extern protothread_t    pt;
+    pt_context_t            *ctx_vwmterm;
+    vwmterm_data_t          *vwmterm_data;
+    extern int              shutdown;
 
     getmaxyx(SCREEN_WINDOW,height,width);
     if(height > 30 && width > 84)
@@ -108,8 +111,6 @@ vwmterm_main(vwm_module_t *mod)
     fflags = fcntl(master_fd,F_GETFL);
     fcntl(master_fd,F_SETFL,fflags | FASYNC);
 
-    // viper_thread_enter();
-
     // create window
 	window = viper_window_create(" VTerm ",0.5,0.5,width,height,TRUE);
     viper_window_set_state(window,STATE_UNSET | STATE_NORESIZE);
@@ -123,21 +124,32 @@ vwmterm_main(vwm_module_t *mod)
     vterm_wnd_set(vterm,window);
     vterm_erase(vterm);
 
+    // allocate thread context and stateful data
+    ctx_vwmterm = malloc(sizeof(pt_context_t));
+    vwmterm_data = malloc(sizeof(vwmterm_data_t));
+
+    // initialize stateful data
+    vwmterm_data->window = window;
+    vwmterm_data->vterm = vterm;
+    vwmterm_data->state = VWMTERM_STATE_RUNNING;
+
+    ctx_vwmterm->anything = (void *)vwmterm_data;
+    ctx_vwmterm->shutdown = &shutdown;
+
+
     // attache event handlers
 	viper_event_set(window,"window-resized",vwmterm_ON_RESIZE,
         (gpointer)vterm);
 	viper_event_set(window,"window-close",
         vwmterm_ON_CLOSE,(gpointer)vterm);
 	viper_event_set(window,"window-destroy",vwmterm_ON_DESTROY,
-		(gpointer)vterm);
+		(gpointer)vwmterm_data);
 	viper_window_set_key_func(window,
         vwmterm_ON_KEYSTROKE);
 	viper_window_set_userptr(window,(gpointer)vterm);
 
-	// viper_thread_leave();
 
-    // push pseudo-thread onto run queue
-	psthread_add(vwm_runq,vwmterm_psthread,(gpointer)window);
+    pt_create(pt, &ctx_vwmterm->pt_thread, vwmterm_thd, ctx_vwmterm);
 
 	return window;
 }

@@ -39,9 +39,8 @@
 #include <glib.h>
 #include <gmodule.h>
 
-//#include <menu.h>
-#include <pseudo.h>
 #include <viper.h>
+#include <protothread.h>
 
 #include "vwm.h"
 #include "private.h"
@@ -49,12 +48,12 @@
 #include "mainmenu.h"
 #include "vwm_panel.h"
 #include "modules.h"
-#include "vwm_psthread.h"
 #include "settings.h"
 #include "signals.h"
 #include "hotkeys.h"
 
-ps_runq_t    *vwm_runq = NULL;
+#include "clock_thd.h"
+#include "poll_input_thd.h"
 
 /*
    According to GNU libc documentation. sig_atomic_t "is always atomic...
@@ -63,7 +62,9 @@ ps_runq_t    *vwm_runq = NULL;
    but not necessarily true otherwise.
 */
 
-volatile sig_atomic_t	vwm_task_count=0;
+volatile sig_atomic_t   vwm_task_count = 0;
+protothread_t           pt;
+int                     shutdown = 0;
 
 // store argv and argc for use elsewhere (with modules)
 char    **vwm_argv;
@@ -71,15 +72,33 @@ int     vwm_argc;
 
 int main(int argc,char **argv)
 {
-	extern ps_runq_t        *vwm_runq;
     extern char             **vwm_argv;
     extern int              vwm_argc;
-	struct timespec  		sleep_value = {.tv_sec = 0,.tv_nsec = 1000};
-	gint					ui_speed;
 	gchar		      		*msg;
 	gint		      		fd;
 	gchar		      		*locale=NULL;
 	int						flags;
+
+    extern int              shutdown;
+
+    extern protothread_t    pt;
+    pt_context_t            *ctx_timer;
+    pt_context_t            *ctx_poll_input;
+    clock_data_t            *clock_data;
+
+    pt = protothread_create();
+    ctx_timer = malloc(sizeof(pt_context_t));
+    ctx_poll_input = malloc(sizeof(pt_context_t));
+
+    ctx_timer->shutdown = &shutdown;
+    ctx_poll_input->shutdown = &shutdown;
+
+    clock_data = calloc(1, sizeof(clock_data_t));
+    clock_data->timer = g_timer_new();
+    ctx_timer->anything = (void *)clock_data;
+
+    pt_create(pt, &ctx_timer->pt_thread, vwm_clock_driver, ctx_timer);
+    pt_create(pt, &ctx_poll_input->pt_thread, vwm_poll_input, ctx_poll_input);
 
     vwm_argc = argc;
     vwm_argv = argv;
@@ -114,13 +133,12 @@ int main(int argc,char **argv)
     vwm_sigset(SIGFPE,vwm_backtrace);
 #endif
 
+/*
 	vwm_sigset(SIGIO,vwm_SIGIO);
 	fcntl(STDIN_FILENO,F_SETOWN,getpid());
 	flags = fcntl(STDIN_FILENO,F_GETFL);
 	fcntl(STDIN_FILENO,F_SETFL, flags | FASYNC);
-
-	// start thread system
-	g_thread_init(NULL);
+*/
 
     viper_init(VIPER_GPM_SIGIO);
     viper_set_border_agent(vwm_default_border_agent_unfocus,0);
@@ -138,10 +156,6 @@ int main(int argc,char **argv)
 
     vwm_modules_preload();
 
-	vwm_runq = psthread_init(PS_SCHED_LEAPFROG);
-	psthread_add(vwm_runq,vwm_clock_driver,NULL);
-	psthread_add(vwm_runq,vwm_poll_input,NULL);
-
 /* this will load the default screensaver but it will be immediately
    overridden if by vwm_settings_load() if the user has specified something
    different in their ~/.vwm/vwmrc file.  */
@@ -155,25 +169,13 @@ int main(int argc,char **argv)
 
     vwm_settings_load(VWM_RC_FILE);
 
-// vwm_scrsaver_start();
+    // vwm_scrsaver_start();
 
     vwm_panel_message_add(VWM_MAIN_MENU_HELP,-1);
 
-    while(TRUE)
-	{
-	    msg = (gchar*)shmq_msg_get("ui");
-		if(msg != NULL) if(strcmp(msg,"shutdown vwm") == 0) break;
+    // protothread driver
+    while (protothread_run(pt)) {}
 
-		ui_speed = vwm_ui_get_speed();
-		if(ui_speed > 1)
-		{
-			psthread_run(vwm_runq,ui_speed);
-			vwm_ui_set_speed(1);
-		}
-		else psthread_run(vwm_runq,1);
-
-		nanosleep(&sleep_value,NULL);
-	}
 
     viper_end();
     fsync(fd);
@@ -185,7 +187,7 @@ int main(int argc,char **argv)
 VWM* vwm_init(void)
 {
 	static VWM	*vwm=NULL;
-   WINDOW      *wallpaper_wnd;
+    WINDOW      *wallpaper_wnd;
 
 	if(vwm==NULL)
 	{

@@ -11,9 +11,10 @@
 #include <curses.h>
 #endif
 
+#include "/usr/local/include/protothread.h"
+
 #define  SPRITE_ROWS(x)    (sizeof(x)/sizeof(x[0]))
 #define  SPRITE_COLS(x)    (sizeof(x[0])/(sizeof(x[0][0])))
-
 
 struct sigaction* vwm_sigset(int signum,sighandler_t handler);
 

@@ -29,48 +29,58 @@
 
 #include <viper.h>
 #include <vterm.h>
+#include <protothread.h>
 
-#include "psthread.h"
+#include "vwmterm.h"
 #include "events.h"
+#include "vwmterm_thd.h"
+#include "../../vwm.h"
 
-int16_t
-vwmterm_psthread(ps_task_t *task,void *anything)
+
+pt_t vwmterm_thd(void * const env)
 {
-    WINDOW      *window;
-    vterm_t     *vterm;
-    ssize_t     bytes_read;
+    WINDOW          *window;
+    vterm_t         *vterm;
+    ssize_t         bytes_read;
 
-    window = (WINDOW*)anything;
+    pt_context_t    *ctx_vwmterm;
+    vwmterm_data_t  *vwmterm_data;
 
-    // viper_thread_enter();
-    vterm = viper_window_get_userptr(window);
-    // viper_thread_leave();
+    ctx_vwmterm = (pt_context_t *)env;
+    pt_resume(ctx_vwmterm);
 
-    bytes_read = vterm_read_pipe(vterm);
-
-    // handle no data condition
-    if(bytes_read == 0) return PSTHREAD_CONTINUE;
-
-    // handle pipe error condition
-    if(bytes_read == -1)
+    do
     {
-        // viper_thread_enter();
-        viper_window_destroy(window);
-        // viper_thread_leave();
+        vwmterm_data = (vwmterm_data_t *)ctx_vwmterm->anything;
 
-        return PSTHREAD_TERMINATE;
+        // check to see if thread is exiting
+        if(vwmterm_data->state == VWMTERM_STATE_EXITING) break;
+
+        window = vwmterm_data->window;
+        vterm = vwmterm_data->vterm;
+
+        bytes_read = vterm_read_pipe(vterm);
+
+        // handle pipe error condition
+        if(bytes_read == -1)
+        {
+            viper_window_destroy(window);
+            // TODO: destroy vterm, vwmterm_data
+            break;
+        }
+
+        if(bytes_read > 0)
+        {
+            vterm_wnd_update(vterm);
+            viper_window_redraw(window);
+        }
+
+        pt_yield(ctx_vwmterm);
     }
+    while(!(*ctx_vwmterm->shutdown));
 
-    if(bytes_read > 0)
-    {
-        // viper_thread_enter();
-        vterm_wnd_update(vterm);
-        viper_window_redraw(window);
-        // viper_thread_leave();
-    }
+    vwmterm_data = (vwmterm_data_t *)ctx_vwmterm->anything;
+    vterm_destroy(vwmterm_data->vterm);
 
-    return PSTHREAD_CONTINUE;
+    PT_DONE;
 }
-
-
-
