@@ -46,12 +46,13 @@ vwm_sigset(int signum,sighandler_t handler)
 #ifdef _DEBUG
 void vwm_backtrace(int signum)
 {
-   char     *term_name=NULL;
-   void     *array[10];
-   size_t   count;
-   char     **strings;
-   int      fd=-1;
-   size_t   i;
+    extern  sig_atomic_t    wake_counter;
+    char                    *term_name=NULL;
+    void                    *array[10];
+    size_t                  count;
+    char                    **strings;
+    int                     fd=-1;
+    size_t                  i;
 
    endwin();
 
@@ -65,6 +66,8 @@ void vwm_backtrace(int signum)
 
    count=backtrace(array,10);
    strings=backtrace_symbols(array,count);
+
+    printf("wake_counter %d\n", (int)wake_counter);
 
    printf("caught signal %d\n\r",signum);
    printf("obtained %zd stack frames.\n",count);
@@ -85,7 +88,9 @@ void vwm_backtrace(int signum)
 void
 vwm_SIGIO(int signum)
 {
-	vwm_ui_accel(1);
+	extern sig_atomic_t    wake_counter;
+
+    wake_counter++;
 
 	return;
 }

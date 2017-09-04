@@ -61,6 +61,12 @@ pt_t vwmterm_thd(void * const env)
 
         bytes_read = vterm_read_pipe(vterm);
 
+        if(bytes_read == 0)
+        {
+            pt_yield(ctx_vwmterm);
+            continue;
+        }
+
         // handle pipe error condition
         if(bytes_read == -1)
         {
@@ -74,8 +80,6 @@ pt_t vwmterm_thd(void * const env)
             vterm_wnd_update(vterm);
             viper_window_redraw(window);
         }
-
-        pt_yield(ctx_vwmterm);
     }
     while(!(*ctx_vwmterm->shutdown));
 

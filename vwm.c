@@ -54,6 +54,7 @@
 
 #include "clock_thd.h"
 #include "poll_input_thd.h"
+#include "sleep_thd.h"
 
 /*
    According to GNU libc documentation. sig_atomic_t "is always atomic...
@@ -62,9 +63,12 @@
    but not necessarily true otherwise.
 */
 
-volatile sig_atomic_t   vwm_task_count = 0;
 protothread_t           pt;
 int                     shutdown = 0;
+
+// the wake_counter causes a sleep cycle to be postponed
+sig_atomic_t            wake_counter = 0;
+
 
 // store argv and argc for use elsewhere (with modules)
 char    **vwm_argv;
@@ -80,24 +84,32 @@ int main(int argc,char **argv)
 	int						flags;
 
     extern int              shutdown;
+    extern sig_atomic_t     wake_counter;
 
     extern protothread_t    pt;
     pt_context_t            *ctx_timer;
     pt_context_t            *ctx_poll_input;
+    pt_context_t            *ctx_sleep;
     clock_data_t            *clock_data;
 
     pt = protothread_create();
     ctx_timer = malloc(sizeof(pt_context_t));
     ctx_poll_input = malloc(sizeof(pt_context_t));
+    ctx_sleep = malloc(sizeof(pt_context_t));
 
+    // attach the shutdown flag to all of the protothread contexts
     ctx_timer->shutdown = &shutdown;
     ctx_poll_input->shutdown = &shutdown;
+    ctx_sleep->shutdown = &shutdown;
 
     clock_data = calloc(1, sizeof(clock_data_t));
     clock_data->timer = g_timer_new();
     ctx_timer->anything = (void *)clock_data;
 
+    ctx_sleep->anything = (void *)&wake_counter;
+
     pt_create(pt, &ctx_timer->pt_thread, vwm_clock_driver, ctx_timer);
+    pt_create(pt, &ctx_sleep->pt_thread, vwm_sleep_driver, ctx_sleep);
     pt_create(pt, &ctx_poll_input->pt_thread, vwm_poll_input, ctx_poll_input);
 
     vwm_argc = argc;
@@ -133,12 +145,10 @@ int main(int argc,char **argv)
     vwm_sigset(SIGFPE,vwm_backtrace);
 #endif
 
-/*
 	vwm_sigset(SIGIO,vwm_SIGIO);
 	fcntl(STDIN_FILENO,F_SETOWN,getpid());
 	flags = fcntl(STDIN_FILENO,F_GETFL);
 	fcntl(STDIN_FILENO,F_SETFL, flags | FASYNC);
-*/
 
     viper_init(VIPER_GPM_SIGIO);
     viper_set_border_agent(vwm_default_border_agent_unfocus,0);
@@ -203,36 +213,4 @@ VWM* vwm_init(void)
 	return vwm;
 }
 
-void vwm_ui_accel(gint val)
-{
-	extern volatile sig_atomic_t	vwm_task_count;
-
-	if(val<1) val=1;
-
-	vwm_task_count+=val;
-}
-
-void vwm_ui_slow(gint val)
-{
-	extern volatile sig_atomic_t  vwm_task_count;
-
-   if(val<1) val=1;
-
-   vwm_task_count-=val;
-	if(vwm_task_count<0) vwm_task_count=0;
-}
-
-gint vwm_ui_get_speed(void)
-{
-	extern volatile sig_atomic_t vwm_task_count;
-
-	return (gint)vwm_task_count;
-}
-
-void vwm_ui_set_speed(guint speed)
-{
-	extern volatile sig_atomic_t vwm_task_count;
-
-	vwm_task_count=speed;
-}
 

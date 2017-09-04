@@ -1,3 +1,7 @@
+Version 2.5.0
+
+*  [Bryan Christ] refactored the code to use protothreads.
+
 Version 2.2.1
 
 *  [Bryan Christ] remove threaded locking primitives to improve
