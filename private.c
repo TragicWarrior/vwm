@@ -146,7 +146,11 @@ vwm_modules_preload(void)
 WINDOW*
 vwm_fmod_exit(vwm_module_t *mod)
 {
-	shmq_msg_put("ui",(void*)mod->anything);
+    extern int      shutdown;
+
+    shutdown = 1;
+
+	// shmq_msg_put("ui",(void*)mod->anything);
 
 	return NULL;
 }

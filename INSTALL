@@ -1,8 +1,10 @@
 REQUIRMENTS
 
 glib 2.8+
-libpseudo (available from SourceForge)
-libviper 1.4.5+ (available from SouceForge)
+
+libviper 1.4.5+ (available on GitHub TragicWarrior/libviper)
+protothreads (available on GitHub TragicWarrior/protothreads. for now,
+              you'll need the build the bool-fix branch)
 libgpm (no longer required as of build 1.1 but you will need to remove
         the build definition -D_VIPER_MOUSE_GPM from the Makefile)
 ncurses 5.4+
@@ -10,21 +12,15 @@ ncurses 5.4+
 
 OPTIONAL REQUIRMENTS
 
-VWM is distributed with 2 basic applications:  ptyterm and sysmon.  ptyterm
-is a terminal emulator and sysmon monitors cpu and memory usage like top
-or gnome-system-monitor.
+VWM is distributed with a built in terminal emulator called vwmterm.
+VWM is really not useful without it.
 
 --vwmterm---
-In order to build ptyterm, your system will need to support the terminfo
+In order to build vwmterm, your system will need to support the terminfo
 facilites (most do) and have the following pieces of software installed:
 
 libutil (should be installed on most libc systems)
-libvterm
-
---sysmon--
-In order to build sysmon, your system will need the additional libraries:
-
-libgtop2
+libvterm (available on GitHub TragicWarrior/libvterm)
 
 
 INSTALLATION
@@ -47,7 +43,5 @@ above you will need to do:
 make wide
 make install
 
-Currently, the Makefile does not build ptyterm or sysmon.  You will need to
-do that manually.  See the INSTALL file for each of those plugins.
 
 Enjoy!

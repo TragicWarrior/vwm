@@ -4,6 +4,7 @@
 #include <inttypes.h>
 
 #include <glib.h>
+#include <protothread.h>
 
 #include <sys/types.h>
 
@@ -13,10 +14,9 @@
 #include <curses.h>
 #endif
 
-#include <pseudo.h>
 #include <viper.h>
 
-#define VWM_VERSION					"2.2.1"
+#define VWM_VERSION					"2.5.0"
 
 #ifndef _VWM_SCREENSAVER_TIMEOUT
 #define _VWM_SCREENSAVER_TIMEOUT    5
@@ -46,6 +46,11 @@ enum
     VWM_PANEL_CLEAR
 };
 
+enum
+{
+    VWM_MSG_SHUTDOWN    =   0x1,
+};
+
 typedef struct  _vwm_module_s   vwm_module_t;
 
 typedef struct
@@ -53,7 +58,6 @@ typedef struct
     vwm_module_t        *scrsaver_mod;
     int                 timeout;
     GTimer              *timer;
-    ps_task_t           *ps_task;
     guint32             state;
 }
 VWM_SCRSAVER;
@@ -79,6 +83,18 @@ typedef struct
    gchar    *mod_dir;
 }
 VWM_PROFILE;
+
+typedef struct
+{
+    pt_thread_t     pt_thread;
+    pt_func_t       pt_func;
+
+    // data shared by all protothreads
+    int             *shutdown;
+    void            *anything;
+ }
+pt_context_t;
+
 
 /*	startup functions	*/
 VWM*            vwm_init(void);

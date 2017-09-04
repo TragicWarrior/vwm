@@ -24,8 +24,10 @@ struct sigaction* vwmterm_sigset(int signum,sighandler_t handler)
 
 void vwmterm_SIGIO(int signum)
 {
-	vwm_ui_accel(1);
+    extern sig_atomic_t     wake_counter;
 
-   return;
+    wake_counter++;
+
+    return;
 }
 

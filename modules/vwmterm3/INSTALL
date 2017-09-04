@@ -1,8 +1,8 @@
-REQUIREMENTS
+REQUIREMENTS (see VWM INSTALL file also)
 
 glib 2.8+
 libutil
-libpseudo
+protothread
 libvterm
 libviper 1.2+
 vwm
@@ -23,13 +23,13 @@ make install
 
 If everything builds correctly, you should have a file in the
 /usr/lib/vwm/modules directory called vwmterm3.so.  Next time you restart
-VWM, you will automatically have a new item called "Terminal Shell" on the
+VWM, you will automatically have a new item called "VTerm" on the
 Main Menu.
 
 NOTES
 
-If you have previous versions of vwmterm or ptyterm installed, it is highly
-recommended that you delete these from your vwm modules directory to avoid
-possible symbol conflicts.
+If you have previous versions of vwmterm, it is highly recommended that
+you delete these from your vwm modules directory to avoid possible
+symbol conflicts.
 
 Enjoy!
