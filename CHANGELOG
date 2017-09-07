@@ -1,3 +1,9 @@
+Version 2.5.1
+
+*  [Bryan Christ] partial memory leak fix for vwmterm
+*  [Bryan Christ] use UTF-8 locale
+*  [Bryan Christ] make wallpaper more interesting
+
 Version 2.5.0
 
 *  [Bryan Christ] refactored the code to use protothreads.
