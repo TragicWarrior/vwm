@@ -44,7 +44,11 @@ vwm_bkgd_simple(WINDOW *window,gpointer arg)
 	wchar_t		ch[][2] = { {0x0020,0x0000},
 						    {0x002e,0x0000} };
 #else
-	chtype		ch[] = {' ','.'};
+	// chtype		ch[] = {' ','.'};
+    chtype		    ch[] =      {ACS_CKBOARD,   '.'};
+    chtype          attr[] =    {A_ALTCHARSET,  A_NORMAL};
+    unsigned int    fg[] =      {COLOR_BLACK,    COLOR_BLACK};
+    unsigned int    bg[] =      {COLOR_BLUE,    COLOR_WHITE};
 #endif
 
    /* TODO:  gcc warning...
@@ -56,14 +60,16 @@ vwm_bkgd_simple(WINDOW *window,gpointer arg)
 
     viper_wresize_abs(window,WSIZE_FULLSCREEN,WSIZE_FULLSCREEN);
 
-    if(idx == 0) color = viper_color_pair(COLOR_WHITE,COLOR_BLUE);
-    if(idx == 1) color = viper_color_pair(COLOR_BLACK,COLOR_WHITE);
+    // if(idx == 0) color = viper_color_pair(COLOR_WHITE,COLOR_BLUE);
+    // if(idx == 1) color = viper_color_pair(COLOR_BLACK,COLOR_WHITE);
+    color = viper_color_pair(fg[idx], bg[idx]);
 
 #ifdef _VIPER_WIDE
 	setcchar(&bg_char,ch[idx],0,0,NULL);
 	window_fill(window,&bg_char,color,A_NORMAL);
 #else
-	window_fill(window,ch[idx],color,A_NORMAL);
+	// window_fill(window,ch[idx],color,A_NORMAL);
+    window_fill(window,ch[idx],color,attr[idx]);
 #endif
 
 	getmaxyx(window,height,width);
@@ -152,4 +158,3 @@ vwm_bkgd_bricks(WINDOW *window,gpointer arg)
 
    return 0;
 }
-
