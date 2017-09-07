@@ -86,5 +86,8 @@ pt_t vwmterm_thd(void * const env)
     vwmterm_data = (vwmterm_data_t *)ctx_vwmterm->anything;
     vterm_destroy(vwmterm_data->vterm);
 
+    // pt_kill(&ctx_vwmterm->pt_thread);
+    free(ctx_vwmterm);
+
     PT_DONE;
 }
