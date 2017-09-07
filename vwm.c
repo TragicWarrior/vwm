@@ -59,7 +59,7 @@
 /*
    According to GNU libc documentation. sig_atomic_t "is always atomic...
    Reading and writing this data type is guaranteed to happen in a single
-   instruction.  The volatile qualifier appears to be implied for C99 
+   instruction.  The volatile qualifier appears to be implied for C99
    but not necessarily true otherwise.
 */
 
@@ -116,8 +116,9 @@ int main(int argc,char **argv)
     vwm_argv = argv;
 
 	/*	set the locale to the default settings (as configured by env).
-		this is required for ncurses to work properly.	*/	
-	locale = setlocale(LC_ALL,"");
+		this is required for ncurses to work properly.	*/
+	// locale = setlocale(LC_ALL,"");
+    locale = setlocale(LC_ALL,"UTF-8");
 
 	// print some debug information
 	printf("%s\n\r",locale);
@@ -212,5 +213,3 @@ VWM* vwm_init(void)
 
 	return vwm;
 }
-
-
