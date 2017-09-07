@@ -89,5 +89,5 @@ pt_t vwmterm_thd(void * const env)
     // pt_kill(&ctx_vwmterm->pt_thread);
     free(ctx_vwmterm);
 
-    PT_DONE;
+    return PT_DONE;
 }
