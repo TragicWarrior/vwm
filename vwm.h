@@ -67,7 +67,7 @@ typedef struct
 	GSList			    *category_list;
 	GSList			    *module_list;
 	GSList			    *key_list;
-    VIPER_FUNC          wallpaper_agent; 
+    VIPER_FUNC          wallpaper_agent;
 	VWM_SCRSAVER        screen_saver;
     guint32             state;
 }
@@ -83,6 +83,12 @@ typedef struct
    gchar    *mod_dir;
 }
 VWM_PROFILE;
+
+enum
+{
+    PT_PRIORITY_NORMAL      =   0x00,
+    PT_PRIORITY_HIGH        =   0x01
+};
 
 typedef struct
 {

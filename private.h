@@ -11,7 +11,7 @@
 #include <curses.h>
 #endif
 
-#include "/usr/local/include/protothread.h"
+#include <protothread.h>
 
 #define  SPRITE_ROWS(x)    (sizeof(x)/sizeof(x[0]))
 #define  SPRITE_COLS(x)    (sizeof(x[0])/(sizeof(x[0][0])))

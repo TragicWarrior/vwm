@@ -78,7 +78,7 @@ vwmterm_main(vwm_module_t *mod)
     int                     master_fd;
     int                     fflags;
 
-    extern protothread_t    pt;
+    extern protothread_t    pt[2];
     pt_context_t            *ctx_vwmterm;
     vwmterm_data_t          *vwmterm_data;
     extern int              shutdown;
@@ -149,9 +149,8 @@ vwmterm_main(vwm_module_t *mod)
 	viper_window_set_userptr(window,(gpointer)vterm);
 
 
-    pt_create(pt, &ctx_vwmterm->pt_thread, vwmterm_thd, ctx_vwmterm);
+    pt_create(pt[PT_PRIORITY_NORMAL], &ctx_vwmterm->pt_thread,
+        vwmterm_thd, ctx_vwmterm);
 
 	return window;
 }
-
-
