@@ -63,7 +63,7 @@
    but not necessarily true otherwise.
 */
 
-protothread_t           pt;
+protothread_t           pt[2];
 int                     shutdown = 0;
 
 // the wake_counter causes a sleep cycle to be postponed
@@ -86,13 +86,16 @@ int main(int argc,char **argv)
     extern int              shutdown;
     extern sig_atomic_t     wake_counter;
 
-    extern protothread_t    pt;
+    extern protothread_t    pt[2];
+    bool                    pt_status[2];
+    unsigned int            pt_selector;
     pt_context_t            *ctx_timer;
     pt_context_t            *ctx_poll_input;
     pt_context_t            *ctx_sleep;
     clock_data_t            *clock_data;
 
-    pt = protothread_create();
+    pt[PT_PRIORITY_NORMAL] = protothread_create();
+    pt[PT_PRIORITY_HIGH] = protothread_create();
     ctx_timer = malloc(sizeof(pt_context_t));
     ctx_poll_input = malloc(sizeof(pt_context_t));
     ctx_sleep = malloc(sizeof(pt_context_t));
@@ -108,9 +111,12 @@ int main(int argc,char **argv)
 
     ctx_sleep->anything = (void *)&wake_counter;
 
-    pt_create(pt, &ctx_timer->pt_thread, vwm_clock_driver, ctx_timer);
-    pt_create(pt, &ctx_sleep->pt_thread, vwm_sleep_driver, ctx_sleep);
-    pt_create(pt, &ctx_poll_input->pt_thread, vwm_poll_input, ctx_poll_input);
+    pt_create(pt[PT_PRIORITY_NORMAL], &ctx_timer->pt_thread,
+                vwm_clock_driver, ctx_timer);
+    pt_create(pt[PT_PRIORITY_HIGH], &ctx_sleep->pt_thread,
+                vwm_sleep_driver, ctx_sleep);
+    pt_create(pt[PT_PRIORITY_HIGH], &ctx_poll_input->pt_thread,
+                vwm_poll_input, ctx_poll_input);
 
     vwm_argc = argc;
     vwm_argv = argv;
@@ -185,8 +191,15 @@ int main(int argc,char **argv)
     vwm_panel_message_add(VWM_MAIN_MENU_HELP,-1);
 
     // protothread driver
-    while (protothread_run(pt)) {}
+    do
+    {
+        pt_selector = PT_PRIORITY_NORMAL;
+        pt_status[pt_selector] = protothread_run(pt[pt_selector]);
 
+        pt_selector = PT_PRIORITY_HIGH;
+        pt_status[pt_selector] = protothread_run(pt[pt_selector]);
+    }
+    while(pt_status[PT_PRIORITY_NORMAL] && pt_status[PT_PRIORITY_HIGH]);
 
     viper_end();
     fsync(fd);
