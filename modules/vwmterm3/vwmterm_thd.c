@@ -79,6 +79,7 @@ pt_t vwmterm_thd(void * const env)
         {
             vterm_wnd_update(vterm);
             viper_window_redraw(window);
+            pt_yield(ctx_vwmterm);
         }
     }
     while(!(*ctx_vwmterm->shutdown));
