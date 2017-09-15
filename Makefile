@@ -2,7 +2,7 @@ CFLAGS = -std=gnu99 -Wall -O2 -ggdb
 INCL_PKG_CFG = `pkg-config --cflags-only-I glib-2.0 gthread-2.0`
 LIBS_PKG_CFG = `pkg-config --libs-only-l glib-2.0 gthread-2.0`
 DEFS = -D_REENTRANT -D_POSIX_PTHREAD_SEMANTICS -D_GNU_SOURCE -D_VWM_SCREENSAVER_TIMEOUT=5 -D_DEBUG
-LIBS = $(LIBS_PKG_CFG) -lncurses -lviper -ldl -lmenu -lform -lgpm -lprotothread
+LIBS = $(LIBS_PKG_CFG) -lncurses -lviper -ldl -lmenu -lform -lgpm -lprotothread -lrt
 WLIBS = $(LIBS_PKG_CFG) -lncursesw -lviper -ldl -lmenu -lform -lgpm -lpseudo
 PREFIX = /usr/local/
 libdir = ${prefix}/lib

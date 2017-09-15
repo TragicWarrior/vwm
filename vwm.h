@@ -33,6 +33,8 @@
 #define VWM_CLOCK_TICK              (0.1F)
 #define VWM_CLOCK_TICKS_PER_SEC     ((short int)(1/VWM_CLOCK_TICK))
 
+#define VWM_TICK_FREQ               100000000   // nanoseconds for system tick
+
 #define VWM_STATE_NORMAL            0
 #define VMW_STATE_ASLEEP            (1 << 1)    // screensaver active
 #define VWM_STATE_ACTIVE            (1 << 2)    // indiates WM mode
@@ -105,10 +107,6 @@ pt_context_t;
 /*	startup functions	*/
 VWM*            vwm_init(void);
 #define			vwm_get_instance()	            (vwm_init())
-void			vwm_ui_accel(gint val);
-void			vwm_ui_slow(gint val);
-gint			vwm_ui_get_speed(void);
-void			vwm_ui_set_speed(guint speed);
 void 			vwm_hook_enter(VIPER_FUNC func,gpointer arg);
 void			vwm_hook_leave(VIPER_FUNC func,gpointer arg);
 
