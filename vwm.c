@@ -27,6 +27,8 @@
 #include <dirent.h>
 #include <locale.h>
 #include <inttypes.h>
+#include <signal.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/select.h>
@@ -52,7 +54,7 @@
 #include "signals.h"
 #include "hotkeys.h"
 
-#include "clock_thd.h"
+#include "clock.h"
 #include "poll_input_thd.h"
 #include "sleep_thd.h"
 
@@ -69,6 +71,7 @@ int                     shutdown = 0;
 // the wake_counter causes a sleep cycle to be postponed
 sig_atomic_t            wake_counter = 0;
 
+unsigned int            clock_tick = 0;
 
 // store argv and argc for use elsewhere (with modules)
 char    **vwm_argv;
@@ -89,30 +92,29 @@ int main(int argc,char **argv)
     extern protothread_t    pt[2];
     bool                    pt_status[2];
     unsigned int            pt_selector;
-    pt_context_t            *ctx_timer;
+    pt_context_t            *ctx_clock;
     pt_context_t            *ctx_poll_input;
     pt_context_t            *ctx_sleep;
     clock_data_t            *clock_data;
 
     pt[PT_PRIORITY_NORMAL] = protothread_create();
     pt[PT_PRIORITY_HIGH] = protothread_create();
-    ctx_timer = malloc(sizeof(pt_context_t));
+    ctx_clock = malloc(sizeof(pt_context_t));
     ctx_poll_input = malloc(sizeof(pt_context_t));
     ctx_sleep = malloc(sizeof(pt_context_t));
 
     // attach the shutdown flag to all of the protothread contexts
-    ctx_timer->shutdown = &shutdown;
+    ctx_clock->shutdown = &shutdown;
     ctx_poll_input->shutdown = &shutdown;
     ctx_sleep->shutdown = &shutdown;
 
-    clock_data = calloc(1, sizeof(clock_data_t));
-    clock_data->timer = g_timer_new();
-    ctx_timer->anything = (void *)clock_data;
+    clock_data = vwm_clock_init();
 
+    ctx_clock->anything = (void *)clock_data;
     ctx_sleep->anything = (void *)&wake_counter;
 
-    pt_create(pt[PT_PRIORITY_NORMAL], &ctx_timer->pt_thread,
-                vwm_clock_driver, ctx_timer);
+    pt_create(pt[PT_PRIORITY_NORMAL], &ctx_clock->pt_thread,
+                vwm_clock_driver, ctx_clock);
     pt_create(pt[PT_PRIORITY_HIGH], &ctx_sleep->pt_thread,
                 vwm_sleep_driver, ctx_sleep);
     pt_create(pt[PT_PRIORITY_HIGH], &ctx_poll_input->pt_thread,
