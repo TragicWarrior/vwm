@@ -1,7 +1,12 @@
+Version 2.6.0
+
+*  [Bryan Christ] Remove GTimer and replace with posix timer to drive
+   system clock.
+
 Version 2.5.3
 
 *  [Bryan Christ] make sure the terminal thread cannot
-   monopolize the PT_NORMAL thread queue
+   monopolize the PT_NORMAL thread queue.
 
 Version 2.5.2
 
