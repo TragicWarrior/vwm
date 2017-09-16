@@ -115,10 +115,12 @@ int main(int argc,char **argv)
 
     pt_create(pt[PT_PRIORITY_NORMAL], &ctx_clock->pt_thread,
                 vwm_clock_driver, ctx_clock);
-    pt_create(pt[PT_PRIORITY_HIGH], &ctx_sleep->pt_thread,
-                vwm_sleep_driver, ctx_sleep);
     pt_create(pt[PT_PRIORITY_HIGH], &ctx_poll_input->pt_thread,
                 vwm_poll_input, ctx_poll_input);
+/*
+    pt_create(pt[PT_PRIORITY_HIGH], &ctx_sleep->pt_thread,
+                vwm_sleep_driver, ctx_sleep);
+*/
 
     vwm_argc = argc;
     vwm_argv = argv;

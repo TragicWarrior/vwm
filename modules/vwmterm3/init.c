@@ -75,8 +75,6 @@ vwmterm_main(vwm_module_t *mod)
     vterm_t                 *vterm;
 	WINDOW	      	        *window;
 	int		      	        width,height;
-    int                     master_fd;
-    int                     fflags;
 
     extern protothread_t    pt[2];
     pt_context_t            *ctx_vwmterm;
@@ -99,17 +97,9 @@ vwmterm_main(vwm_module_t *mod)
 
     vterm = vterm_create(width,height,VTERM_FLAG_RXVT);
     vterm_set_colors(vterm,COLOR_WHITE,COLOR_BLACK);
-    master_fd = vterm_get_pty_fd(vterm);
 
-    // configure SIGIO acceleration
-#ifdef SIGPOLL
-    vwmterm_sigset(SIGPOLL,vwmterm_SIGIO);
-#else
-    vwmterm_sigset(SIGIO,vwmterm_SIGIO);
-#endif
-	fcntl(master_fd,F_SETOWN,getpid());
-    fflags = fcntl(master_fd,F_GETFL);
-    fcntl(master_fd,F_SETFL,fflags | FASYNC);
+    // setup SIGIO responsiveness
+    vterm_init_sigio(vterm);
 
     // create window
 	window = viper_window_create(" VTerm ",0.5,0.5,width,height,TRUE);
@@ -136,8 +126,7 @@ vwmterm_main(vwm_module_t *mod)
     ctx_vwmterm->anything = (void *)vwmterm_data;
     ctx_vwmterm->shutdown = &shutdown;
 
-
-    // attache event handlers
+    // attach event handlers
 	viper_event_set(window,"window-resized",vwmterm_ON_RESIZE,
         (gpointer)vterm);
 	viper_event_set(window,"window-close",
@@ -147,7 +136,6 @@ vwmterm_main(vwm_module_t *mod)
 	viper_window_set_key_func(window,
         vwmterm_ON_KEYSTROKE);
 	viper_window_set_userptr(window,(gpointer)vterm);
-
 
     pt_create(pt[PT_PRIORITY_NORMAL], &ctx_vwmterm->pt_thread,
         vwmterm_thd, ctx_vwmterm);
