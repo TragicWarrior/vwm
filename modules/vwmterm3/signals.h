@@ -3,9 +3,10 @@
 
 #include <signal.h>
 
-struct sigaction* vwmterm_sigset(int signum,sighandler_t handler);
+#include <vterm.h>
 
-void	vwmterm_SIGIO(int signum);
+void vterm_init_sigio(vterm_t *vterm);
+
+void vwmterm_SIGIO(int signum, siginfo_t *siginfo, void *uc);
 
 #endif
-

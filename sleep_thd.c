@@ -22,10 +22,12 @@ pt_t vwm_sleep_driver(void * const env)
 	{
         if(*wake_counter > 0)
         {
-            if(*wake_counter > 0) *wake_counter--;
-
-            pt_yield(ctx_sleep);
-            continue;
+            *wake_counter--;
+            interval.tv_nsec = 1000;
+        }
+        else
+        {
+            interval.tv_nsec = 10000;
         }
 
         nanosleep(&interval, NULL);
