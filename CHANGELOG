@@ -1,3 +1,7 @@
+Version 2.6.1
+
+*  [Bryan Christ] Make SIGIO acceleration actually work.
+
 Version 2.6.0
 
 *  [Bryan Christ] Remove GTimer and replace with posix timer to drive
