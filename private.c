@@ -20,8 +20,6 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include <pseudo.h>
-
 #include "vwm.h"
 #include "modules.h"
 #include "mainmenu.h"
