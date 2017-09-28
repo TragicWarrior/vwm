@@ -1,3 +1,7 @@
+Version 2.7.1
+
+*  [Bryan Christ] Minor change to Makefile
+
 Version 2.7.0
 
 *  [Bryan Christ] Added beta version of resizing windows with hotkeys
