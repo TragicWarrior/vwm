@@ -117,6 +117,7 @@ int main(int argc,char **argv)
                 vwm_clock_driver, ctx_clock);
     pt_create(pt[PT_PRIORITY_HIGH], &ctx_poll_input->pt_thread,
                 vwm_poll_input, ctx_poll_input);
+
 /*
     pt_create(pt[PT_PRIORITY_HIGH], &ctx_sleep->pt_thread,
                 vwm_sleep_driver, ctx_sleep);

@@ -23,6 +23,24 @@
 #include "hotkeys.h"
 #include "mainmenu.h"
 
+#define     KEY_PLUS            '+'
+#define     KEY_CTRL_DOWN       525
+
+#define     KEY_MINUS           '-'
+#define     KEY_CTRL_UP         566
+
+#define     KEY_GREATER_THAN    '>'
+#define     KEY_CTRL_RIGHT      560
+
+#define     KEY_LESS_THAN       '<'
+#define     KEY_CTRL_LEFT       545
+
+static void vwm_default_WINDOW_INCREASE_HEIGHT(WINDOW *);
+static void vwm_default_WINDOW_DECREASE_HEIGHT(WINDOW *);
+static void vwm_default_WINDOW_INCREASE_WIDTH(WINDOW *);
+static void vwm_default_WINDOW_DECREASE_WIDTH(WINDOW *);
+
+
 gint32 vwm_kmio_dispatch_hook_enter(gint32 keystroke)
 {
    VWM   *vwm;
@@ -41,24 +59,41 @@ gint32 vwm_kmio_dispatch_hook_enter(gint32 keystroke)
       return -1;
    }
 
-   if(vwm->state & VWM_STATE_ACTIVE)
-   {
-      switch(keystroke)
-      {
-         case 17:
-            vwm_default_WINDOW_CLOSE(TOPMOST_WINDOW); return -1;
-         case KEY_TAB:
-            vwm_default_WINDOW_CYCLE(); return -1;
-         case KEY_UP:
-            vwm_default_WINDOW_MOVE_UP(TOPMOST_WINDOW); return -1;
-         case KEY_DOWN:
-            vwm_default_WINDOW_MOVE_DOWN(TOPMOST_WINDOW); return -1;
-         case KEY_LEFT:
-            vwm_default_WINDOW_MOVE_LEFT(TOPMOST_WINDOW); return -1;
-         case KEY_RIGHT:
-            vwm_default_WINDOW_MOVE_RIGHT(TOPMOST_WINDOW); return -1;
-         default:
-            return keystroke;
+    if(vwm->state & VWM_STATE_ACTIVE)
+    {
+        switch(keystroke)
+        {
+            case 17:
+                vwm_default_WINDOW_CLOSE(TOPMOST_WINDOW); return -1;
+            case KEY_TAB:
+                vwm_default_WINDOW_CYCLE(); return -1;
+            case KEY_UP:
+                vwm_default_WINDOW_MOVE_UP(TOPMOST_WINDOW); return -1;
+            case KEY_DOWN:
+                vwm_default_WINDOW_MOVE_DOWN(TOPMOST_WINDOW); return -1;
+            case KEY_LEFT:
+                vwm_default_WINDOW_MOVE_LEFT(TOPMOST_WINDOW); return -1;
+            case KEY_RIGHT:
+                vwm_default_WINDOW_MOVE_RIGHT(TOPMOST_WINDOW); return -1;
+
+            case KEY_PLUS:
+            case KEY_CTRL_DOWN:
+                vwm_default_WINDOW_INCREASE_HEIGHT(TOPMOST_WINDOW); return -1;
+            case KEY_MINUS:
+            case KEY_CTRL_UP:
+                vwm_default_WINDOW_DECREASE_HEIGHT(TOPMOST_WINDOW); return -1;
+            case KEY_GREATER_THAN:
+            case KEY_CTRL_RIGHT:
+                vwm_default_WINDOW_INCREASE_WIDTH(TOPMOST_WINDOW); return -1;
+            case KEY_LESS_THAN:
+            case KEY_CTRL_LEFT:
+                vwm_default_WINDOW_DECREASE_WIDTH(TOPMOST_WINDOW); return -1;
+
+            default:
+                // endwin();
+                // printf("%d\n",keystroke);
+                // exit(0);
+                return keystroke;
       }
    }
 
@@ -84,8 +119,6 @@ void vwm_default_VWM_START(WINDOW *topmost_window)
 
    vwm=vwm_get_instance();
 
-   // viper_thread_enter();
-
    wallpaper_wnd=viper_screen_get_wallpaper();
    vwm->wallpaper_agent(wallpaper_wnd,(gpointer)1);
 
@@ -100,31 +133,27 @@ void vwm_default_VWM_START(WINDOW *topmost_window)
    viper_screen_redraw(REDRAW_ALL);
    flash();
 
-   // viper_thread_leave();
-
    return;
 }
 
 void vwm_default_VWM_STOP(WINDOW *topmost_window)
 {
-	VWM			*vwm;
-   WINDOW      *wallpaper_wnd;
-   uintmax_t   msg_id;
+    VWM			*vwm;
+    WINDOW      *wallpaper_wnd;
+    uintmax_t   msg_id;
 
 	vwm=vwm_get_instance();
 
-   // viper_thread_enter();
-
-   wallpaper_wnd=viper_screen_get_wallpaper();
-   vwm->wallpaper_agent(wallpaper_wnd,(gpointer)0);
+    wallpaper_wnd=viper_screen_get_wallpaper();
+    vwm->wallpaper_agent(wallpaper_wnd,(gpointer)0);
 
 	viper_event_run(topmost_window,"window-activate");
 
-   msg_id=vwm_panel_message_find(VWM_WM_HELP);
-   if(msg_id!=0) vwm_panel_message_del(msg_id);
+    msg_id=vwm_panel_message_find(VWM_WM_HELP);
+    if(msg_id!=0) vwm_panel_message_del(msg_id);
 
-   msg_id=vwm_panel_message_add(VWM_MAIN_MENU_HELP,-1);
-   vwm_panel_message_promote(msg_id);
+    msg_id=vwm_panel_message_add(VWM_MAIN_MENU_HELP,-1);
+    vwm_panel_message_promote(msg_id);
 
 	viper_screen_redraw(REDRAW_ALL);
 	flash();
@@ -173,4 +202,37 @@ void vwm_default_WINDOW_MOVE_RIGHT(WINDOW *topmost_window)
 
 	return;
 }
+
+static void
+vwm_default_WINDOW_INCREASE_HEIGHT(WINDOW *topmost_window)
+{
+	viper_wresize_rel(topmost_window,0,1);
+
+	return;
+}
+
+static void
+vwm_default_WINDOW_DECREASE_HEIGHT(WINDOW *topmost_window)
+{
+	viper_wresize_rel(topmost_window,0,-1);
+
+	return;
+}
+
+static void
+vwm_default_WINDOW_INCREASE_WIDTH(WINDOW *topmost_window)
+{
+	viper_wresize_rel(topmost_window,1,0);
+
+	return;
+}
+
+static void
+vwm_default_WINDOW_DECREASE_WIDTH(WINDOW *topmost_window)
+{
+	viper_wresize_rel(topmost_window,-1,0);
+
+	return;
+}
+
 
