@@ -179,7 +179,6 @@ vwm_main_menu_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
 
     if(keystroke == 's')
     {
-        // viper_thread_enter();
         /*
             new_window = viper_filedlg_create(window,
                 " Pick a file... ",0.5,0.5,0.5,0.5,
@@ -188,10 +187,17 @@ vwm_main_menu_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
                 " Pick a file... ",0.5,0.5,0.5,0.5,
                 NULL,FILEDLG_VIEW_BASIC | FILEDLG_SHOW_CTIME);
         */
-        new_window = viper_filedlg_create(window," Pick a file... ",
+        /* new_window = viper_filedlg_create(window," Pick a file... ",
 			0.5,0.5,0.8,0.5,NULL,FILEDLG_FULL);
-        viper_window_set_top(new_window);
-        // viper_thread_leave();
+        viper_window_set_top(new_window); */
+    }
+
+    if(keystroke == 'm')
+    {
+        new_window = viper_msgbox_create("test", 0.5, 0.5, 40, 10,
+            "This is a test.\r\nShould be multi-line.",
+            MSGBOX_ICON_INFO);
+        if(new_window != NULL) viper_window_set_top(new_window);
     }
 
 	if(keystroke == KEY_UP)
