@@ -42,6 +42,7 @@ pt_t vwmterm_thd(void * const env)
     WINDOW          *window;
     vterm_t         *vterm;
     ssize_t         bytes_read;
+    ssize_t         total_bytes = 0;
 
     pt_context_t    *ctx_vwmterm;
     vwmterm_data_t  *vwmterm_data;
@@ -63,7 +64,10 @@ pt_t vwmterm_thd(void * const env)
 
         if(bytes_read == 0)
         {
+            if(total_bytes > 0) viper_window_redraw(window);
+
             pt_yield(ctx_vwmterm);
+
             continue;
         }
 
@@ -78,8 +82,7 @@ pt_t vwmterm_thd(void * const env)
         if(bytes_read > 0)
         {
             vterm_wnd_update(vterm);
-            viper_window_redraw(window);
-            pt_yield(ctx_vwmterm);
+            total_bytes += bytes_read;
         }
     }
     while(!(*ctx_vwmterm->shutdown));
