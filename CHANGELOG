@@ -1,3 +1,9 @@
+Version 2.8.0
+
+*  [Bryan Christ] Major performance improvement to terminal
+   applications.  Consolidated pty reads into a single window
+   write.
+
 Version 2.7.3
 
 *  [Bryan Christ] Prevent crash with GPM is enabled and term is not
