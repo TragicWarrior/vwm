@@ -56,29 +56,23 @@ vwm_bkgd_simple(WINDOW *window,gpointer arg)
    */
 	idx = (uintmax_t)arg;
 
-	// viper_thread_enter();
-
     viper_wresize_abs(window,WSIZE_FULLSCREEN,WSIZE_FULLSCREEN);
 
-    // if(idx == 0) color = viper_color_pair(COLOR_WHITE,COLOR_BLUE);
-    // if(idx == 1) color = viper_color_pair(COLOR_BLACK,COLOR_WHITE);
     color = viper_color_pair(fg[idx], bg[idx]);
 
 #ifdef _VIPER_WIDE
 	setcchar(&bg_char,ch[idx],0,0,NULL);
 	window_fill(window,&bg_char,color,A_NORMAL);
 #else
-	// window_fill(window,ch[idx],color,A_NORMAL);
     window_fill(window,ch[idx],color,attr[idx]);
 #endif
 
 	getmaxyx(window,height,width);
+    color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
 	sprintf(version_str," VWM %s ",VWM_VERSION);
-	wattron(window,COLOR_PAIR(color) | A_REVERSE);
+	wattron(window,COLOR_PAIR(color));
 	mvwprintw(window,height - 1,width - (strlen(version_str)),version_str);
 	wattron(window,A_NORMAL);
-
-	// viper_thread_leave();
 
 	return 0;
 }
@@ -114,11 +108,8 @@ vwm_bkgd_bricks(WINDOW *window,gpointer arg)
    */
    idx = (uintmax_t)arg;
 
-   // viper_thread_enter();
-
    viper_wresize_abs(window,WSIZE_FULLSCREEN,WSIZE_FULLSCREEN);
    wattroff(window,A_REVERSE);
-   // werase(window);
 
    getmaxyx(window,height,width);
    cell_count = width * height;
@@ -149,12 +140,12 @@ vwm_bkgd_bricks(WINDOW *window,gpointer arg)
 #endif
    }
 
-   sprintf(version_str," VWM %s ",VWM_VERSION);
-   wattron(window,COLOR_PAIR(color) | A_REVERSE);
-   mvwprintw(window,height - 1,width - (strlen(version_str)),version_str);
-   wattron(window,A_NORMAL);
+    getmaxyx(window, height, width);
+    color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
+    sprintf(version_str," VWM %s ",VWM_VERSION);
+    wattron(window, COLOR_PAIR(color));
+    mvwprintw(window,height - 1,width - (strlen(version_str)),version_str);
+    wattron(window,A_NORMAL);
 
-   // viper_thread_leave();
-
-   return 0;
+    return 0;
 }
