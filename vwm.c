@@ -149,7 +149,8 @@ int main(int argc,char **argv)
 	dup2(fd,STDERR_FILENO);
 
 	// ignore terminal interrupt signal
-    vwm_sigset(SIGINT,SIG_IGN);
+    vwm_sigset(SIGINT, SIG_IGN);
+    vwm_sigset(SIGPIPE, SIG_IGN);
 
 #ifdef _DEBUG
     vwm_sigset(SIGILL,vwm_backtrace);
