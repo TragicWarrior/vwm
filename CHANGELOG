@@ -1,3 +1,8 @@
+Version 2.7.3
+
+*  [Bryan Christ] Prevent crash with GPM is enabled and term is not
+   xterm style.
+
 Version 2.7.2
 
 *  [Bryan Christ] Minor change to version window.
