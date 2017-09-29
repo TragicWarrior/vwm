@@ -43,7 +43,7 @@ vwm_default_border_agent_focus(WINDOW *window,gpointer anything)
 
     window_decorate(border_wnd,(gchar*)title,TRUE);
     getmaxyx(border_wnd,y,x);
-	mvwprintw(border_wnd,0,x - sizeof("[.OX]") + 1,"[.OX]");
+	mvwprintw(border_wnd,0,x - sizeof("[X]") + 1,"[X]");
 
 	window_state = viper_window_get_state(window);
     if(window_state & STATE_NORESIZE) mvwaddch(border_wnd,y - 1,x - 1,'*');
@@ -67,7 +67,7 @@ vwm_default_border_agent_unfocus(WINDOW *window,gpointer anything)
 
     window_decorate(border_wnd,(gchar*)title,TRUE);
     getmaxyx(border_wnd,y,x);
-	mvwprintw(border_wnd,0,x - sizeof("[.OX]") + 1,"[.OX]");
+	mvwprintw(border_wnd,0,x - sizeof("[X]") + 1,"[X]");
 
 	window_state = viper_window_get_state(window);
     if(window_state & STATE_NORESIZE) mvwaddch(border_wnd,y - 1,x - 1,'*');
