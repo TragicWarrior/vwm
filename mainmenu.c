@@ -21,16 +21,17 @@
 #include <string.h>
 #include <sys/types.h>
 
-#include <pseudo.h>
 #include <viper.h>
 
 #include "vwm.h"
 #include "mainmenu.h"
 #include "modules.h"
+#include "strings.h"
 
 #define MAX_MENU_ITEMS  128
 
-WINDOW* vwm_main_menu(void)
+WINDOW*
+vwm_main_menu(void)
 {
     extern WINDOW   *SCREEN_WINDOW;
 	MENU            *menu = NULL;
@@ -46,9 +47,9 @@ WINDOW* vwm_main_menu(void)
     int             i;
 
     // allocate storage for a total of MAX_MENU_ITEMS
-    item_list = (gchar**)g_malloc0(sizeof(gchar*) * (MAX_MENU_ITEMS + 1));
+    item_list = (char**)calloc(1, sizeof(gchar*) * (MAX_MENU_ITEMS + 1));
 
-    item_list[idx] = g_strdup_printf(" ");
+    item_list[idx] = strdup_printf(" ");
     idx++;
 
     // iterate through the categories defined in modules.def
@@ -58,7 +59,7 @@ WINDOW* vwm_main_menu(void)
         if(i == VWM_MOD_TYPE_SCREENSAVER) continue;
 
         // print the menu category (type) to the window
-        item_list[idx] = g_strdup_printf("%s",modtype_desc[i]);
+        item_list[idx] = strdup_printf("%s", modtype_desc[i]);
         idx++;
 
         vwm_module = NULL;
@@ -67,11 +68,11 @@ WINDOW* vwm_main_menu(void)
         {
             if(idx == MAX_MENU_ITEMS) break;
 
-            vwm_module = vwm_module_find_by_type(vwm_module,i);
+            vwm_module = vwm_module_find_by_type(vwm_module, i);
             if(vwm_module == NULL) break;
 
-            vwm_module_get_title(vwm_module,buf,sizeof(buf) - 1);
-            item_list[idx] = g_strdup_printf("..%s",buf);
+            vwm_module_get_title(vwm_module, buf, sizeof(buf) - 1);
+            item_list[idx] = strdup_printf("..%s", buf);
             idx++;
         }
         while(vwm_module != NULL);
@@ -79,7 +80,7 @@ WINDOW* vwm_main_menu(void)
         // add a space before the next menu category
         if(idx < MAX_MENU_ITEMS)
         {
-            item_list[idx] = g_strdup_printf(" ");
+            item_list[idx] = strdup_printf(" ");
             idx++;
         }
     }
@@ -87,26 +88,25 @@ WINDOW* vwm_main_menu(void)
     menu = viper_menu_create(item_list);
     while(idx != -1)
     {
-        g_free(item_list[idx]);
+        free(item_list[idx]);
         idx--;
     }
-    g_free(item_list);
+    free(item_list);
 
 	// hide character mark on left hand side
-	set_menu_mark(menu," ");
+	set_menu_mark(menu, " ");
 
-    window_get_size_scaled(SCREEN_WINDOW,NULL,&screen_height,0,0.80);
+    window_get_size_scaled(SCREEN_WINDOW,NULL, &screen_height, 0, 0.80);
 
-	scale_menu(menu,&height,&width);
+	scale_menu(menu, &height, &width);
 	width++;
 	if(width < 16) width = 16;
 
  	// override the default of 1 column X 16 entries per row
-    if(height>(screen_height-4)) height=screen_height-4;
-	set_menu_format(menu,height,1);
+    if(height > (screen_height - 4)) height = screen_height - 4;
+	set_menu_format(menu, height, 1);
 
-	// viper_thread_enter();
-	window = viper_window_create(" Menu ",1,2,width,height,TRUE);
+	window = viper_window_create(" Menu ", 1, 2, width, height, TRUE);
     /*
         todo:   it would be nice if the user could resize the menu
                 (especially in the horizonal direction) and add more
@@ -115,20 +115,18 @@ WINDOW* vwm_main_menu(void)
                 lines of code for the event window-resized.  for now,
                 just don't allow it
     */
-	set_menu_win(menu,window);
-	set_menu_fore(menu,VIPER_COLORS(COLOR_WHITE,COLOR_BLUE) | A_BOLD);
-	set_menu_back(menu,VIPER_COLORS(COLOR_BLACK,COLOR_WHITE));
-	menu_opts_off(menu,O_NONCYCLIC);
+	set_menu_win(menu, window);
+	set_menu_fore(menu, VIPER_COLORS(COLOR_WHITE, COLOR_BLUE) | A_BOLD);
+	set_menu_back(menu, VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
+	menu_opts_off(menu, O_NONCYCLIC);
 	post_menu(menu);
-    vwm_menu_marshall(menu,REQ_DOWN_ITEM);
+    vwm_menu_marshall(menu, REQ_DOWN_ITEM);
 
-	/* viper_event_set(window,"window-activate",vwm_main_menu_ON_ACTIVATE,NULL); */
-	viper_event_set(window,"window-close",vwm_main_menu_ON_CLOSE,
-		(gpointer)menu);
-	viper_window_set_key_func(window,vwm_main_menu_ON_KEYSTROKE);
-	viper_window_set_userptr(window,(gpointer)menu);
+	viper_event_set(window, "window-close",
+        vwm_main_menu_ON_CLOSE, (void*)menu);
+	viper_window_set_key_func(window, vwm_main_menu_ON_KEYSTROKE);
+	viper_window_set_userptr(window, (void*)menu);
 
-	// viper_thread_leave();
 	return window;
 }
 

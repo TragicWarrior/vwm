@@ -3,13 +3,13 @@
 
 #include <inttypes.h>
 
-#include <glib.h>
-
 #ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
 #else
 #include <curses.h>
 #endif
+
+#include "list.h"
 
 #define  VWM_PANEL_STATE_FROZEN  (1<<1)
 
@@ -19,44 +19,45 @@
 
 typedef struct
 {
-   GSList   *msg_list;
-   gint8    msg_count;
-   gchar    *display;
-   gint16   display_sz;
-   gchar    *pos;
-   gint32   tick_rate;
-   gint32   freeze_time;
-   gint32   thaw_timer;
-   gint16   thaw_rate;
-   gint32   clock;
-   guint32  state;
+    struct list_head    msg_list;
+    int8_t              msg_count;
+    char                *display;
+    int16_t             display_sz;
+    char                *pos;
+    int32_t             tick_rate;
+    int32_t             freeze_time;
+    int32_t             thaw_timer;
+    int16_t             thaw_rate;
+    int32_t             clock;
+    uint32_t            state;
 }
 VWM_PANEL;
 
 typedef struct
 {
-   union
-   {
-      gpointer    msg_addr;
-      uintmax_t   msg_handle;
-   }
-                                 msg_id;  
-   gchar                         *msg;
-   gint                          msg_len;
-   gint32                        timeout;
-   gint32                        touch_val;
+    union
+    {
+        void            *msg_addr;
+        uintmax_t       msg_handle;
+    }
+                        msg_id;
+    struct list_head    list;
+    char                *msg;
+    int                 msg_len;
+    int32_t             timeout;
+    int32_t             touch_val;
 }
 VWM_PANEL_MSG;
 
 /* panel events   */
-gint     vwm_panel_ON_TERM_RESIZED(WINDOW *window,gpointer arg);
-gint     vwm_panel_ON_CLOCK_TICK(WINDOW *window,gpointer arg);
+int     vwm_panel_ON_TERM_RESIZED(WINDOW *window, void *arg);
+int     vwm_panel_ON_CLOCK_TICK(WINDOW *window, void *arg);
 
 /* helpers  */
-void	   vwm_panel_update_throbber(WINDOW *window);
-void     vwm_panel_update_clock(WINDOW *window);
-void     vwm_panel_marshall(VWM_PANEL *vwm_panel);
-void     vwm_panel_display(VWM_PANEL *vwm_panel,WINDOW *window);
-void     vwm_panel_scroll(VWM_PANEL *vwm_panel);
+void	vwm_panel_update_throbber(WINDOW *window);
+void    vwm_panel_update_clock(WINDOW *window);
+void    vwm_panel_marshall(VWM_PANEL *vwm_panel);
+void    vwm_panel_display(VWM_PANEL *vwm_panel, WINDOW *window);
+void    vwm_panel_scroll(VWM_PANEL *vwm_panel);
 
 #endif

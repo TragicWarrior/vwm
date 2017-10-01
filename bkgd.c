@@ -20,18 +20,16 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include <pseudo.h>
 
 #include "vwm.h"
 #include "bkgd.h"
 #include "mainmenu.h"
 #include "private.h"
-#include "wndlist.h"
 
 #define  BRICK    (' ' | A_REVERSE)
 #define  MORTAR   (' ' | A_NORMAL)
 
-gint
+int
 vwm_bkgd_simple(WINDOW *window,gpointer arg)
 {
 	uintmax_t	idx;
@@ -44,7 +42,6 @@ vwm_bkgd_simple(WINDOW *window,gpointer arg)
 	wchar_t		ch[][2] = { {0x0020,0x0000},
 						    {0x002e,0x0000} };
 #else
-	// chtype		ch[] = {' ','.'};
     chtype		    ch[] =      {ACS_CKBOARD,   '.'};
     chtype          attr[] =    {A_ALTCHARSET,  A_NORMAL};
     unsigned int    fg[] =      {COLOR_BLACK,    COLOR_BLACK};
@@ -67,7 +64,7 @@ vwm_bkgd_simple(WINDOW *window,gpointer arg)
     window_fill(window,ch[idx],color,attr[idx]);
 #endif
 
-	getmaxyx(window,height,width);
+    getmaxyx(window,height,width);
     color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
 	sprintf(version_str," VWM %s ",VWM_VERSION);
 	wattron(window,COLOR_PAIR(color));
@@ -77,17 +74,17 @@ vwm_bkgd_simple(WINDOW *window,gpointer arg)
 	return 0;
 }
 
-gint
+int
 vwm_bkgd_bricks(WINDOW *window,gpointer arg)
 {
-    uintmax_t      idx;
-    gchar          version_str[32];
-    gshort         color = 0;
-    gint           width,height;
-    gint           cell_count;
-    gint           x,y;
-    gint           i;
-    static chtype  brick[6][10] = {
+    uintmax_t       idx;
+    char            version_str[32];
+    short           color = 0;
+    int             width, height;
+    int             cell_count;
+    int             x, y;
+    int             i;
+    static chtype   brick[6][10] = {
     {MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR},
     {BRICK,BRICK,MORTAR,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK},
     {BRICK,BRICK,MORTAR,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK},
@@ -96,56 +93,57 @@ vwm_bkgd_bricks(WINDOW *window,gpointer arg)
     {BRICK,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK,MORTAR,BRICK,BRICK}};
 
 #ifdef _VIPER_WIDE
-   cchar_t          bg_char;
-   wchar_t          ch[][2] = { {0x0020,0x0000},
-                                {0x002e,0x0000} };
+    cchar_t          bg_char;
+    wchar_t          ch[][2] = { {0x0020, 0x0000},
+                                {0x002e, 0x0000} };
 #else
-   chtype           ch[] = {' ','.'};
+    chtype           ch[] = {' ', '.'};
 #endif
 
-   /* TODO:  gcc warning...
-      warning: cast from pointer to integer of different size
-   */
-   idx = (uintmax_t)arg;
+    /*
+        TODO:  gcc warning...
+        warning: cast from pointer to integer of different size
+    */
+    idx = (uintmax_t)arg;
 
-   viper_wresize_abs(window,WSIZE_FULLSCREEN,WSIZE_FULLSCREEN);
-   wattroff(window,A_REVERSE);
+    viper_wresize_abs(window, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
+    wattroff(window, A_REVERSE);
 
-   getmaxyx(window,height,width);
-   cell_count = width * height;
+    getmaxyx(window, height, width);
+    cell_count = width * height;
 
-   if(idx == 0)
-   {
-      color = viper_color_pair(COLOR_RED,COLOR_WHITE);
+    if(idx == 0)
+    {
+        color = viper_color_pair(COLOR_RED,COLOR_WHITE);
 
-      for(i = 0;i < cell_count;i++)
-      {
-         x = i % width;
-         y = (gint)(i / width);
+        for(i = 0;i < cell_count;i++)
+        {
+            x = i % width;
+            y = (int)(i / width);
 
-         wmove(window,y,x);
-         waddch(window,
-            brick[y%SPRITE_ROWS(brick)][x%SPRITE_COLS(brick)] | COLOR_PAIR(color));
-      }
-   }
+            wmove(window, y, x);
+            waddch(window,
+            brick[y % SPRITE_ROWS(brick)][x % SPRITE_COLS(brick)] | COLOR_PAIR(color));
+        }
+    }
 
-   if(idx == 1)
-   {
-      color = viper_color_pair(COLOR_BLACK,COLOR_WHITE);
+    if(idx == 1)
+    {
+        color = viper_color_pair(COLOR_BLACK,COLOR_WHITE);
 #ifdef _VIPER_WIDE
-      setcchar(&bg_char,ch[idx],0,0,NULL);
-      window_fill(window,&bg_char,color,A_NORMAL);
+        setcchar(&bg_char, ch[idx], 0, 0, NULL);
+        window_fill(window, &bg_char, color, A_NORMAL);
 #else
-      window_fill(window,ch[idx],color,A_NORMAL);
+        window_fill(window, ch[idx], color, A_NORMAL);
 #endif
-   }
+    }
 
     getmaxyx(window, height, width);
     color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
-    sprintf(version_str," VWM %s ",VWM_VERSION);
+    sprintf(version_str, " VWM %s ", VWM_VERSION);
     wattron(window, COLOR_PAIR(color));
-    mvwprintw(window,height - 1,width - (strlen(version_str)),version_str);
-    wattron(window,A_NORMAL);
+    mvwprintw(window,height - 1, width - (strlen(version_str)), version_str);
+    wattron(window, A_NORMAL);
 
     return 0;
 }

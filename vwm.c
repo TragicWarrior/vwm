@@ -38,9 +38,6 @@
 #include <sys/klog.h>
 #endif
 
-#include <glib.h>
-#include <gmodule.h>
-
 #include <viper.h>
 #include <protothread.h>
 
@@ -81,9 +78,9 @@ int main(int argc,char **argv)
 {
     extern char             **vwm_argv;
     extern int              vwm_argc;
-	gchar		      		*msg;
-	gint		      		fd;
-	gchar		      		*locale=NULL;
+	char		      		*msg;
+	int		      		    fd;
+	char		      		*locale = NULL;
 	int						flags;
 
     extern int              shutdown;
@@ -129,43 +126,43 @@ int main(int argc,char **argv)
 	/*	set the locale to the default settings (as configured by env).
 		this is required for ncurses to work properly.	*/
 	// locale = setlocale(LC_ALL,"");
-    locale = setlocale(LC_ALL,"UTF-8");
+    locale = setlocale(LC_ALL, "UTF-8");
 
 	// print some debug information
-	printf("%s\n\r",locale);
-	printf("ncurses = %d.%d (%d)\n\r",NCURSES_VERSION_MAJOR,
+	printf("%s\n\r", locale);
+	printf("ncurses = %d.%d (%d)\n\r", NCURSES_VERSION_MAJOR,
 		NCURSES_VERSION_MINOR,NCURSES_VERSION_PATCH);
 	fflush(NULL);
 
 #ifdef __linux
     // suppress printk messages.  klogctl() is linux specific.
-	klogctl(6,NULL,0);
+	klogctl(6, NULL, 0);
     printf("VWM running on Linux\n\r");
 #endif
 
     // supress STDERR
-	fd = open("/dev/null",O_WRONLY);
+	fd = open("/dev/null", O_WRONLY);
 	if(fd == -1) exit(0);
-	dup2(fd,STDERR_FILENO);
+	dup2(fd, STDERR_FILENO);
 
 	// ignore terminal interrupt signal
     vwm_sigset(SIGINT, SIG_IGN);
     vwm_sigset(SIGPIPE, SIG_IGN);
 
 #ifdef _DEBUG
-    vwm_sigset(SIGILL,vwm_backtrace);
-    vwm_sigset(SIGSEGV,vwm_backtrace);
-    vwm_sigset(SIGFPE,vwm_backtrace);
+    vwm_sigset(SIGILL, vwm_backtrace);
+    vwm_sigset(SIGSEGV, vwm_backtrace);
+    vwm_sigset(SIGFPE, vwm_backtrace);
 #endif
 
-	vwm_sigset(SIGIO,vwm_SIGIO);
-	fcntl(STDIN_FILENO,F_SETOWN,getpid());
-	flags = fcntl(STDIN_FILENO,F_GETFL);
+	vwm_sigset(SIGIO, vwm_SIGIO);
+	fcntl(STDIN_FILENO,F_SETOWN, getpid());
+	flags = fcntl(STDIN_FILENO, F_GETFL);
 	fcntl(STDIN_FILENO,F_SETFL, flags | FASYNC);
 
     viper_init(VIPER_GPM_SIGIO);
-    viper_set_border_agent(vwm_default_border_agent_unfocus,0);
-    viper_set_border_agent(vwm_default_border_agent_focus,1);
+    viper_set_border_agent(vwm_default_border_agent_unfocus, 0);
+    viper_set_border_agent(vwm_default_border_agent_focus, 1);
 
 	// use the integrated window manager
 	vwm_init();
@@ -214,21 +211,22 @@ int main(int argc,char **argv)
 	return 0;
 }
 
-VWM* vwm_init(void)
+VWM*
+vwm_init(void)
 {
-	static VWM	*vwm=NULL;
+	static VWM	*vwm = NULL;
     WINDOW      *wallpaper_wnd;
 
-	if(vwm==NULL)
+	if(vwm == NULL)
 	{
-      wallpaper_wnd=viper_screen_get_wallpaper();
+        wallpaper_wnd = viper_screen_get_wallpaper();
 
- 		vwm=(VWM*)g_malloc0(sizeof(VWM));
-      vwm->wallpaper_agent=vwm_bkgd_simple;
+ 		vwm = (VWM*)calloc(1, sizeof(VWM));
+        vwm->wallpaper_agent = vwm_bkgd_simple;
 
-      // initialize wallpaper
-      vwm->wallpaper_agent(wallpaper_wnd,(gpointer)0);
-	}
+        // initialize wallpaper
+        vwm->wallpaper_agent(wallpaper_wnd, (void*)0);
+    }
 
 	return vwm;
 }

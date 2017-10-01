@@ -25,73 +25,69 @@
 #include "mainmenu.h"
 #include "private.h"
 #include "bkgd.h"
-#include "wndlist.h"
 
 static WINDOW*
 vwm_fmod_exit(vwm_module_t *mod);
 
-gint
-vwm_default_border_agent_focus(WINDOW *window,gpointer anything)
+int
+vwm_default_border_agent_focus(WINDOW *window, void *anything)
 {
 	WINDOW			*border_wnd;
 	const gchar		*title;
-	guint32			window_state;
- 	gint		   	y,x;
+	uint32_t		window_state;
+ 	int		   	    y, x;
 
 	border_wnd = viper_get_window_frame(window);
 	title = viper_window_get_title(window);
 
-    window_decorate(border_wnd,(gchar*)title,TRUE);
-    getmaxyx(border_wnd,y,x);
+    window_decorate(border_wnd, (char*)title,TRUE);
+    getmaxyx(border_wnd, y, x);
 	mvwprintw(border_wnd,0,x - sizeof("[X]") + 1,"[X]");
 
 	window_state = viper_window_get_state(window);
-    if(window_state & STATE_NORESIZE) mvwaddch(border_wnd,y - 1,x - 1,'*');
+    if(window_state & STATE_NORESIZE) mvwaddch(border_wnd, y - 1, x - 1, '*');
 
-    window_modify_border(border_wnd,A_BOLD,
-    viper_color_pair(COLOR_WHITE,COLOR_MAGENTA));
+    window_modify_border(border_wnd, A_BOLD,
+        viper_color_pair(COLOR_WHITE, COLOR_MAGENTA));
 
-   return 0;
+    return 0;
 }
 
-gint
-vwm_default_border_agent_unfocus(WINDOW *window,gpointer anything)
+int
+vwm_default_border_agent_unfocus(WINDOW *window, void *anything)
 {
 	WINDOW		    *border_wnd;
-	const gchar	    *title;
-	guint32		    window_state;
- 	gint		    y,x;
+	const char	    *title;
+	uint32_t	    window_state;
+ 	int		        y, x;
 
 	border_wnd = viper_get_window_frame(window);
 	title = viper_window_get_title(window);
 
-    window_decorate(border_wnd,(gchar*)title,TRUE);
-    getmaxyx(border_wnd,y,x);
-	mvwprintw(border_wnd,0,x - sizeof("[X]") + 1,"[X]");
+    window_decorate(border_wnd, (char*)title, TRUE);
+    getmaxyx(border_wnd, y, x);
+	mvwprintw(border_wnd, 0, x - sizeof("[X]") + 1, "[X]");
 
 	window_state = viper_window_get_state(window);
-    if(window_state & STATE_NORESIZE) mvwaddch(border_wnd,y - 1,x - 1,'*');
+    if(window_state & STATE_NORESIZE) mvwaddch(border_wnd, y - 1, x - 1, '*');
 
-    window_modify_border(border_wnd,A_NORMAL,
-	viper_color_pair(COLOR_BLACK,COLOR_CYAN));
+    window_modify_border(border_wnd, A_NORMAL,
+	    viper_color_pair(COLOR_BLACK,COLOR_CYAN));
 
-   return 0;
+    return 0;
 }
 
 void
 vwm_modules_preload(void)
 {
-    // VWM         *vwm;
     WINDOW          *msgbox;
-    gchar           *error_msg;
-    gchar           *module_dirs[] = {NULL,_VWM_SHARED_MODULES};
+    char            *error_msg;
+    char            *module_dirs[] = {NULL,_VWM_SHARED_MODULES};
     vwm_module_t    *fake_mod;
-    gint            array_sz;
+    int             array_sz;
     int             i;
 
-	// vwm = vwm_get_instance();
-
-    array_sz = sizeof(module_dirs)/sizeof(module_dirs[0]);
+    array_sz = sizeof(module_dirs) / sizeof(module_dirs[0]);
     module_dirs[0] = VWM_MOD_DIR;
 
     for(i = 0;i < array_sz;i++)
@@ -100,13 +96,11 @@ vwm_modules_preload(void)
 
         if(error_msg != NULL)
         {
-            // viper_thread_enter();
             msgbox = viper_msgbox_create(" Module Warning! ",
-                0.5,0.5,0,0,error_msg,
+                0.5, 0.5, 0, 0, error_msg,
                 MSGBOX_ICON_WARN | MSGBOX_TYPE_OK);
             viper_window_show(msgbox);
-            // viper_thread_leave();
-            g_free(error_msg);
+            free(error_msg);
         }
     }
 
@@ -116,8 +110,8 @@ vwm_modules_preload(void)
 	//	"vwm_fmod_winlist");
 
     fake_mod = vwm_module_create();
-    vwm_module_set_title(fake_mod,"Exit");
-    vwm_module_set_type(fake_mod,VWM_MOD_TYPE_SYSTEM);
+    vwm_module_set_title(fake_mod, "Exit");
+    vwm_module_set_type(fake_mod, VWM_MOD_TYPE_SYSTEM);
     fake_mod->main = vwm_fmod_exit;
     fake_mod->anything = (void*)"shutdown vwm";
 
@@ -147,8 +141,6 @@ vwm_fmod_exit(vwm_module_t *mod)
     extern int      shutdown;
 
     shutdown = 1;
-
-	// shmq_msg_put("ui",(void*)mod->anything);
 
 	return NULL;
 }

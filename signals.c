@@ -46,7 +46,7 @@ vwm_sigset(int signum,sighandler_t handler)
 #ifdef _DEBUG
 void vwm_backtrace(int signum)
 {
-    extern  sig_atomic_t    wake_counter;
+    extern sig_atomic_t     wake_counter;
     char                    *term_name=NULL;
     void                    *array[10];
     size_t                  count;
@@ -54,34 +54,34 @@ void vwm_backtrace(int signum)
     int                     fd=-1;
     size_t                  i;
 
-   endwin();
+    endwin();
 
-   term_name=ctermid(NULL);
-   if(term_name!=NULL)
-   {
-      fd=open(term_name,O_RDWR);
-      if(fd!=-1);
-      dup2(fd,STDIN_FILENO);
-   }
+    term_name = ctermid(NULL);
+    if(term_name!=NULL)
+    {
+        fd = open(term_name, O_RDWR);
+        if(fd != -1);
+        dup2(fd, STDIN_FILENO);
+    }
 
-   count=backtrace(array,10);
-   strings=backtrace_symbols(array,count);
+    count = backtrace(array, 10);
+    strings = backtrace_symbols(array, count);
 
     printf("wake_counter %d\n", (int)wake_counter);
 
-   printf("caught signal %d\n\r",signum);
-   printf("obtained %zd stack frames.\n",count);
+    printf("caught signal %d\n\r", signum);
+    printf("obtained %zd stack frames.\n", count);
 
-   for(i=0;i<count;i++)
-   {
-      printf("%s\n\r",strings[i]);
-   }
+    for(i = 0;i < count;i++)
+    {
+        printf("%s\n\r", strings[i]);
+    }
 
-   free(strings);
-   if(fd!=-1) close(fd);
-   exit(EXIT_FAILURE);
+    free(strings);
+    if(fd != -1) close(fd);
+    exit(EXIT_FAILURE);
 
-   return;
+    return;
 }
 #endif
 
