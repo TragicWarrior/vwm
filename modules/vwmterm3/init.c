@@ -103,7 +103,7 @@ vwmterm_main(vwm_module_t *mod)
 
     // create window
 	window = viper_window_create(" VTerm ",0.5,0.5,width,height,TRUE);
-    viper_window_set_state(window,STATE_UNSET | STATE_NORESIZE);
+    viper_window_set_resizable(window, TRUE);
 	viper_window_set_limits(window,15,2,WSIZE_UNCHANGED,WSIZE_UNCHANGED);
 
     // libviper set the default bkgd OR to WHITE on BLACK.  undo it.

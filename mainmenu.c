@@ -219,8 +219,12 @@ vwm_main_menu_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
 			// new_window = vwm_module->mod_main(vwm_module->anything);
             new_window = vwm_module_exec(vwm_module);
             viper_window_close(window);
-			if(new_window != NULL) viper_window_set_top(new_window);
-			// viper_thread_leave();
+			if(new_window != NULL)
+            {
+                viper_window_set_top(new_window);
+                viper_screen_redraw(REDRAW_ALL);
+            }
+
 			return 1;
 		}
 	}
