@@ -42,12 +42,12 @@ vwm_main_menu(void)
 	vwm_module_t	*vwm_module;
     char            buf[NAME_MAX];
 
-    gchar			**item_list;
+    char			**item_list;
     int             idx = 0;
     int             i;
 
     // allocate storage for a total of MAX_MENU_ITEMS
-    item_list = (char**)calloc(1, sizeof(gchar*) * (MAX_MENU_ITEMS + 1));
+    item_list = (char**)calloc(1, sizeof(char*) * (MAX_MENU_ITEMS + 1));
 
     item_list[idx] = strdup_printf(" ");
     idx++;
@@ -138,21 +138,19 @@ gint vwm_main_menu_ON_ACTIVATE(WINDOW *window,gpointer arg)
 }
 */
 
-gint vwm_main_menu_ON_CLOSE(WINDOW *window,gpointer arg)
+int vwm_main_menu_ON_CLOSE(WINDOW *window, void *arg)
 {
-	// viper_thread_enter();
 	viper_menu_destroy((MENU*)arg,TRUE);
-	// viper_thread_leave();
 
 	return VIPER_EVENT_WINDOW_DESIST;
 }
 
-gint
-vwm_main_menu_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
+int
+vwm_main_menu_ON_KEYSTROKE(int32_t keystroke, WINDOW *window)
 {
 	MENU            *menu = NULL;
 	MEVENT		    mevent;
-	gchar		    *item_text = NULL;
+	char		    *item_text = NULL;
 	WINDOW		    *new_window;
 	vwm_module_t    *vwm_module;
 
@@ -212,7 +210,7 @@ vwm_main_menu_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
 
 	if(keystroke == KEY_CRLF)
 	{
-        item_text = (gchar*)item_name(current_item(menu));
+        item_text = (char*)item_name(current_item(menu));
 		vwm_module = vwm_module_find_by_title(&item_text[2]);
 		if(vwm_module != NULL)
 		{
@@ -237,24 +235,24 @@ vwm_main_menu_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
 /* this function make sure that the user selection is valid--not a category
    or white space */
 void
-vwm_menu_marshall(MENU *menu,gint32 key_vector)
+vwm_menu_marshall(MENU *menu, int32_t key_vector)
 {
-    gchar   *item_text;
+    char    *item_text;
 
     if(key_vector != REQ_UP_ITEM && key_vector != REQ_DOWN_ITEM) return;
 
     do
     {
-        item_text = (gchar*)item_name(current_item(menu));
-        if(memcmp(item_text,"..",2)==0) break;
-        menu_driver(menu,key_vector);
+        item_text = (char*)item_name(current_item(menu));
+        if(memcmp(item_text, "..", 2) == 0) break;
+        menu_driver(menu, key_vector);
     }
     while(1);
 
     return;
 }
 
-gint
+int
 vwm_main_menu_hotkey(void)
 {
 	WINDOW *window;
@@ -263,17 +261,14 @@ vwm_main_menu_hotkey(void)
 
 	if(window != NULL)
 	{
-		// viper_thread_enter();
 		viper_window_close(window);
-		// viper_thread_leave();
+
 		return 0;
 	}
 
-	// viper_thread_enter();
 	window = vwm_main_menu();
-	viper_window_set_class(window,vwm_main_menu);
+	viper_window_set_class(window, vwm_main_menu);
 	viper_window_set_top(window);
-	// viper_thread_leave();
 
 	return 0;
 }

@@ -24,6 +24,7 @@
 #include "vwm.h"
 #include "hotkeys.h"
 #include "mainmenu.h"
+#include "private.h"
 
 #define     KEY_PLUS            '+'
 #define     KEY_CTRL_DOWN       525
@@ -46,7 +47,7 @@ static void vwm_default_WINDOW_DECREASE_WIDTH(WINDOW *);
 int32_t
 vwm_kmio_dispatch_hook_enter(int32_t keystroke)
 {
-    VWM     *vwm;
+    vwm_t       *vwm;
 
     vwm = vwm_get_instance();
 
@@ -117,7 +118,7 @@ vwm_kmio_dispatch_hook_enter(int32_t keystroke)
 void
 vwm_default_VWM_START(WINDOW *topmost_window)
 {
-    VWM         *vwm;
+    vwm_t       *vwm;
     WINDOW      *wallpaper_wnd;
     uintmax_t   msg_id;
 
@@ -143,7 +144,7 @@ vwm_default_VWM_START(WINDOW *topmost_window)
 void
 vwm_default_VWM_STOP(WINDOW *topmost_window)
 {
-    VWM             *vwm;
+    vwm_t           *vwm;
     WINDOW          *wallpaper_wnd;
     uintmax_t       msg_id;
 

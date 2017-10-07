@@ -9,7 +9,7 @@
 #include "hotkeys.h"
 
 int
-vwm_settings_load(gchar *rc_file)
+vwm_settings_load(char *rc_file)
 {
     FILE    *file;
     char    *line_data;

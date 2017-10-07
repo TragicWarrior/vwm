@@ -50,7 +50,7 @@
 #include "settings.h"
 #include "signals.h"
 #include "hotkeys.h"
-
+#include "list.h"
 #include "clock.h"
 #include "poll_input_thd.h"
 #include "sleep_thd.h"
@@ -78,7 +78,6 @@ int main(int argc,char **argv)
 {
     extern char             **vwm_argv;
     extern int              vwm_argc;
-	char		      		*msg;
 	int		      		    fd;
 	char		      		*locale = NULL;
 	int						flags;
@@ -211,21 +210,23 @@ int main(int argc,char **argv)
 	return 0;
 }
 
-VWM*
+vwm_t*
 vwm_init(void)
 {
-	static VWM	*vwm = NULL;
-    WINDOW      *wallpaper_wnd;
+	static vwm_t    *vwm = NULL;
+    WINDOW          *wallpaper_wnd;
 
 	if(vwm == NULL)
 	{
         wallpaper_wnd = viper_screen_get_wallpaper();
 
- 		vwm = (VWM*)calloc(1, sizeof(VWM));
+ 		vwm = (vwm_t*)calloc(1, sizeof(vwm_t));
         vwm->wallpaper_agent = vwm_bkgd_simple;
 
         // initialize wallpaper
         vwm->wallpaper_agent(wallpaper_wnd, (void*)0);
+
+        INIT_LIST_HEAD(&vwm->module_list);
     }
 
 	return vwm;

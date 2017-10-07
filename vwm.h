@@ -3,10 +3,9 @@
 
 #include <inttypes.h>
 
-#include <glib.h>
-#include <protothread.h>
-
 #include <sys/types.h>
+
+#include <protothread.h>
 
 #ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
@@ -53,8 +52,11 @@ enum
     VWM_MSG_SHUTDOWN    =   0x1,
 };
 
-typedef struct  _vwm_module_s   vwm_module_t;
+typedef struct _vwm_s   vwm_t;
 
+typedef struct _vwm_module_s   vwm_module_t;
+
+/*
 typedef struct
 {
     vwm_module_t        *scrsaver_mod;
@@ -63,26 +65,16 @@ typedef struct
     guint32             state;
 }
 VWM_SCRSAVER;
+*/
 
 typedef struct
 {
-	GSList			    *category_list;
-	GSList			    *module_list;
-	GSList			    *key_list;
-    VIPER_FUNC          wallpaper_agent;
-	VWM_SCRSAVER        screen_saver;
-    guint32             state;
-}
-VWM;
-
-typedef struct
-{
-   uid_t    user;
-   gchar    *login;
-   gchar    *passwd;
-   gchar    *home;
-   gchar    *rc_file;
-   gchar    *mod_dir;
+    uid_t   user;
+    char    *login;
+    char    *passwd;
+    char    *home;
+    char    *rc_file;
+    char    *mod_dir;
 }
 VWM_PROFILE;
 
@@ -105,70 +97,68 @@ pt_context_t;
 
 
 /*	startup functions	*/
-VWM*            vwm_init(void);
+vwm_t*          vwm_init(void);
 #define			vwm_get_instance()	            (vwm_init())
-void 			vwm_hook_enter(VIPER_FUNC func,gpointer arg);
-void			vwm_hook_leave(VIPER_FUNC func,gpointer arg);
+void 			vwm_hook_enter(VIPER_FUNC func, void *arg);
+void			vwm_hook_leave(VIPER_FUNC func, void *arg);
 
 /* panel facilities  */
 WINDOW*         vwm_panel_init(void);
 #define         vwm_panel_get_instance()         (vwm_panel_init())
-gint16          vwm_panel_ctrl(guint32 ctrl,gint16 val);
+int16_t         vwm_panel_ctrl(uint32_t ctrl, int16_t val);
 #define         vwm_panel_freeze_set(timeout) \
-                    (vwm_panel_ctrl(VWM_PANEL_FREEZE,timeout))
+                    (vwm_panel_ctrl(VWM_PANEL_FREEZE, timeout))
 #define         vwm_panel_freeze_get() \
-                    (vwm_panel_ctrl(VWM_PANEL_FREEZE,-1))
+                    (vwm_panel_ctrl(VWM_PANEL_FREEZE, -1))
 #define         vwm_panel_freeze_now() \
-                    (vwm_panel_ctrl(VWM_PANEL_FREEZE,0))
+                    (vwm_panel_ctrl(VWM_PANEL_FREEZE, 0))
 #define         vwm_panel_thaw_now() \
-                    (vwm_panel_ctrl(VWM_PANEL_THAW,0))
+                    (vwm_panel_ctrl(VWM_PANEL_THAW, 0))
 #define         vwm_panel_clear() \
                     (vwm_panel_ctrl(VWM_PANEL_CLEAR,0))
-uintmax_t       vwm_panel_message_add(gchar *msg,gint timeout);
+uintmax_t       vwm_panel_message_add(char *msg, int timeout);
 void            vwm_panel_message_del(uintmax_t msg_id);
-uintmax_t       vwm_panel_message_find(gchar *msg);
-gint            vwm_panel_message_touch(uintmax_t msg_id);
-gint            vwm_panel_message_promote(uintmax_t msg_id);
+uintmax_t       vwm_panel_message_find(char *msg);
+int             vwm_panel_message_touch(uintmax_t msg_id);
+int             vwm_panel_message_promote(uintmax_t msg_id);
 
 /*	extensibility functions	*/
 vwm_module_t*   vwm_module_create(void);
-void            vwm_module_set_type(vwm_module_t *mod,int type);
+void            vwm_module_set_type(vwm_module_t *mod, int type);
 int             vwm_module_get_type(vwm_module_t *mod);
-void            vwm_module_set_title(vwm_module_t *mod,char *title);
-void            vwm_module_get_title(vwm_module_t *mod,char *buf,int buf_sz);
-void            vwm_module_set_userptr(vwm_module_t *mod,void *anything);
+void            vwm_module_set_title(vwm_module_t *mod, char *title);
+void            vwm_module_get_title(vwm_module_t *mod, char *buf, int buf_sz);
+void            vwm_module_set_userptr(vwm_module_t *mod, void *anything);
 void*           vwm_module_get_userptr(vwm_module_t *mod);
 int 		    vwm_module_add(const vwm_module_t *mod);
 WINDOW*         vwm_module_exec(vwm_module_t *mod);
 
 vwm_module_t*   vwm_module_find_by_title(char *title);
-vwm_module_t*   vwm_module_find_by_type(vwm_module_t *prev,int type);
+vwm_module_t*   vwm_module_find_by_type(vwm_module_t *prev, int type);
 
-gchar*	        vwm_modules_load(char *module_dir);
-GSList*         vwm_modules_list(int type);
-
+char*	        vwm_modules_load(char *module_dir);
 
 /* profile functions */
 VWM_PROFILE*    vwm_profile_init(void);
 #define         vwm_profile_acquire()      vwm_profile_init()
-gchar*          vwm_profile_mod_dir_get();
-void            vwm_profile_mod_dir_set(gchar *module_dir);
+char*           vwm_profile_mod_dir_get();
+void            vwm_profile_mod_dir_set(char *module_dir);
 #define         VWM_MOD_DIR                (vwm_profile_mod_dir_get())
-gchar*          vwm_profile_login_get();
+char*           vwm_profile_login_get();
 #define         VWM_LOGIN                  (vwm_profile_login_get())
-gchar*          vwm_profile_rc_file_get();
+char*           vwm_profile_rc_file_get();
 #define         VWM_RC_FILE                (vwm_profile_rc_file_get())
 
 /* screensaver functions   */
 void            vwm_scrsaver_start(void);
 void            vwm_scrsaver_stop(void);
-void            vwm_scrsaver_set(gchar *title);
-const gchar*    vwm_scrsaver_get(void);
-void            vwm_scrsaver_timeout_set(gint timeout);
-gint            vwm_scrsaver_timeout_get(void);
+void            vwm_scrsaver_set(char *title);
+const char*     vwm_scrsaver_get(void);
+void            vwm_scrsaver_timeout_set(int timeout);
+int             vwm_scrsaver_timeout_get(void);
 
 /*	helper functions	*/
-void            vwm_post_help(gchar *msg);
+void            vwm_post_help(char *msg);
 
 /* helper macros  */
 

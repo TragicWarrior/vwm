@@ -16,7 +16,8 @@ struct _clock_data_s
 
 typedef struct _clock_data_s    clock_data_t;
 
-pt_t vwm_clock_driver(void * const env);
-void vwm_clock_driver_SIGALARM(int signum, siginfo_t *siginfo, void *uc);
+pt_t            vwm_clock_driver(void * const env);
+clock_data_t*   vwm_clock_init(void);
+void            vwm_clock_driver_SIGALARM(int signum, siginfo_t *siginfo, void *uc);
 
 #endif

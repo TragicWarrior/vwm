@@ -38,7 +38,7 @@ vwm_panel_init(void)
 {
     static WINDOW   *window = NULL;
     VWM_PANEL       *vwm_panel;
-    int             max_y,max_x;
+    int             max_y, max_x;
 
     if(window != NULL) return window;
 
@@ -65,6 +65,9 @@ vwm_panel_init(void)
     INIT_LIST_HEAD(&vwm_panel->msg_list);
 
 	viper_window_redraw(window);
+
+    // squelch compiler warning
+    (void)max_y;
 
 	return window;
 }
@@ -96,6 +99,9 @@ vwm_panel_ON_TERM_RESIZED(WINDOW *window, void *arg)
     }
 
     viper_window_redraw(window);
+
+    // squelch compiler warnings
+    (void)max_y;
 
     return 0;
 }
@@ -156,7 +162,7 @@ vwm_panel_update_clock(WINDOW *window)
 {
 	time_t			clock;
 	struct tm		*local_time;
-    int             x,y;
+    int             x, y;
 
 	clock = time(NULL);
 	local_time = localtime((time_t*)&clock);
@@ -167,6 +173,9 @@ vwm_panel_update_clock(WINDOW *window)
     mvwprintw(window, 0, x - 22," %02d/%02d/%04d %02d:%02d:%02d ",
 		local_time->tm_mon + 1, local_time->tm_mday, local_time->tm_year + 1900,
 		local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
+
+    // squelch compiler warnings
+    (void)y;
 
 	return;
 }

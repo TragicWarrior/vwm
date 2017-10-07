@@ -30,11 +30,11 @@
 #define  MORTAR   (' ' | A_NORMAL)
 
 int
-vwm_bkgd_simple(WINDOW *window,gpointer arg)
+vwm_bkgd_simple(WINDOW *window, void *arg)
 {
 	uintmax_t	idx;
-    gshort      color = 0;
-	int		    width,height;
+    short       color = 0;
+	int		    width, height;
 	char		version_str[32];
 
 #ifdef _VIPER_WIDE
@@ -53,29 +53,29 @@ vwm_bkgd_simple(WINDOW *window,gpointer arg)
    */
 	idx = (uintmax_t)arg;
 
-    viper_wresize_abs(window,WSIZE_FULLSCREEN,WSIZE_FULLSCREEN);
+    viper_wresize_abs(window, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
 
     color = viper_color_pair(fg[idx], bg[idx]);
 
 #ifdef _VIPER_WIDE
-	setcchar(&bg_char,ch[idx],0,0,NULL);
-	window_fill(window,&bg_char,color,A_NORMAL);
+	setcchar(&bg_char, ch[idx], 0, 0, NULL);
+	window_fill(window, &bg_char, color, A_NORMAL);
 #else
-    window_fill(window,ch[idx],color,attr[idx]);
+    window_fill(window, ch[idx], color, attr[idx]);
 #endif
 
-    getmaxyx(window,height,width);
+    getmaxyx(window, height, width);
     color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
-	sprintf(version_str," VWM %s ",VWM_VERSION);
-	wattron(window,COLOR_PAIR(color));
-	mvwprintw(window,height - 1,width - (strlen(version_str)),version_str);
-	wattron(window,A_NORMAL);
+	sprintf(version_str, " VWM %s ", VWM_VERSION);
+	wattron(window, COLOR_PAIR(color));
+	mvwprintw(window, height - 1, width - (strlen(version_str)), version_str);
+	wattron(window, A_NORMAL);
 
 	return 0;
 }
 
 int
-vwm_bkgd_bricks(WINDOW *window,gpointer arg)
+vwm_bkgd_bricks(WINDOW *window,void *arg)
 {
     uintmax_t       idx;
     char            version_str[32];

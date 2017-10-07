@@ -33,7 +33,7 @@ int
 vwm_default_border_agent_focus(WINDOW *window, void *anything)
 {
 	WINDOW			*border_wnd;
-	const gchar		*title;
+	const char		*title;
 	uint32_t		window_state;
  	int		   	    y, x;
 
@@ -112,10 +112,17 @@ vwm_modules_preload(void)
     fake_mod = vwm_module_create();
     vwm_module_set_title(fake_mod, "Exit");
     vwm_module_set_type(fake_mod, VWM_MOD_TYPE_SYSTEM);
+
+    sprintf(fake_mod->modpath, "/vwmroot/Exit");
     fake_mod->main = vwm_fmod_exit;
     fake_mod->anything = (void*)"shutdown vwm";
 
-    vwm_module_add(fake_mod);
+    if(vwm_module_add(fake_mod) < 0)
+    {
+        endwin();
+        printf("Unable to load static modules.\n\r");
+        exit(0);
+    }
 
 /*
 	vwm_module_add("VWM","Screensaver",vwm_fmod_scrsaver,NULL,

@@ -11,6 +11,17 @@
 
 #include <protothread.h>
 
+#include "list.h"
+
+struct _vwm_s
+{
+    struct list_head    module_list;
+    VIPER_FUNC          wallpaper_agent;
+    //VWM_SCRSAVER        screen_saver;
+    uint32_t            state;
+};
+
+
 #define  SPRITE_ROWS(x)    (sizeof(x) / sizeof(x[0]))
 #define  SPRITE_COLS(x)    (sizeof(x[0]) / (sizeof(x[0][0])))
 
