@@ -45,6 +45,7 @@ install:
 	chmod 644 vwm.h
 	cp -f vwm.h ${PREFIX}/include
 	chmod 755 vwm
+	strip vwm
 	cp -f vwm ${PREFIX}/bin
 	cd modules/vwmterm3 && $(MAKE) install
 

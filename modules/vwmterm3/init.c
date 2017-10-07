@@ -127,15 +127,15 @@ vwmterm_main(vwm_module_t *mod)
     ctx_vwmterm->shutdown = &shutdown;
 
     // attach event handlers
-	viper_event_set(window,"window-resized",vwmterm_ON_RESIZE,
-        (gpointer)vterm);
+	viper_event_set(window, "window-resized",
+        vwmterm_ON_RESIZE, (void*)vterm);
 	viper_event_set(window,"window-close",
-        vwmterm_ON_CLOSE,(gpointer)vterm);
-	viper_event_set(window,"window-destroy",vwmterm_ON_DESTROY,
-		(gpointer)vwmterm_data);
+        vwmterm_ON_CLOSE, (void*)vterm);
+	viper_event_set(window,"window-destroy",
+        vwmterm_ON_DESTROY, (void*)vwmterm_data);
 	viper_window_set_key_func(window,
         vwmterm_ON_KEYSTROKE);
-	viper_window_set_userptr(window,(gpointer)vterm);
+	viper_window_set_userptr(window, (void*)vterm);
 
     pt_create(pt[PT_PRIORITY_NORMAL], &ctx_vwmterm->pt_thread,
         vwmterm_thd, ctx_vwmterm);
