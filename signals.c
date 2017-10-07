@@ -11,8 +11,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <pseudo.h>
-
 #include "vwm.h"
 #include "signals.h"
 
