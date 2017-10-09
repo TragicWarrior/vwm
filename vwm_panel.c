@@ -31,7 +31,7 @@
 #include "vwm.h"
 #include "vwm_panel.h"
 #include "strings.h"
-
+#include "list.h"
 
 WINDOW*
 vwm_panel_init(void)
@@ -121,19 +121,9 @@ vwm_panel_ON_CLOCK_TICK(WINDOW *window, void *arg)
     if((vwm_panel->clock % VWM_CLOCK_TICKS_PER_SEC) == 0)
     {
         vwm_panel_update_clock(window);
-        /*
-            vwm_panel_marshall() checks for expired messages and purges them.
-            it also unfreezes the panel when the thaw_timer reaches 0.
-        */
-        // vwm_panel_marshall(vwm_panel);
     }
 
-    /* scroll the panel messages */
-    // if((vwm_panel->clock % vwm_panel->tick_rate) == 0)
-    // {
-    //     vwm_panel_scroll(vwm_panel);
-    //     vwm_panel_display(vwm_panel, window);
-    // }
+    vwm_panel_display(vwm_panel, window);
 
     viper_window_redraw(window);
 
@@ -180,48 +170,12 @@ vwm_panel_update_clock(WINDOW *window)
 	return;
 }
 
-//void
-//vwm_panel_marshall(VWM_PANEL *vwm_panel)
-//{
-//   VWM_PANEL_MSG  *vwm_panel_msg;
-//   GSList         *node;
-
-   /* decrement the thaw timer and unfreeze when timer expires.   */
-//   if(vwm_panel->thaw_timer>0) vwm_panel->thaw_timer--;
-//   if(vwm_panel->thaw_timer==0) vwm_panel->state &= ~VWM_PANEL_STATE_FROZEN;
-
-   /* first, purge all expired messages.  */
-//   node=vwm_panel->msg_list;
-//   while(node!=NULL)
-//   {
-//      vwm_panel_msg=(VWM_PANEL_MSG*)node->data;
-//     if(vwm_panel_msg->timeout==0)
-//      {
-//         vwm_panel_message_del(vwm_panel_msg->msg_id.msg_handle);
-//         vwm_panel_marshall(vwm_panel);
-//         break;
-//      }
-//      node=node->next;
-//   }
-
-   /* next, decrment all message timers.  */
-//   node=vwm_panel->msg_list;
-//   while(node!=NULL)
-//   {
-//      vwm_panel_msg=(VWM_PANEL_MSG*)node->data;
-//      if(vwm_panel_msg->timeout!=-1) vwm_panel_msg->timeout--;
-//      node=node->next;
-//   }
-
-//   return;
-//}
-
 void
 vwm_panel_display(VWM_PANEL *vwm_panel, WINDOW *window)
 {
-   VWM_PANEL_MSG        *vwm_panel_msg;
+    VWM_PANEL_MSG       *vwm_panel_msg;
     char                *pos;
-   int                  i;
+    int                 i;
 
     if(list_empty(&vwm_panel->msg_list) || vwm_panel->display == NULL)
     {
@@ -233,42 +187,15 @@ vwm_panel_display(VWM_PANEL *vwm_panel, WINDOW *window)
         }
     }
 
-    /* cycle to the next message in the list if necessary.  */
-    // vwm_panel_scroll(vwm_panel);
+    vwm_panel_msg = list_first_entry(&vwm_panel->msg_list, VWM_PANEL_MSG, list);
 
-    /* fill in the display buffer.   */
-/*
-    pos = vwm_panel->pos;
-   for(i=0;i<vwm_panel->display_sz;i++)
-   {
-      if(*pos=='\0')
-      {
-         node=node->next;
-         if(node==NULL)
-         {
-            if(vwm_panel_msg->msg_len <= vwm_panel->display_sz)
-            {
-               vwm_panel->display[i-4]='\0';
-               break;
-            }
-            node=vwm_panel->msg_list;
-         }
-         vwm_panel_msg=(VWM_PANEL_MSG*)node->data;
-         pos=&vwm_panel_msg->msg[0];
-      }
-      
-      vwm_panel->display[i]=*pos;
-      pos++;
-   }
-   vwm_panel->display[i]='\0';
-*/
+    /* write to panel.  */
+    wattroff(window, VIPER_COLORS(COLOR_BLACK,COLOR_WHITE));
+    mvwprintw(window, 0, 0, "%s", vwm_panel_msg->msg);
+    i = vwm_panel->display_sz - strlen(vwm_panel_msg->msg);
+    if(i > 0) wprintw(window, "%*c", i, ' ');
 
-   /* write to panel.  */
-   wattroff(window,VIPER_COLORS(COLOR_BLACK,COLOR_WHITE));
-   mvwprintw(window,0,0,"%s",vwm_panel->display);
-   i=vwm_panel->display_sz-strlen(vwm_panel->display);
-   if(i>0) wprintw(window,"%*c",i,' ');
- 
+    return;
 }
 
 void
@@ -328,7 +255,7 @@ vwm_panel_message_add(char *msg, int timeout)
 
     /* create new panel message object. */
     vwm_panel_msg = (VWM_PANEL_MSG*)calloc(1, sizeof(VWM_PANEL_MSG));
-    vwm_panel_msg->msg = strdup_printf("%s // ",msg);
+    vwm_panel_msg->msg = strdup_printf("%s",msg);
     vwm_panel_msg->msg_len = strlen(msg);
     vwm_panel_msg->timeout = timeout;
     vwm_panel_msg->touch_val = timeout;
