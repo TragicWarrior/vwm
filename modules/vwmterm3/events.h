@@ -1,7 +1,7 @@
 #ifndef _EVENTS_H_
 #define _EVENTS_H_
 
-#include <glib.h>
+#include <inttypes.h>
 
 #ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
@@ -9,9 +9,9 @@
 #include <curses.h>
 #endif
 
-gint  vwmterm_ON_RESIZE(WINDOW *window,gpointer anything);
-gint	vwmterm_ON_CLOSE(WINDOW *window,gpointer anything);
-gint	vwmterm_ON_DESTROY(WINDOW *window,gpointer anything);
-gint	vwmterm_ON_KEYSTROKE(gint32 keystroke,WINDOW *window);
+int     vwmterm_ON_RESIZE(WINDOW *window, void *anything);
+int	    vwmterm_ON_CLOSE(WINDOW *window, void *anything);
+int	    vwmterm_ON_DESTROY(WINDOW *window, void *anything);
+int	    vwmterm_ON_KEYSTROKE(int32_t keystroke, WINDOW *window);
 
 #endif

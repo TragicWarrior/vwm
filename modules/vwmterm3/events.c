@@ -7,7 +7,8 @@
 #include "vwmterm.h"
 #include "events.h"
 
-gint vwmterm_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
+int
+vwmterm_ON_KEYSTROKE(int32_t keystroke,WINDOW *window)
 {
 	vterm_t	*vterm;
 
@@ -21,22 +22,24 @@ gint vwmterm_ON_KEYSTROKE(gint32 keystroke,WINDOW *window)
 }
 
 
-gint vwmterm_ON_RESIZE(WINDOW *window,gpointer anything)
+int
+vwmterm_ON_RESIZE(WINDOW *window, void *anything)
 {
-	vterm_t  *vterm;
-    guint    width;
-    guint    height;
+	vterm_t         *vterm;
+    unsigned int    width;
+    unsigned int    height;
 
 	vterm = (vterm_t*)anything;
 
-	getmaxyx(window,height,width);
-    vterm_resize(vterm,width,height);
+	getmaxyx(window, height, width);
+    vterm_resize(vterm, width, height);
     vterm_wnd_update(vterm);
 
 	return 0;
 }
 
-gint vwmterm_ON_DESTROY(WINDOW *window,gpointer anything)
+int
+vwmterm_ON_DESTROY(WINDOW *window, void *anything)
 {
     vwmterm_data_t  *vwmterm_data;
 
@@ -47,7 +50,8 @@ gint vwmterm_ON_DESTROY(WINDOW *window,gpointer anything)
 	return 0;
 }
 
-gint vwmterm_ON_CLOSE(WINDOW *window,gpointer anything)
+int
+vwmterm_ON_CLOSE(WINDOW *window, void *anything)
 {
 	vterm_t	*vterm;
     pid_t    child_pid;
@@ -55,8 +59,8 @@ gint vwmterm_ON_CLOSE(WINDOW *window,gpointer anything)
 	vterm = (vterm_t*)anything;
     child_pid = vterm_get_pid(vterm);
 
-	kill(child_pid,SIGKILL);
-	waitpid(child_pid,NULL,0);
+	kill(child_pid, SIGKILL);
+	waitpid(child_pid, NULL, 0);
 
 	return VIPER_EVENT_WINDOW_DESIST;
 }

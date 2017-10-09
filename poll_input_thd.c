@@ -12,9 +12,10 @@
 #include "poll_input_thd.h"
 #include "private.h"
 
-pt_t vwm_poll_input(void * const env)
+pt_t
+vwm_poll_input(void * const env)
 {
-    gint32          keystroke;
+    int32_t         keystroke;
     static MEVENT   mouse_event;
     pt_context_t    *ctx_poll_input;
 

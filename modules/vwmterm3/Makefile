@@ -1,5 +1,4 @@
 CFLAGS = -Wall -std=gnu99 -O2
-PKG_CFG = `pkg-config --cflags glib-2.0 gmodule-2.0`
 DEFS = -D_REENTRANT -D_GNU_SOURCE
 prefix = /usr/local
 libdir = ${prefix}/lib
@@ -18,11 +17,11 @@ wide: clean vwmterm3_wide
 debug: clean vwmterm3
 
 vwmterm3:
-	gcc $(CFLAGS) $(DEFS) $(PKG_CFG) $(includedir) -c -fpic *.c 
+	gcc $(CFLAGS) $(DEFS) $(includedir) -c -fpic *.c 
 	gcc $(CFLAGS) -shared -o vwmterm3.so *.o
 
 vwmterm3_wide:
-	gcc $(CFLAGS) $(DEFS) $(PKG_CFG) $(includedir) -D_VIPER_WIDE -c -fpic *.c 
+	gcc $(CFLAGS) $(DEFS) $(includedir) -D_VIPER_WIDE -c -fpic *.c 
 	gcc $(CFLAGS) -shared -o vwmterm3_wide.so *.o
 
 clean:
@@ -31,6 +30,7 @@ clean:
 
 install:
 	chmod 755 vwmterm3.so
+	strip vwmterm3.so
 	cp -f vwmterm3.so $(MODDIR)
 
 install_wide:

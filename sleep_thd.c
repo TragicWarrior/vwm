@@ -7,7 +7,8 @@
 #include "sleep_thd.h"
 
 
-pt_t vwm_sleep_driver(void * const env)
+pt_t
+vwm_sleep_driver(void * const env)
 {
     pt_context_t        *ctx_sleep;
     sig_atomic_t        *wake_counter;

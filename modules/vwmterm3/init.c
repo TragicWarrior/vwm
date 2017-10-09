@@ -103,7 +103,7 @@ vwmterm_main(vwm_module_t *mod)
 
     // create window
 	window = viper_window_create(" VTerm ",0.5,0.5,width,height,TRUE);
-    viper_window_set_state(window,STATE_UNSET | STATE_NORESIZE);
+    viper_window_set_resizable(window, TRUE);
 	viper_window_set_limits(window,15,2,WSIZE_UNCHANGED,WSIZE_UNCHANGED);
 
     // libviper set the default bkgd OR to WHITE on BLACK.  undo it.
@@ -127,15 +127,15 @@ vwmterm_main(vwm_module_t *mod)
     ctx_vwmterm->shutdown = &shutdown;
 
     // attach event handlers
-	viper_event_set(window,"window-resized",vwmterm_ON_RESIZE,
-        (gpointer)vterm);
+	viper_event_set(window, "window-resized",
+        vwmterm_ON_RESIZE, (void*)vterm);
 	viper_event_set(window,"window-close",
-        vwmterm_ON_CLOSE,(gpointer)vterm);
-	viper_event_set(window,"window-destroy",vwmterm_ON_DESTROY,
-		(gpointer)vwmterm_data);
+        vwmterm_ON_CLOSE, (void*)vterm);
+	viper_event_set(window,"window-destroy",
+        vwmterm_ON_DESTROY, (void*)vwmterm_data);
 	viper_window_set_key_func(window,
         vwmterm_ON_KEYSTROKE);
-	viper_window_set_userptr(window,(gpointer)vterm);
+	viper_window_set_userptr(window, (void*)vterm);
 
     pt_create(pt[PT_PRIORITY_NORMAL], &ctx_vwmterm->pt_thread,
         vwmterm_thd, ctx_vwmterm);
