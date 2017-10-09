@@ -1,12 +1,10 @@
 REQUIRMENTS
 
-glib 2.8+
+protothreads (available on GitHub LarryRuane/protothreads.
 
-libviper 1.4.5+ (available on GitHub TragicWarrior/libviper)
-protothreads (available on GitHub TragicWarrior/protothreads. for now,
-              you'll need the build the bool-fix branch)
 libgpm (no longer required as of build 1.1 but you will need to remove
         the build definition -D_VIPER_MOUSE_GPM from the Makefile)
+
 ncurses 5.4+
 
 
@@ -28,7 +26,7 @@ INSTALLATION
 By default, the Makefile tries to create a /usr/lib/vwm/modules directory.
 This is where all of the applications (plugins) for VWM will be installed.  At
 the present time, this location is hard-coded.  In the future, VWM should
-allow the user to specify otherwise.  You will need to creat this directory
+allow the user to specify otherwise.  You will need to create this directory
 manually.
 
 For a simple installation run the following make commands as root:

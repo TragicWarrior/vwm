@@ -1,3 +1,7 @@
+Version 3.0.0
+
+*  [Bryan Christ] Removed dependency on GLIB.
+
 Version 2.8.0
 
 *  [Bryan Christ] Major performance improvement to terminal
