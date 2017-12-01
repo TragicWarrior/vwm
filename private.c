@@ -26,52 +26,50 @@
 #include "private.h"
 #include "bkgd.h"
 
-static WINDOW*
+static vwnd_t*
 vwm_fmod_exit(vwm_module_t *mod);
 
 int
-vwm_default_border_agent_focus(WINDOW *window, void *anything)
+vwm_default_border_agent_focus(vwnd_t *vwnd, void *anything)
 {
-	WINDOW			*border_wnd;
 	const char		*title;
 	uint32_t		window_state;
  	int		   	    y, x;
 
-	border_wnd = viper_get_window_frame(window);
-	title = viper_window_get_title(window);
+	title = viper_window_get_title(vwnd);
 
-    window_decorate(border_wnd, (char*)title,TRUE);
-    getmaxyx(border_wnd, y, x);
-	mvwprintw(border_wnd,0,x - sizeof("[X]") + 1,"[X]");
+    window_decorate(WINDOW_FRAME(vwnd), (char*)title,TRUE);
+    getmaxyx(WINDOW_FRAME(vwnd), y, x);
+	mvwprintw(WINDOW_FRAME(vwnd), 0, x - sizeof("[X]") + 1,"[X]");
 
-	window_state = viper_window_get_state(window);
-    if(window_state & STATE_NORESIZE) mvwaddch(border_wnd, y - 1, x - 1, '*');
+	window_state = viper_window_get_state(vwnd);
+    if(window_state & STATE_NORESIZE)
+        mvwaddch(WINDOW_FRAME(vwnd), y - 1, x - 1, '*');
 
-    window_modify_border(border_wnd, A_BOLD,
+    window_modify_border(WINDOW_FRAME(vwnd), A_BOLD,
         viper_color_pair(COLOR_WHITE, COLOR_MAGENTA));
 
     return 0;
 }
 
 int
-vwm_default_border_agent_unfocus(WINDOW *window, void *anything)
+vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything)
 {
-	WINDOW		    *border_wnd;
 	const char	    *title;
 	uint32_t	    window_state;
  	int		        y, x;
 
-	border_wnd = viper_get_window_frame(window);
-	title = viper_window_get_title(window);
+	title = viper_window_get_title(vwnd);
 
-    window_decorate(border_wnd, (char*)title, TRUE);
-    getmaxyx(border_wnd, y, x);
-	mvwprintw(border_wnd, 0, x - sizeof("[X]") + 1, "[X]");
+    window_decorate(WINDOW_FRAME(vwnd), (char*)title, TRUE);
+    getmaxyx(WINDOW_FRAME(vwnd), y, x);
+	mvwprintw(WINDOW_FRAME(vwnd), 0, x - sizeof("[X]") + 1, "[X]");
 
-	window_state = viper_window_get_state(window);
-    if(window_state & STATE_NORESIZE) mvwaddch(border_wnd, y - 1, x - 1, '*');
+	window_state = viper_window_get_state(vwnd);
+    if(window_state & STATE_NORESIZE)
+        mvwaddch(WINDOW_FRAME(vwnd), y - 1, x - 1, '*');
 
-    window_modify_border(border_wnd, A_NORMAL,
+    window_modify_border(WINDOW_FRAME(vwnd), A_NORMAL,
 	    viper_color_pair(COLOR_BLACK,COLOR_CYAN));
 
     return 0;
@@ -80,7 +78,7 @@ vwm_default_border_agent_unfocus(WINDOW *window, void *anything)
 void
 vwm_modules_preload(void)
 {
-    WINDOW          *msgbox;
+    vwnd_t          *msgbox;
     char            *error_msg;
     char            *module_dirs[] = {NULL,_VWM_SHARED_MODULES};
     vwm_module_t    *fake_mod;
@@ -96,7 +94,7 @@ vwm_modules_preload(void)
 
         if(error_msg != NULL)
         {
-            msgbox = viper_msgbox_create(" Module Warning! ",
+            msgbox = viper_msgbox_create(0, " Module Warning! ",
                 0.5, 0.5, 0, 0, error_msg,
                 MSGBOX_ICON_WARN | MSGBOX_TYPE_OK);
             viper_window_show(msgbox);
@@ -142,7 +140,7 @@ vwm_modules_preload(void)
 	return;
 }
 
-WINDOW*
+vwnd_t*
 vwm_fmod_exit(vwm_module_t *mod)
 {
     extern int      shutdown;

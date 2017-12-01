@@ -37,7 +37,7 @@ struct _vwm_module_s
 
     struct list_head    list;
 
-    WINDOW*             (*main)             (vwm_module_t*);
+    vwnd_t*             (*main)             (vwm_module_t*);
     void                *anything;
 };
 

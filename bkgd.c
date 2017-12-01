@@ -30,7 +30,7 @@
 #define  MORTAR   (' ' | A_NORMAL)
 
 int
-vwm_bkgd_simple(WINDOW *window, void *arg)
+vwm_bkgd_simple(vwnd_t *vwnd, void *arg)
 {
 	uintmax_t	idx;
     short       color = 0;
@@ -53,29 +53,30 @@ vwm_bkgd_simple(WINDOW *window, void *arg)
    */
 	idx = (uintmax_t)arg;
 
-    viper_wresize_abs(window, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
+    viper_wresize_abs(vwnd, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
 
     color = viper_color_pair(fg[idx], bg[idx]);
 
 #ifdef _VIPER_WIDE
 	setcchar(&bg_char, ch[idx], 0, 0, NULL);
-	window_fill(window, &bg_char, color, A_NORMAL);
+	window_fill(VWINDOW(vnd), &bg_char, color, A_NORMAL);
 #else
-    window_fill(window, ch[idx], color, attr[idx]);
+    window_fill(VWINDOW(vwnd), ch[idx], color, attr[idx]);
 #endif
 
-    getmaxyx(window, height, width);
+    getmaxyx(VWINDOW(vwnd), height, width);
     color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
 	sprintf(version_str, " VWM %s ", VWM_VERSION);
-	wattron(window, COLOR_PAIR(color));
-	mvwprintw(window, height - 1, width - (strlen(version_str)), version_str);
-	wattron(window, A_NORMAL);
+	wattron(VWINDOW(vwnd), COLOR_PAIR(color));
+	mvwprintw(VWINDOW(vwnd), height - 1, width - (strlen(version_str)),
+        version_str);
+	wattron(VWINDOW(vwnd), A_NORMAL);
 
 	return 0;
 }
 
 int
-vwm_bkgd_bricks(WINDOW *window,void *arg)
+vwm_bkgd_bricks(vwnd_t *vwnd, void *arg)
 {
     uintmax_t       idx;
     char            version_str[32];
@@ -106,10 +107,10 @@ vwm_bkgd_bricks(WINDOW *window,void *arg)
     */
     idx = (uintmax_t)arg;
 
-    viper_wresize_abs(window, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
-    wattroff(window, A_REVERSE);
+    viper_wresize_abs(vwnd, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
+    wattroff(VWINDOW(vwnd), A_REVERSE);
 
-    getmaxyx(window, height, width);
+    getmaxyx(VWINDOW(vwnd), height, width);
     cell_count = width * height;
 
     if(idx == 0)
@@ -121,8 +122,8 @@ vwm_bkgd_bricks(WINDOW *window,void *arg)
             x = i % width;
             y = (int)(i / width);
 
-            wmove(window, y, x);
-            waddch(window,
+            wmove(VWINDOW(vwnd), y, x);
+            waddch(VWINDOW(vwnd),
             brick[y % SPRITE_ROWS(brick)][x % SPRITE_COLS(brick)] | COLOR_PAIR(color));
         }
     }
@@ -132,18 +133,19 @@ vwm_bkgd_bricks(WINDOW *window,void *arg)
         color = viper_color_pair(COLOR_BLACK,COLOR_WHITE);
 #ifdef _VIPER_WIDE
         setcchar(&bg_char, ch[idx], 0, 0, NULL);
-        window_fill(window, &bg_char, color, A_NORMAL);
+        window_fill(VWINDOW(vwnd), &bg_char, color, A_NORMAL);
 #else
-        window_fill(window, ch[idx], color, A_NORMAL);
+        window_fill(VWINDOW(vwnd), ch[idx], color, A_NORMAL);
 #endif
     }
 
-    getmaxyx(window, height, width);
+    getmaxyx(VWINDOW(vwnd), height, width);
     color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
     sprintf(version_str, " VWM %s ", VWM_VERSION);
-    wattron(window, COLOR_PAIR(color));
-    mvwprintw(window,height - 1, width - (strlen(version_str)), version_str);
-    wattron(window, A_NORMAL);
+    wattron(VWINDOW(vwnd), COLOR_PAIR(color));
+    mvwprintw(VWINDOW(vwnd), height - 1, width - (strlen(version_str)),
+        version_str);
+    wattron(VWINDOW(vwnd), A_NORMAL);
 
     return 0;
 }

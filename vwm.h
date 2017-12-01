@@ -99,11 +99,11 @@ pt_context_t;
 /*	startup functions	*/
 vwm_t*          vwm_init(void);
 #define			vwm_get_instance()	            (vwm_init())
-void 			vwm_hook_enter(VIPER_FUNC func, void *arg);
-void			vwm_hook_leave(VIPER_FUNC func, void *arg);
+void 			vwm_hook_enter(ViperFunc func, void *arg);
+void			vwm_hook_leave(ViperFunc func, void *arg);
 
 /* panel facilities  */
-WINDOW*         vwm_panel_init(void);
+vwnd_t*         vwm_panel_init(void);
 #define         vwm_panel_get_instance()         (vwm_panel_init())
 int16_t         vwm_panel_ctrl(uint32_t ctrl, int16_t val);
 #define         vwm_panel_freeze_set(timeout) \
@@ -131,7 +131,7 @@ void            vwm_module_get_title(vwm_module_t *mod, char *buf, int buf_sz);
 void            vwm_module_set_userptr(vwm_module_t *mod, void *anything);
 void*           vwm_module_get_userptr(vwm_module_t *mod);
 int 		    vwm_module_add(const vwm_module_t *mod);
-WINDOW*         vwm_module_exec(vwm_module_t *mod);
+vwnd_t*         vwm_module_exec(vwm_module_t *mod);
 
 vwm_module_t*   vwm_module_find_by_title(char *title);
 vwm_module_t*   vwm_module_find_by_type(vwm_module_t *prev, int type);

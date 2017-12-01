@@ -56,9 +56,9 @@ vwm_kmio_dispatch_hook_enter(int32_t keystroke)
         vwm->state ^= VWM_STATE_ACTIVE;
 
         if(vwm->state & VWM_STATE_ACTIVE)
-            vwm_default_VWM_START((void*)TOPMOST_WINDOW);
+            vwm_default_VWM_START((void*)TOPMOST_MANAGED);
         else
-            vwm_default_VWM_STOP((void*)TOPMOST_WINDOW);
+            vwm_default_VWM_STOP((void*)TOPMOST_MANAGED);
 
         return -1;
     }
@@ -68,30 +68,30 @@ vwm_kmio_dispatch_hook_enter(int32_t keystroke)
         switch(keystroke)
         {
             case 17:
-                vwm_default_WINDOW_CLOSE(TOPMOST_WINDOW); return -1;
+                vwm_default_WINDOW_CLOSE(TOPMOST_MANAGED); return -1;
             case KEY_TAB:
                 vwm_default_WINDOW_CYCLE(); return -1;
             case KEY_UP:
-                vwm_default_WINDOW_MOVE_UP(TOPMOST_WINDOW); return -1;
+                vwm_default_WINDOW_MOVE_UP(TOPMOST_MANAGED); return -1;
             case KEY_DOWN:
-                vwm_default_WINDOW_MOVE_DOWN(TOPMOST_WINDOW); return -1;
+                vwm_default_WINDOW_MOVE_DOWN(TOPMOST_MANAGED); return -1;
             case KEY_LEFT:
-                vwm_default_WINDOW_MOVE_LEFT(TOPMOST_WINDOW); return -1;
+                vwm_default_WINDOW_MOVE_LEFT(TOPMOST_MANAGED); return -1;
             case KEY_RIGHT:
-                vwm_default_WINDOW_MOVE_RIGHT(TOPMOST_WINDOW); return -1;
+                vwm_default_WINDOW_MOVE_RIGHT(TOPMOST_MANAGED); return -1;
 
             case KEY_PLUS:
             case KEY_CTRL_DOWN:
-                vwm_default_WINDOW_INCREASE_HEIGHT(TOPMOST_WINDOW); return -1;
+                vwm_default_WINDOW_INCREASE_HEIGHT(TOPMOST_MANAGED); return -1;
             case KEY_MINUS:
             case KEY_CTRL_UP:
-                vwm_default_WINDOW_DECREASE_HEIGHT(TOPMOST_WINDOW); return -1;
+                vwm_default_WINDOW_DECREASE_HEIGHT(TOPMOST_MANAGED); return -1;
             case KEY_GREATER_THAN:
             case KEY_CTRL_RIGHT:
-                vwm_default_WINDOW_INCREASE_WIDTH(TOPMOST_WINDOW); return -1;
+                vwm_default_WINDOW_INCREASE_WIDTH(TOPMOST_MANAGED); return -1;
             case KEY_LESS_THAN:
             case KEY_CTRL_LEFT:
-                vwm_default_WINDOW_DECREASE_WIDTH(TOPMOST_WINDOW); return -1;
+                vwm_default_WINDOW_DECREASE_WIDTH(TOPMOST_MANAGED); return -1;
 
             default:
                 // endwin();
@@ -168,10 +168,8 @@ vwm_default_VWM_STOP(WINDOW *topmost_window)
 }
 
 void
-vwm_default_WINDOW_CLOSE(WINDOW *topmost_window)
+vwm_default_WINDOW_CLOSE(vwnd_t *vwnd)
 {
-	viper_event_run(topmost_window,"window-close");
-
 	return;
 }
 

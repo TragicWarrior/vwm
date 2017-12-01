@@ -30,38 +30,25 @@
 
 #define MAX_MENU_ITEMS  128
 
-WINDOW*
+vwnd_t vwnd*
 vwm_main_menu(void)
 {
-    extern WINDOW   *SCREEN_WINDOW;
-	MENU            *menu = NULL;
-	WINDOW 		    *window;
+    vk_listbox_t    *menu;
+    vwnd_t          *vwnd;
 	int			    width = 0,height = 0;
     int             screen_height;
 
 	vwm_module_t	*vwm_module;
     char            buf[NAME_MAX];
 
-    char			**item_list;
-    int             idx = 0;
     int             i;
 
     // allocate storage for a total of MAX_MENU_ITEMS
-    item_list = (char**)calloc(1, sizeof(char*) * (MAX_MENU_ITEMS + 1));
-
-    item_list[idx] = strdup_printf(" ");
-    idx++;
+    menu = vk_listbox_create(8, 12);
 
     // iterate through the categories defined in modules.def
     for(i = 0;i < VWM_MOD_TYPE_MAX;i++)
     {
-        // skip screensaver type modules.  they are a special class.
-        if(i == VWM_MOD_TYPE_SCREENSAVER) continue;
-
-        // print the menu category (type) to the window
-        item_list[idx] = strdup_printf("%s", modtype_desc[i]);
-        idx++;
-
         vwm_module = NULL;
 
         do
@@ -72,41 +59,13 @@ vwm_main_menu(void)
             if(vwm_module == NULL) break;
 
             vwm_module_get_title(vwm_module, buf, sizeof(buf) - 1);
-            item_list[idx] = strdup_printf("..%s", buf);
-            idx++;
+            vk_listbox_add_item(buf);
         }
         while(vwm_module != NULL);
-
-        // add a space before the next menu category
-        if(idx < MAX_MENU_ITEMS)
-        {
-            item_list[idx] = strdup_printf(" ");
-            idx++;
-        }
     }
 
-    menu = viper_menu_create(item_list);
-    while(idx != -1)
-    {
-        free(item_list[idx]);
-        idx--;
-    }
-    free(item_list);
-
-	// hide character mark on left hand side
-	set_menu_mark(menu, " ");
-
-    window_get_size_scaled(SCREEN_WINDOW,NULL, &screen_height, 0, 0.80);
-
-	scale_menu(menu, &height, &width);
-	width++;
-	if(width < 16) width = 16;
-
- 	// override the default of 1 column X 16 entries per row
-    if(height > (screen_height - 4)) height = screen_height - 4;
-	set_menu_format(menu, height, 1);
-
-	window = viper_window_create(" Menu ", 1, 2, width, height, TRUE);
+	vwnd = viper_window_create(CURRENT_SCREEN_ID, " Menu ", 1, 2,
+        width, height, TRUE);
     /*
         todo:   it would be nice if the user could resize the menu
                 (especially in the horizonal direction) and add more
@@ -115,17 +74,12 @@ vwm_main_menu(void)
                 lines of code for the event window-resized.  for now,
                 just don't allow it
     */
-	set_menu_win(menu, window);
-	set_menu_fore(menu, VIPER_COLORS(COLOR_WHITE, COLOR_BLUE) | A_BOLD);
-	set_menu_back(menu, VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
-	menu_opts_off(menu, O_NONCYCLIC);
-	post_menu(menu);
-    vwm_menu_marshall(menu, REQ_DOWN_ITEM);
+    vk_widget_set_canvas(VK_WIDGET(menu), VWINDOW(vwnd));
 
-	viper_event_set(window, "window-close",
+	viper_event_set(vwnd, "window-close",
         vwm_main_menu_ON_CLOSE, (void*)menu);
-	viper_window_set_key_func(window, vwm_main_menu_ON_KEYSTROKE);
-	viper_window_set_userptr(window, (void*)menu);
+	viper_window_set_key_func(vwnd, vwm_main_menu_ON_KEYSTROKE);
+	viper_window_set_userptr(vwnd, (void*)menu);
 
 	return window;
 }
@@ -138,97 +92,26 @@ gint vwm_main_menu_ON_ACTIVATE(WINDOW *window,gpointer arg)
 }
 */
 
-int vwm_main_menu_ON_CLOSE(WINDOW *window, void *arg)
+int
+vwm_main_menu_ON_CLOSE(vwnd_t *vwnd, void *arg)
 {
-	viper_menu_destroy((MENU*)arg,TRUE);
+	// viper_menu_destroy((MENU*)arg, TRUE);
 
-	return VIPER_EVENT_WINDOW_DESIST;
+    vk_listbox_destroy(VK_LISTBOX(arg));
+
+	return 0;
 }
 
 int
-vwm_main_menu_ON_KEYSTROKE(int32_t keystroke, WINDOW *window)
+vwm_main_menu_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 {
-	MENU            *menu = NULL;
-	MEVENT		    mevent;
-	char		    *item_text = NULL;
-	WINDOW		    *new_window;
-	vwm_module_t    *vwm_module;
+    vk_listbox_t    *menu;
 
-	menu = (MENU*)viper_window_get_userptr(window);
+	menu = (MENU*)viper_window_get_userptr(vwnd);
     if(keystroke == -1) return 1;
 
-    // viper_thread_enter();
+    vk_object_push_kmio(VK_OBJECT(menu), keystroke);
 
-	if(keystroke == KEY_MOUSE)
-	{
-		menu_driver(menu,keystroke);
-        vwm_menu_marshall(menu,REQ_DOWN_ITEM);
-		getmouse(&mevent);
-		if(mevent.bstate & BUTTON1_DOUBLE_CLICKED) keystroke = KEY_CRLF;
-        else
-        {
-            viper_window_redraw(window);
-            // viper_thread_leave();
-            return 1;
-        }
-	}
-
-    if(keystroke == 's')
-    {
-        /*
-            new_window = viper_filedlg_create(window,
-                " Pick a file... ",0.5,0.5,0.5,0.5,
-                NULL,FILEDLG_VIEW_EXTENDED);
-            new_window = viper_filedlg_create(window,
-                " Pick a file... ",0.5,0.5,0.5,0.5,
-                NULL,FILEDLG_VIEW_BASIC | FILEDLG_SHOW_CTIME);
-        */
-        /* new_window = viper_filedlg_create(window," Pick a file... ",
-			0.5,0.5,0.8,0.5,NULL,FILEDLG_FULL);
-        viper_window_set_top(new_window); */
-    }
-
-    if(keystroke == 'm')
-    {
-        new_window = viper_msgbox_create("test", 0.5, 0.5, 40, 10,
-            "This is a test.\r\nShould be multi-line.",
-            MSGBOX_ICON_INFO);
-        if(new_window != NULL) viper_window_set_top(new_window);
-    }
-
-	if(keystroke == KEY_UP)
-    {
-        menu_driver(menu,REQ_UP_ITEM);
-        vwm_menu_marshall(menu,REQ_UP_ITEM);
-    }
-
-	if(keystroke == KEY_DOWN)
-    {
-        menu_driver(menu,REQ_DOWN_ITEM);
-        vwm_menu_marshall(menu,REQ_DOWN_ITEM);
-    }
-
-	if(keystroke == KEY_CRLF)
-	{
-        item_text = (char*)item_name(current_item(menu));
-		vwm_module = vwm_module_find_by_title(&item_text[2]);
-		if(vwm_module != NULL)
-		{
-			// new_window = vwm_module->mod_main(vwm_module->anything);
-            new_window = vwm_module_exec(vwm_module);
-            viper_window_close(window);
-			if(new_window != NULL)
-            {
-                viper_window_set_top(new_window);
-                viper_screen_redraw(REDRAW_ALL);
-            }
-
-			return 1;
-		}
-	}
-
-	viper_window_redraw(window);
-	// viper_thread_leave();
 	return 1;
 }
 
@@ -255,20 +138,20 @@ vwm_menu_marshall(MENU *menu, int32_t key_vector)
 int
 vwm_main_menu_hotkey(void)
 {
-	WINDOW *window;
+	vwnd_t  *vwnd;
 
-	window = viper_window_find_by_class(vwm_main_menu);
+	vwnd = viper_window_find_by_class(-1, TRUE, vwm_main_menu);
 
-	if(window != NULL)
+	if(vwnd != NULL)
 	{
-		viper_window_close(window);
+		viper_window_close(vwnd);
 
 		return 0;
 	}
 
-	window = vwm_main_menu();
-	viper_window_set_class(window, vwm_main_menu);
-	viper_window_set_top(window);
+	vwnd = vwm_main_menu();
+	viper_window_set_class(vwnd, vwm_main_menu);
+	viper_window_set_top(vwnd);
 
 	return 0;
 }

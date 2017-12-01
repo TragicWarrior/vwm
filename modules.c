@@ -68,18 +68,18 @@ vwm_module_get_title(vwm_module_t *mod, char *buf, int buf_sz)
     return;
 }
 
-WINDOW*
+vwnd_t*
 vwm_module_exec(vwm_module_t *mod)
 {
-    WINDOW  *window;
+    vwnd_t  *vwnd;
 
     if(mod == NULL) return NULL;
 
     if(mod->main == NULL) return NULL;
 
-    window = mod->main(mod);
+    vwnd = mod->main(mod);
 
-    return window;
+    return vwnd;
 }
 
 

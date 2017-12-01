@@ -171,7 +171,7 @@ int main(int argc,char **argv)
     viper_kmio_dispatch_set_hook(KMIO_HOOK_ENTER,
         vwm_kmio_dispatch_hook_enter);
 
-	viper_screen_redraw(REDRAW_ALL);
+	viper_screen_redraw(0, REDRAW_ALL);
 
     vwm_modules_preload();
 
@@ -218,7 +218,7 @@ vwm_init(void)
 
 	if(vwm == NULL)
 	{
-        wallpaper_wnd = viper_screen_get_wallpaper();
+        wallpaper_wnd = viper_screen_get_wallpaper(0);
 
  		vwm = (vwm_t*)calloc(1, sizeof(vwm_t));
         vwm->wallpaper_agent = vwm_bkgd_simple;
