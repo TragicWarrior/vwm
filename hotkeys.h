@@ -20,15 +20,15 @@ Press [Ctrl+Q] to close a window."
 
 int32_t vwm_kmio_dispatch_hook_enter(int32_t keystroke);
 
-void    vwm_default_VWM_START(WINDOW *topmost_window);
-void    vwm_default_VWM_STOP(WINDOW *topmost_window);
+void    vwm_default_VWM_START(vwnd_t *topmost_window);
+void    vwm_default_VWM_STOP(vwnd_t *topmost_window);
 
 void    vwm_default_WINDOW_CYCLE(void);
 
-void    vwm_default_WINDOW_CLOSE(WINDOW *topmost_window);
-void    vwm_default_WINDOW_MOVE_UP(WINDOW *topmost_window);
-void    vwm_default_WINDOW_MOVE_DOWN(WINDOW *topmost_window);
-void    vwm_default_WINDOW_MOVE_LEFT(WINDOW *topmost_window);
-void    vwm_default_WINDOW_MOVE_RIGHT(WINDOW *topmost_window);
+void    vwm_default_WINDOW_CLOSE(vwnd_t *topmost_window);
+void    vwm_default_WINDOW_MOVE_UP(vwnd_t *topmost_window);
+void    vwm_default_WINDOW_MOVE_DOWN(vwnd_t *topmost_window);
+void    vwm_default_WINDOW_MOVE_LEFT(vwnd_t *topmost_window);
+void    vwm_default_WINDOW_MOVE_RIGHT(vwnd_t *topmost_window);
 
 #endif

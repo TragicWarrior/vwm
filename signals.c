@@ -21,7 +21,7 @@
    future.
 */
 struct sigaction*
-vwm_sigset(int signum,sighandler_t handler)
+vwm_sigset(int signum, sighandler_t handler)
 {
     struct sigaction    *action;
     sigset_t            old_mask;
@@ -38,13 +38,14 @@ vwm_sigset(int signum,sighandler_t handler)
 
     free(action);
 
+    (void)signum;
+
     return NULL;
 }
 
 #ifdef _DEBUG
 void vwm_backtrace(int signum)
 {
-    extern sig_atomic_t     wake_counter;
     char                    *term_name=NULL;
     void                    *array[10];
     size_t                  count;
@@ -65,8 +66,6 @@ void vwm_backtrace(int signum)
     count = backtrace(array, 10);
     strings = backtrace_symbols(array, count);
 
-    printf("wake_counter %d\n", (int)wake_counter);
-
     printf("caught signal %d\n\r", signum);
     printf("obtained %zd stack frames.\n", count);
 
@@ -86,9 +85,9 @@ void vwm_backtrace(int signum)
 void
 vwm_SIGIO(int signum)
 {
-	extern sig_atomic_t    wake_counter;
+    // noop for now
 
-    wake_counter++;
-
-	return;
+    (void)signum;
 }
+
+

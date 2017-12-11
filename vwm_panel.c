@@ -46,8 +46,7 @@ vwm_panel_init(void)
     vwm_panel->tick_rate = 2;
     vwm_panel->thaw_rate = 3;
 
-	// viper_thread_enter();
-	vwnd = viper_window_create(0, "vwm panel", 0, 0, WSIZE_FULLSCREEN, 1, FALSE);
+	vwnd = viper_window_create(0, FALSE, "vwm panel", 0, 0, WSIZE_FULLSCREEN, 1);
 	wbkgdset(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
     viper_event_set(vwnd, "vwm-clock-tick", vwm_panel_ON_CLOCK_TICK,
         (void*)vwm_panel);
@@ -64,6 +63,7 @@ vwm_panel_init(void)
 
     INIT_LIST_HEAD(&vwm_panel->msg_list);
 
+    viper_window_set_visible(vwnd, TRUE);
 	viper_window_redraw(vwnd);
 
     // squelch compiler warning
@@ -114,7 +114,8 @@ vwm_panel_ON_CLOCK_TICK(vwnd_t *vwnd, void *arg)
     vwm_panel->clock++;
 
     /* update throbber on every tick (currently 1/10 sec). */
-    vwm_panel_update_throbber(vwnd);
+    if((vwm_panel->clock % 5) == 0)
+        vwm_panel_update_throbber(vwnd);
 
     /* update clock and marshall the panel once every second.  */
     if((vwm_panel->clock % VWM_CLOCK_TICKS_PER_SEC) == 0)

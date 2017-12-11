@@ -36,13 +36,14 @@
 int
 vwm_mod_init(vwm_module_t *mod);
 
-static WINDOW*
+static vwnd_t*
 vwmterm_main(vwm_module_t *mod);
 
 // constructor
 int
 vwm_mod_init(vwm_module_t *mod)
 {
+    vwmterm_data_t  *vwmterm_data;
     void            *dynlib;
     int             retval;
 
@@ -54,13 +55,24 @@ vwm_mod_init(vwm_module_t *mod)
     dynlib = dlopen("libvterm.so",RTLD_LAZY | RTLD_GLOBAL);
     if(dynlib == NULL) return -1;
 
-	// configure and register module
-    mod = vwm_module_create();
-    vwm_module_set_title(mod,"VTerm");
-    vwm_module_set_type(mod,VWM_MOD_TYPE_TOOL);
+	// configure and register module for color instance
+    vwmterm_data = calloc(1, sizeof(vwmterm_data_t));
 
     mod->main = vwmterm_main;
+    vwm_module_set_title(mod, "VTerm (color)");
+    vwm_module_set_type(mod, VWM_MOD_TYPE_TOOL);
+    vwm_module_set_userptr(mod, (void *)vwmterm_data);
+	retval = vwm_module_add(mod);
 
+	// allloc, configure, and register module for vt100 instance
+    vwmterm_data = calloc(1, sizeof(vwmterm_data_t));
+    mod = vwm_module_create();
+
+    mod->main = vwmterm_main;
+    vwm_module_set_title(mod, "VTerm (vt100)");
+    vwm_module_set_type(mod, VWM_MOD_TYPE_TOOL);
+    vwmterm_data->flags |= VTERM_FLAG_VT100;
+    vwm_module_set_userptr(mod, (void *)vwmterm_data);
 	retval = vwm_module_add(mod);
 
     if(retval != 0) exit(-1);
@@ -68,20 +80,19 @@ vwm_mod_init(vwm_module_t *mod)
 	return 0;
 }
 
-WINDOW*
+vwnd_t*
 vwmterm_main(vwm_module_t *mod)
 {
-    extern WINDOW           *SCREEN_WINDOW;
     vterm_t                 *vterm;
-	WINDOW	      	        *window;
-	int		      	        width,height;
+	vwnd_t	      	        *vwnd;
+	int		      	        width, height;
 
     extern protothread_t    pt[2];
     pt_context_t            *ctx_vwmterm;
     vwmterm_data_t          *vwmterm_data;
     extern int              shutdown;
 
-    getmaxyx(SCREEN_WINDOW,height,width);
+    getmaxyx(CURRENT_SCREEN, height, width);
     if(height > 30 && width > 84)
     {
         height = 25;
@@ -90,36 +101,39 @@ vwmterm_main(vwm_module_t *mod)
     else
     {
         // calculate scaled window size
-	    window_get_size_scaled(NULL,&width,&height,0.85,0.65);
+	    window_get_size_scaled(NULL, &width, &height, 0.85, 0.65);
 	    if(width > 80) width = 80;
 	    if(height > 25) height = 25;
     }
 
-    vterm = vterm_create(width,height,VTERM_FLAG_RXVT);
-    vterm_set_colors(vterm,COLOR_WHITE,COLOR_BLACK);
+    vwmterm_data = (vwmterm_data_t*)vwm_module_get_userptr(mod);
+
+    vterm = vterm_create(width, height, vwmterm_data->flags);
+    vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
 
     // setup SIGIO responsiveness
     vterm_init_sigio(vterm);
 
     // create window
-	window = viper_window_create(" VTerm ",0.5,0.5,width,height,TRUE);
-    viper_window_set_resizable(window, TRUE);
-	viper_window_set_limits(window,15,2,WSIZE_UNCHANGED,WSIZE_UNCHANGED);
+	vwnd = viper_window_create(CURRENT_SCREEN_ID, TRUE, " VTerm ",
+        0.5, 0.5, width, height);
+    viper_window_set_resizable(vwnd, TRUE);
+	viper_window_set_limits(vwnd, 15, 2, WSIZE_UNCHANGED, WSIZE_UNCHANGED);
 
     // libviper set the default bkgd OR to WHITE on BLACK.  undo it.
-    wbkgdset(window,0);
-	wattron(window,VIPER_COLORS(COLOR_WHITE,COLOR_BLACK));
+    wbkgdset(VWINDOW(vwnd), 0);
+	wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_WHITE,COLOR_BLACK));
 
     // init terminal
-    vterm_wnd_set(vterm,window);
+    vterm_wnd_set(vterm, VWINDOW(vwnd));
     vterm_erase(vterm);
 
     // allocate thread context and stateful data
     ctx_vwmterm = malloc(sizeof(pt_context_t));
-    vwmterm_data = malloc(sizeof(vwmterm_data_t));
+    // vwmterm_data = malloc(sizeof(vwmterm_data_t));
 
     // initialize stateful data
-    vwmterm_data->window = window;
+    vwmterm_data->vwnd = vwnd;
     vwmterm_data->vterm = vterm;
     vwmterm_data->state = VWMTERM_STATE_RUNNING;
 
@@ -127,18 +141,18 @@ vwmterm_main(vwm_module_t *mod)
     ctx_vwmterm->shutdown = &shutdown;
 
     // attach event handlers
-	viper_event_set(window, "window-resized",
+	viper_event_set(vwnd, "window-resized",
         vwmterm_ON_RESIZE, (void*)vterm);
-	viper_event_set(window,"window-close",
+	viper_event_set(vwnd, "window-close",
         vwmterm_ON_CLOSE, (void*)vterm);
-	viper_event_set(window,"window-destroy",
+	viper_event_set(vwnd, "window-destroy",
         vwmterm_ON_DESTROY, (void*)vwmterm_data);
-	viper_window_set_key_func(window,
+	viper_window_set_key_func(vwnd,
         vwmterm_ON_KEYSTROKE);
-	viper_window_set_userptr(window, (void*)vterm);
+	viper_window_set_userptr(vwnd, (void*)vterm);
 
     pt_create(pt[PT_PRIORITY_NORMAL], &ctx_vwmterm->pt_thread,
         vwmterm_thd, ctx_vwmterm);
 
-	return window;
+	return vwnd;
 }

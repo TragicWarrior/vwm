@@ -68,6 +68,24 @@ vwm_module_get_title(vwm_module_t *mod, char *buf, int buf_sz)
     return;
 }
 
+void
+vwm_module_set_userptr(vwm_module_t *mod, void *anything)
+{
+    if(mod == NULL) return;
+
+    mod->anything = anything;
+
+    return;
+}
+
+void*
+vwm_module_get_userptr(vwm_module_t *mod)
+{
+    if(mod == NULL) return NULL;
+
+    return mod->anything;
+}
+
 vwnd_t*
 vwm_module_exec(vwm_module_t *mod)
 {
@@ -100,7 +118,7 @@ vwm_modules_load(char *module_dir)
         search_dir = opendir(module_dir);
     if(search_dir == NULL)
     {
-        buffer = strdup_printf("error opening module directory:\n%s",
+        buffer = strdup_printf("[EE] Error opening module directory:\n%s",
             module_dir);
 
         return buffer;
@@ -174,21 +192,6 @@ vwm_module_add(const vwm_module_t *mod)
     if(strlen(mod->modpath) > NAME_MAX - 1) return -1;
 
 	vwm = vwm_get_instance();
-
-	// make sure app is not already loaded
-    list_for_each(pos, &vwm->module_list)
-    {
-        module = list_entry(pos, vwm_module_t, list);
-
-        if(strncmp(module->modpath, mod->modpath, NAME_MAX) == 0)
-        {
-            // if the module already exists, return -2 so that
-            // _vwm_module_init will free the memory
-            return -2;
-        }
-
-        module = NULL;
-    }
 
 	// add the application to the list
     list_add(&mod->list, &vwm->module_list);
@@ -285,7 +288,7 @@ _vwm_module_init(const char *modpath)
     }
 
     mod = (vwm_module_t*)calloc(1, sizeof(vwm_module_t));
-    strncpy(mod->modpath,modpath, NAME_MAX - 1);
+    strncpy(mod->modpath, modpath, NAME_MAX - 1);
 
     // call the module constructor
     retval = constructor(mod);
@@ -297,6 +300,20 @@ _vwm_module_init(const char *modpath)
         dlclose(handle);
         return -3;
     }
+
+    return 0;
+}
+
+int
+vwm_menu_helper(vk_widget_t *widget, void *anything)
+{
+    vwm_module_t    *module;
+
+    if(anything == NULL) return NULL;
+
+    module = (vwm_module_t *)anything;
+
+    module->main(anything);
 
     return 0;
 }

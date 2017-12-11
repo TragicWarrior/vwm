@@ -53,7 +53,6 @@
 #include "list.h"
 #include "clock.h"
 #include "poll_input_thd.h"
-#include "sleep_thd.h"
 
 /*
    According to GNU libc documentation. sig_atomic_t "is always atomic...
@@ -64,9 +63,6 @@
 
 protothread_t           pt[2];
 int                     shutdown = 0;
-
-// the wake_counter causes a sleep cycle to be postponed
-sig_atomic_t            wake_counter = 0;
 
 unsigned int            clock_tick = 0;
 
@@ -83,41 +79,31 @@ int main(int argc,char **argv)
 	int						flags;
 
     extern int              shutdown;
-    extern sig_atomic_t     wake_counter;
 
     extern protothread_t    pt[2];
     bool                    pt_status[2];
     unsigned int            pt_selector;
     pt_context_t            *ctx_clock;
     pt_context_t            *ctx_poll_input;
-    pt_context_t            *ctx_sleep;
     clock_data_t            *clock_data;
 
     pt[PT_PRIORITY_NORMAL] = protothread_create();
     pt[PT_PRIORITY_HIGH] = protothread_create();
+
+    // setup protothread for clock
     ctx_clock = malloc(sizeof(pt_context_t));
-    ctx_poll_input = malloc(sizeof(pt_context_t));
-    ctx_sleep = malloc(sizeof(pt_context_t));
-
-    // attach the shutdown flag to all of the protothread contexts
-    ctx_clock->shutdown = &shutdown;
-    ctx_poll_input->shutdown = &shutdown;
-    ctx_sleep->shutdown = &shutdown;
-
     clock_data = vwm_clock_init();
-
+    ctx_clock->shutdown = &shutdown;
     ctx_clock->anything = (void *)clock_data;
-    ctx_sleep->anything = (void *)&wake_counter;
+
+    // setup prototrhead for input polling
+    ctx_poll_input = malloc(sizeof(pt_context_t));
+    ctx_poll_input->shutdown = &shutdown;
 
     pt_create(pt[PT_PRIORITY_NORMAL], &ctx_clock->pt_thread,
                 vwm_clock_driver, ctx_clock);
     pt_create(pt[PT_PRIORITY_HIGH], &ctx_poll_input->pt_thread,
                 vwm_poll_input, ctx_poll_input);
-
-/*
-    pt_create(pt[PT_PRIORITY_HIGH], &ctx_sleep->pt_thread,
-                vwm_sleep_driver, ctx_sleep);
-*/
 
     vwm_argc = argc;
     vwm_argv = argv;
@@ -171,24 +157,12 @@ int main(int argc,char **argv)
     viper_kmio_dispatch_set_hook(KMIO_HOOK_ENTER,
         vwm_kmio_dispatch_hook_enter);
 
+    viper_screen_redraw(0, REDRAW_BACKGROUND);
 	viper_screen_redraw(0, REDRAW_ALL);
 
     vwm_modules_preload();
 
-/* this will load the default screensaver but it will be immediately
-   overridden if by vwm_settings_load() if the user has specified something
-   different in their ~/.vwm/vwmrc file.  */
-
-/*
-#ifdef _VWM_SCREENSAVER_TIMEOUT
-   vwm_scrsaver_timeout_set(_VWM_SCREENSAVER_TIMEOUT);
-   vwm_scrsaver_set("SysSaver");
-#endif
-*/
-
     vwm_settings_load(VWM_RC_FILE);
-
-    // vwm_scrsaver_start();
 
     vwm_panel_message_add(VWM_MAIN_MENU_HELP,-1);
 
@@ -214,20 +188,29 @@ vwm_t*
 vwm_init(void)
 {
 	static vwm_t    *vwm = NULL;
-    WINDOW          *wallpaper_wnd;
+    int             width;
+    int             height;
+    int             screen_id;
 
 	if(vwm == NULL)
 	{
-        wallpaper_wnd = viper_screen_get_wallpaper(0);
+        screen_id = CURRENT_SCREEN_ID;
+        getmaxyx(CURRENT_SCREEN, height, width);
 
  		vwm = (vwm_t*)calloc(1, sizeof(vwm_t));
-        vwm->wallpaper_agent = vwm_bkgd_simple;
 
-        // initialize wallpaper
-        vwm->wallpaper_agent(wallpaper_wnd, (void*)0);
+        vwm->wallpaper[screen_id] = newwin(height, width, 0, 0);
+
+        // endwin();
+        // printf("%x\n", vwm->wallpaper[screen_id]);
+        // exit(0);
+
+        viper_screen_set_wallpaper(screen_id, vwm->wallpaper[screen_id],
+            vwm_bkgd_simple_normal);
 
         INIT_LIST_HEAD(&vwm->module_list);
     }
 
 	return vwm;
 }
+

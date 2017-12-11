@@ -39,7 +39,7 @@
 
 pt_t vwmterm_thd(void * const env)
 {
-    WINDOW          *window;
+    vwnd_t          *vwnd;
     vterm_t         *vterm;
     ssize_t         bytes_read;
     ssize_t         total_bytes = 0;
@@ -57,14 +57,14 @@ pt_t vwmterm_thd(void * const env)
         // check to see if thread is exiting
         if(vwmterm_data->state == VWMTERM_STATE_EXITING) break;
 
-        window = vwmterm_data->window;
+        vwnd = vwmterm_data->vwnd;
         vterm = vwmterm_data->vterm;
 
         bytes_read = vterm_read_pipe(vterm);
 
         if(bytes_read == 0)
         {
-            if(total_bytes > 0) viper_window_redraw(window);
+            if(total_bytes > 0) viper_window_redraw(vwnd);
 
             pt_yield(ctx_vwmterm);
 
@@ -72,12 +72,7 @@ pt_t vwmterm_thd(void * const env)
         }
 
         // handle pipe error condition
-        if(bytes_read == -1)
-        {
-            viper_window_destroy(window);
-            // TODO: destroy vterm, vwmterm_data
-            break;
-        }
+        if(bytes_read == -1) break;
 
         if(bytes_read > 0)
         {
@@ -87,8 +82,11 @@ pt_t vwmterm_thd(void * const env)
     }
     while(!(*ctx_vwmterm->shutdown));
 
-    vwmterm_data = (vwmterm_data_t *)ctx_vwmterm->anything;
-    vterm_destroy(vwmterm_data->vterm);
+    viper_window_close(vwnd);
+
+
+    // vwmterm_data = (vwmterm_data_t *)ctx_vwmterm->anything;
+    // vterm_destroy(vwmterm_data->vterm);
 
     // pt_kill(&ctx_vwmterm->pt_thread);
     free(ctx_vwmterm);

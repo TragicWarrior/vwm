@@ -11,13 +11,16 @@
 
 #include <protothread.h>
 
+#include "viper.h"
 #include "list.h"
 
 struct _vwm_s
 {
     struct list_head    module_list;
-    ViperFunc           wallpaper_agent;
-    //VWM_SCRSAVER        screen_saver;
+
+    WINDOW              *wallpaper[4];
+    int                 (*wallpaper_agent)  (WINDOW *, void *);
+
     uint32_t            state;
 };
 
@@ -37,5 +40,7 @@ int 	vwm_hook_wm_stop(WINDOW *window, void *arg);
 
 /* helpers  */
 void    vwm_modules_preload(void);
+
+int     vwm_exit(vk_widget_t *widget, void *anything);
 
 #endif

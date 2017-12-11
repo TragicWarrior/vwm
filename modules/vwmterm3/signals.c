@@ -35,7 +35,6 @@ vterm_init_sigio(vterm_t *vterm)
 void
 vwmterm_SIGIO(int signum, siginfo_t *siginfo, void *uc)
 {
-    extern unsigned int wake_counter;
 
 #ifdef SIGPOLL
     if(signum != SIGPOLL) return;
@@ -46,7 +45,7 @@ vwmterm_SIGIO(int signum, siginfo_t *siginfo, void *uc)
     // suppress the sleep thread if term is emitting output
     if (siginfo->si_code & POLL_OUT)
     {
-        wake_counter++;
+        // wake_counter++;
     }
 
     return;

@@ -29,10 +29,11 @@
 #define  BRICK    (' ' | A_REVERSE)
 #define  MORTAR   (' ' | A_NORMAL)
 
-int
-vwm_bkgd_simple(vwnd_t *vwnd, void *arg)
+void
+vwm_bkgd_simple_normal(int screen_id)
 {
-	uintmax_t	idx;
+    WINDOW      *wallpaper;
+    WINDOW      *screen_wnd;
     short       color = 0;
 	int		    width, height;
 	char		version_str[32];
@@ -42,41 +43,102 @@ vwm_bkgd_simple(vwnd_t *vwnd, void *arg)
 	wchar_t		ch[][2] = { {0x0020,0x0000},
 						    {0x002e,0x0000} };
 #else
-    chtype		    ch[] =      {ACS_CKBOARD,   '.'};
-    chtype          attr[] =    {A_ALTCHARSET,  A_NORMAL};
-    unsigned int    fg[] =      {COLOR_BLACK,    COLOR_BLACK};
-    unsigned int    bg[] =      {COLOR_BLUE,    COLOR_WHITE};
+    chtype		    ch =        ACS_CKBOARD;
+    chtype          attr =      A_ALTCHARSET;
+    unsigned int    fg =        COLOR_BLACK;
+    unsigned int    bg =        COLOR_BLUE;
 #endif
 
-   /* TODO:  gcc warning...
-      warning: cast from pointer to integer of different size
-   */
-	idx = (uintmax_t)arg;
+    if(screen_id == -1) screen_id = CURRENT_SCREEN_ID;
 
-    viper_wresize_abs(vwnd, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
+    wallpaper = viper_screen_get_wallpaper(screen_id);
+    if(wallpaper == NULL) return;
 
-    color = viper_color_pair(fg[idx], bg[idx]);
+    screen_wnd = viper_get_screen_window(screen_id);
+
+    getmaxyx(screen_wnd, height, width);
+
+    // viper_wresize_abs(bkgd_window, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
+    wresize(wallpaper, height, width);
+
+    color = viper_color_pair(fg, bg);
 
 #ifdef _VIPER_WIDE
-	setcchar(&bg_char, ch[idx], 0, 0, NULL);
-	window_fill(VWINDOW(vnd), &bg_char, color, A_NORMAL);
+	setcchar(&bg_char, ch, 0, 0, NULL);
+	window_fill(wallpaper, &bg_char, color, A_NORMAL);
 #else
-    window_fill(VWINDOW(vwnd), ch[idx], color, attr[idx]);
+    window_fill(wallpaper, ch, color, attr);
 #endif
 
-    getmaxyx(VWINDOW(vwnd), height, width);
+    getmaxyx(wallpaper, height, width);
     color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
 	sprintf(version_str, " VWM %s ", VWM_VERSION);
-	wattron(VWINDOW(vwnd), COLOR_PAIR(color));
-	mvwprintw(VWINDOW(vwnd), height - 1, width - (strlen(version_str)),
+	wattron(wallpaper, COLOR_PAIR(color));
+	mvwprintw(wallpaper, height - 1, width - (strlen(version_str)),
         version_str);
-	wattron(VWINDOW(vwnd), A_NORMAL);
+	wattron(wallpaper, A_NORMAL);
 
-	return 0;
+    overwrite(wallpaper, screen_wnd);
+
+	return;
+}
+
+void
+vwm_bkgd_simple_winman(int screen_id)
+{
+    WINDOW      *wallpaper;
+    WINDOW      *screen_wnd;
+    short       color = 0;
+	int		    width, height;
+	char		version_str[32];
+
+#ifdef _VIPER_WIDE
+	cchar_t		bg_char;
+	wchar_t		ch[][2] = { {0x0020,0x0000},
+						    {0x002e,0x0000} };
+#else
+    chtype		    ch =        '.';
+    chtype          attr =      A_NORMAL;
+    unsigned int    fg =        COLOR_BLACK;
+    unsigned int    bg =        COLOR_WHITE;
+#endif
+
+    if(screen_id == -1) screen_id = CURRENT_SCREEN_ID;
+
+    wallpaper = viper_screen_get_wallpaper(screen_id);
+    if(wallpaper == NULL) return;
+
+    screen_wnd = viper_get_screen_window(screen_id);
+
+    getmaxyx(screen_wnd, height, width);
+
+    // viper_wresize_abs(bkgd_window, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
+    wresize(wallpaper, height, width);
+
+    color = viper_color_pair(fg, bg);
+
+#ifdef _VIPER_WIDE
+	setcchar(&bg_char, ch, 0, 0, NULL);
+	window_fill(wallpaper, &bg_char, color, A_NORMAL);
+#else
+    window_fill(wallpaper, ch, color, attr);
+#endif
+
+    getmaxyx(wallpaper, height, width);
+    color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
+	sprintf(version_str, " VWM %s ", VWM_VERSION);
+	wattron(wallpaper, COLOR_PAIR(color));
+	mvwprintw(wallpaper, height - 1, width - (strlen(version_str)),
+        version_str);
+	wattron(wallpaper, A_NORMAL);
+
+    overwrite(wallpaper, screen_wnd);
+
+	return;
 }
 
 int
-vwm_bkgd_bricks(vwnd_t *vwnd, void *arg)
+vwm_bkgd_bricks(WINDOW *bkgd_window, void *arg)
 {
     uintmax_t       idx;
     char            version_str[32];
@@ -107,10 +169,13 @@ vwm_bkgd_bricks(vwnd_t *vwnd, void *arg)
     */
     idx = (uintmax_t)arg;
 
-    viper_wresize_abs(vwnd, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
-    wattroff(VWINDOW(vwnd), A_REVERSE);
+    getmaxyx(CURRENT_SCREEN, height, width);
+    wresize(bkgd_window, height, width);
 
-    getmaxyx(VWINDOW(vwnd), height, width);
+    // viper_wresize_abs(bkgd_window, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
+    wattroff(bkgd_window, A_REVERSE);
+
+    getmaxyx(bkgd_window, height, width);
     cell_count = width * height;
 
     if(idx == 0)
@@ -122,8 +187,8 @@ vwm_bkgd_bricks(vwnd_t *vwnd, void *arg)
             x = i % width;
             y = (int)(i / width);
 
-            wmove(VWINDOW(vwnd), y, x);
-            waddch(VWINDOW(vwnd),
+            wmove(bkgd_window, y, x);
+            waddch(bkgd_window,
             brick[y % SPRITE_ROWS(brick)][x % SPRITE_COLS(brick)] | COLOR_PAIR(color));
         }
     }
@@ -133,19 +198,19 @@ vwm_bkgd_bricks(vwnd_t *vwnd, void *arg)
         color = viper_color_pair(COLOR_BLACK,COLOR_WHITE);
 #ifdef _VIPER_WIDE
         setcchar(&bg_char, ch[idx], 0, 0, NULL);
-        window_fill(VWINDOW(vwnd), &bg_char, color, A_NORMAL);
+        window_fill(bkgd_window, &bg_char, color, A_NORMAL);
 #else
-        window_fill(VWINDOW(vwnd), ch[idx], color, A_NORMAL);
+        window_fill(bkgd_window, ch[idx], color, A_NORMAL);
 #endif
     }
 
-    getmaxyx(VWINDOW(vwnd), height, width);
+    getmaxyx(bkgd_window, height, width);
     color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
     sprintf(version_str, " VWM %s ", VWM_VERSION);
-    wattron(VWINDOW(vwnd), COLOR_PAIR(color));
-    mvwprintw(VWINDOW(vwnd), height - 1, width - (strlen(version_str)),
+    wattron(bkgd_window, COLOR_PAIR(color));
+    mvwprintw(bkgd_window, height - 1, width - (strlen(version_str)),
         version_str);
-    wattron(VWINDOW(vwnd), A_NORMAL);
+    wattron(bkgd_window, A_NORMAL);
 
     return 0;
 }

@@ -3,6 +3,8 @@
 
 #include <limits.h>
 
+#include <viper.h>
+
 // ensure that x-macro for modules.def is not already defined
 #ifdef  X_MOD
 #undef  X_MOD
@@ -40,6 +42,10 @@ struct _vwm_module_s
     vwnd_t*             (*main)             (vwm_module_t*);
     void                *anything;
 };
+
+int vwm_menu_helper(vk_widget_t *widget, void *anything);
+
+
 
 #endif
 
