@@ -14,14 +14,23 @@
 
 #include <viper.h>
 
+#include "../../modules.h"
+#include "../../vwm.h"
+
+// extend the standard vwm module
+struct _vwmterm_mod_s
+{
+    vwm_module_t    module;
+
+    uint32_t        flags;
+    char            **exec_args;
+};
+
 struct _vwmterm_data_s
 {
     vwnd_t          *vwnd;
     vterm_t         *vterm;
     unsigned int    state;
-
-    uint32_t        flags;
-    char            **exec_args;
 };
 
 enum
@@ -30,7 +39,7 @@ enum
     VWMTERM_STATE_RUNNING
 };
 
-typedef struct _vwmterm_data_s      vwmterm_data_t;
-typedef struct _vwmterm_mod_data_s  vwmterm_mod_data_s;
+typedef struct _vwmterm_data_s  vwmterm_data_t;
+typedef struct _vwmterm_mod_s   vwmterm_mod_t;
 
 #endif

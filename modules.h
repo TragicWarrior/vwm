@@ -39,12 +39,13 @@ struct _vwm_module_s
 
     struct list_head    list;
 
-    vwnd_t*             (*main)             (vwm_module_t*);
+    vwnd_t*             (*main)             (const char *);
     void                *anything;
 };
 
 int vwm_menu_helper(vk_widget_t *widget, void *anything);
 
+#define VWM_MODULE(x)   ((vwm_module_t *)x)
 
 
 #endif

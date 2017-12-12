@@ -266,13 +266,11 @@ vwm_module_find_by_type(vwm_module_t *prev_mod, int type)
 static int
 _vwm_module_init(const char *modpath)
 {
-    // extern char     **vwm_argv;
-    // extern int      vwm_argc;
-
     void            *handle = NULL;
     vwm_module_t    *mod = NULL;
     int             retval = 0;
-    int             (*constructor)(vwm_module_t *);
+    // int             (*constructor)(vwm_module_t *);
+    int             (*constructor)(const char *modpath);
 
     handle = dlopen(modpath, RTLD_LAZY | RTLD_LOCAL);
 
@@ -287,11 +285,11 @@ _vwm_module_init(const char *modpath)
         return -2;
     }
 
-    mod = (vwm_module_t*)calloc(1, sizeof(vwm_module_t));
-    strncpy(mod->modpath, modpath, NAME_MAX - 1);
+    // mod = (vwm_module_t*)calloc(1, sizeof(vwm_module_t));
+    // strncpy(mod->modpath, modpath, NAME_MAX - 1);
 
     // call the module constructor
-    retval = constructor(mod);
+    retval = constructor(modpath);
 
     // handle "user error" from module constructor
     if(retval != 0)

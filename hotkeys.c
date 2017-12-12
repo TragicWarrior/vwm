@@ -231,7 +231,12 @@ vwm_default_WINDOW_INCREASE_HEIGHT(vwnd_t *topmost_window)
 static void
 vwm_default_WINDOW_DECREASE_HEIGHT(vwnd_t *topmost_window)
 {
+    int screen_id;
+
+    screen_id = viper_window_get_screen_id(topmost_window);
+
 	viper_wresize_rel(topmost_window, 0, -1);
+    viper_screen_redraw(screen_id, REDRAW_ALL | REDRAW_BACKGROUND);
 
 	return;
 }
@@ -247,7 +252,12 @@ vwm_default_WINDOW_INCREASE_WIDTH(vwnd_t *topmost_window)
 static void
 vwm_default_WINDOW_DECREASE_WIDTH(vwnd_t *topmost_window)
 {
+    int screen_id;
+
 	viper_wresize_rel(topmost_window, -1, 0);
+
+    screen_id = viper_window_get_screen_id(topmost_window);
+    viper_screen_redraw(screen_id, REDRAW_ALL | REDRAW_BACKGROUND);
 
 	return;
 }

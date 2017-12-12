@@ -34,15 +34,16 @@
 #include "../../modules.h"
 
 int
-vwm_mod_init(vwm_module_t *mod);
+vwm_mod_init(const char *modpath);
 
 static vwnd_t*
 vwmterm_main(vwm_module_t *mod);
 
 // constructor
 int
-vwm_mod_init(vwm_module_t *mod)
+vwm_mod_init(const char *modpath)
 {
+    vwmterm_mod_t   *mod;
     vwmterm_data_t  *vwmterm_data;
     void            *dynlib;
     int             retval;
@@ -56,24 +57,23 @@ vwm_mod_init(vwm_module_t *mod)
     if(dynlib == NULL) return -1;
 
 	// configure and register module for color instance
-    vwmterm_data = calloc(1, sizeof(vwmterm_data_t));
+    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
 
-    mod->main = vwmterm_main;
-    vwm_module_set_title(mod, "VTerm (color)");
-    vwm_module_set_type(mod, VWM_MOD_TYPE_TOOL);
-    vwm_module_set_userptr(mod, (void *)vwmterm_data);
-	retval = vwm_module_add(mod);
+    VWM_MODULE(mod)->main = vwmterm_main;
+    vwm_module_set_title(VWM_MODULE(mod), "VTerm (color)");
+    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
+
+	retval = vwm_module_add(VWM_MODULE(mod));
 
 	// allloc, configure, and register module for vt100 instance
-    vwmterm_data = calloc(1, sizeof(vwmterm_data_t));
-    mod = vwm_module_create();
+    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
 
-    mod->main = vwmterm_main;
-    vwm_module_set_title(mod, "VTerm (vt100)");
-    vwm_module_set_type(mod, VWM_MOD_TYPE_TOOL);
-    vwmterm_data->flags |= VTERM_FLAG_VT100;
-    vwm_module_set_userptr(mod, (void *)vwmterm_data);
-	retval = vwm_module_add(mod);
+    VWM_MODULE(mod)->main = vwmterm_main;
+    vwm_module_set_title(VWM_MODULE(mod), "VTerm (vt100)");
+    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
+    mod->flags |= VTERM_FLAG_VT100;
+
+	retval = vwm_module_add(VWM_MODULE(mod));
 
     if(retval != 0) exit(-1);
 
@@ -83,14 +83,17 @@ vwm_mod_init(vwm_module_t *mod)
 vwnd_t*
 vwmterm_main(vwm_module_t *mod)
 {
+    vwmterm_mod_t           *vwmterm_mod;
+    vwmterm_data_t          *vwmterm_data;
     vterm_t                 *vterm;
 	vwnd_t	      	        *vwnd;
 	int		      	        width, height;
 
     extern protothread_t    pt[2];
     pt_context_t            *ctx_vwmterm;
-    vwmterm_data_t          *vwmterm_data;
     extern int              shutdown;
+
+    vwmterm_mod = (vwmterm_mod_t *)mod;
 
     getmaxyx(CURRENT_SCREEN, height, width);
     if(height > 30 && width > 84)
@@ -106,9 +109,7 @@ vwmterm_main(vwm_module_t *mod)
 	    if(height > 25) height = 25;
     }
 
-    vwmterm_data = (vwmterm_data_t*)vwm_module_get_userptr(mod);
-
-    vterm = vterm_create(width, height, vwmterm_data->flags);
+    vterm = vterm_create(width, height, vwmterm_mod->flags);
     vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
 
     // setup SIGIO responsiveness
@@ -129,8 +130,8 @@ vwmterm_main(vwm_module_t *mod)
     vterm_erase(vterm);
 
     // allocate thread context and stateful data
+    vwmterm_data = (vwmterm_data_t*)calloc(1, sizeof(vwmterm_data_t));
     ctx_vwmterm = malloc(sizeof(pt_context_t));
-    // vwmterm_data = malloc(sizeof(vwmterm_data_t));
 
     // initialize stateful data
     vwmterm_data->vwnd = vwnd;
