@@ -36,7 +36,8 @@ struct _vwmterm_data_s
 enum
 {
     VWMTERM_STATE_EXITING   =   0x0,
-    VWMTERM_STATE_RUNNING
+    VWMTERM_STATE_RUNNING,
+    VWMTERM_STATE_EPIPE
 };
 
 typedef struct _vwmterm_data_s  vwmterm_data_t;

@@ -39,25 +39,17 @@ vwmterm_ON_RESIZE(vwnd_t *vwnd, void *anything)
 }
 
 int
-vwmterm_ON_DESTROY(vwnd_t *vwnd, void *anything)
+vwmterm_ON_CLOSE(vwnd_t *vwnd, void *anything)
 {
     vwmterm_data_t  *vwmterm_data;
+    pid_t           child_pid;
 
     vwmterm_data = (vwmterm_data_t*)anything;
 
+    // tell the pseudo thread we're shutting down
     vwmterm_data->state = VWMTERM_STATE_EXITING;
 
-	return 0;
-}
-
-int
-vwmterm_ON_CLOSE(vwnd_t *vwnd, void *anything)
-{
-	vterm_t *vterm;
-    pid_t    child_pid;
-
-	vterm = (vterm_t*)anything;
-    child_pid = vterm_get_pid(vterm);
+    child_pid = vterm_get_pid(vwmterm_data->vterm);
 
 	kill(child_pid, SIGKILL);
 	waitpid(child_pid, NULL, 0);

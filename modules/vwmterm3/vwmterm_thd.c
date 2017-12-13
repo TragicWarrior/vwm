@@ -47,18 +47,18 @@ pt_t vwmterm_thd(void * const env)
     pt_context_t    *ctx_vwmterm;
     vwmterm_data_t  *vwmterm_data;
 
+    // the stack gets lost on every iteration so we need to copy
     ctx_vwmterm = (pt_context_t *)env;
+    vwmterm_data = (vwmterm_data_t *)ctx_vwmterm->anything;
+    vwnd = vwmterm_data->vwnd;
+    vterm = vwmterm_data->vterm;
+
     pt_resume(ctx_vwmterm);
 
     do
     {
-        vwmterm_data = (vwmterm_data_t *)ctx_vwmterm->anything;
-
         // check to see if thread is exiting
         if(vwmterm_data->state == VWMTERM_STATE_EXITING) break;
-
-        vwnd = vwmterm_data->vwnd;
-        vterm = vwmterm_data->vterm;
 
         bytes_read = vterm_read_pipe(vterm);
 
@@ -72,7 +72,11 @@ pt_t vwmterm_thd(void * const env)
         }
 
         // handle pipe error condition
-        if(bytes_read == -1) break;
+        if(bytes_read == -1)
+        {
+            vwmterm_data->state = VWMTERM_STATE_EPIPE;
+            break;
+        }
 
         if(bytes_read > 0)
         {
@@ -82,13 +86,18 @@ pt_t vwmterm_thd(void * const env)
     }
     while(!(*ctx_vwmterm->shutdown));
 
-    viper_window_close(vwnd);
+    /*
+        call for a window close *only* if VWM is shutting down
+        or there was a pipe error.
+    */
+    if(*ctx_vwmterm->shutdown || bytes_read == -1)
+    {
+        viper_window_close(vwnd);
+    }
 
+    vterm_destroy(vwmterm_data->vterm);
 
-    // vwmterm_data = (vwmterm_data_t *)ctx_vwmterm->anything;
-    // vterm_destroy(vwmterm_data->vterm);
-
-    // pt_kill(&ctx_vwmterm->pt_thread);
+    free(vwmterm_data);
     free(ctx_vwmterm);
 
     return PT_DONE;

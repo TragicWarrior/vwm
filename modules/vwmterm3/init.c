@@ -145,9 +145,7 @@ vwmterm_main(vwm_module_t *mod)
 	viper_event_set(vwnd, "window-resized",
         vwmterm_ON_RESIZE, (void*)vterm);
 	viper_event_set(vwnd, "window-close",
-        vwmterm_ON_CLOSE, (void*)vterm);
-	viper_event_set(vwnd, "window-destroy",
-        vwmterm_ON_DESTROY, (void*)vwmterm_data);
+        vwmterm_ON_CLOSE, (void*)vwmterm_data);
 	viper_window_set_key_func(vwnd,
         vwmterm_ON_KEYSTROKE);
 	viper_window_set_userptr(vwnd, (void*)vterm);
