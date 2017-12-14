@@ -35,6 +35,8 @@ vwm_default_border_agent_focus(vwnd_t *vwnd, void *anything)
 	uint32_t		window_state;
  	int		   	    y, x;
 
+    (void)anything;
+
 	title = viper_window_get_title(vwnd);
 
     window_decorate(WINDOW_FRAME(vwnd), (char*)title,TRUE);
@@ -58,6 +60,8 @@ vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything)
 	uint32_t	    window_state;
  	int		        y, x;
 
+    (void)anything;
+
 	title = viper_window_get_title(vwnd);
 
     window_decorate(WINDOW_FRAME(vwnd), (char*)title, TRUE);
@@ -77,10 +81,8 @@ vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything)
 void
 vwm_modules_preload(void)
 {
-    vwnd_t          *msgbox;
+    char            *module_dirs[] = { NULL, _VWM_SHARED_MODULES };
     char            *error_msg;
-    char            *module_dirs[] = {NULL,_VWM_SHARED_MODULES};
-    vwm_module_t    *fake_mod;
     int             array_sz;
     int             i;
 
@@ -109,10 +111,10 @@ vwm_exit(vk_widget_t *widget, void *anything)
 {
     extern int  shutdown;
 
-    shutdown = 1;
-    // endwin();
-    // exit(0);
+    (void)widget;
+    (void)anything;
 
+    shutdown = 1;
 
     return 0;
 }

@@ -18,14 +18,14 @@ VWM_MOD_TYPE_MAX
 };
 #undef  X_MOD
 
-
+/*
 #define X_MOD(modtype_val,modtype_text) modtype_text,
     static char *modtype_desc[] = {
 #include "modules.def"
 NULL
 };
 #undef  X_MOD
-
+*/
 
 #include "list.h"
 
@@ -39,7 +39,7 @@ struct _vwm_module_s
 
     struct list_head    list;
 
-    vwnd_t*             (*main)             (const char *);
+    vwnd_t*             (*main)             (vwm_module_t *);
     void                *anything;
 };
 

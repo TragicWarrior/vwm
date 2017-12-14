@@ -120,7 +120,7 @@ void
 vwm_default_VWM_START(vwnd_t *topmost_window)
 {
     vwm_t       *vwm;
-    WINDOW      *wallpaper_wnd;
+    // WINDOW      *wallpaper_wnd;
     uintmax_t   msg_id;
     int         screen_id;
 
@@ -148,7 +148,7 @@ void
 vwm_default_VWM_STOP(vwnd_t *topmost_window)
 {
     vwm_t           *vwm;
-    WINDOW          *wallpaper_wnd;
+    // WINDOW          *wallpaper_wnd;
     uintmax_t       msg_id;
     int             screen_id;
 

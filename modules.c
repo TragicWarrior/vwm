@@ -182,8 +182,6 @@ int
 vwm_module_add(const vwm_module_t *mod)
 {
 	vwm_t		        *vwm;
-    struct list_head    *pos;
-    vwm_module_t        *module = NULL;
 
     if(mod->type == 0) return -1;
     if(mod->title == '\0') return -1;
@@ -269,7 +267,6 @@ _vwm_module_init(const char *modpath)
     void            *handle = NULL;
     vwm_module_t    *mod = NULL;
     int             retval = 0;
-    // int             (*constructor)(vwm_module_t *);
     int             (*constructor)(const char *modpath);
 
     handle = dlopen(modpath, RTLD_LAZY | RTLD_LOCAL);
@@ -284,9 +281,6 @@ _vwm_module_init(const char *modpath)
         dlclose(handle);
         return -2;
     }
-
-    // mod = (vwm_module_t*)calloc(1, sizeof(vwm_module_t));
-    // strncpy(mod->modpath, modpath, NAME_MAX - 1);
 
     // call the module constructor
     retval = constructor(modpath);
@@ -307,7 +301,9 @@ vwm_menu_helper(vk_widget_t *widget, void *anything)
 {
     vwm_module_t    *module;
 
-    if(anything == NULL) return NULL;
+    (void)widget;
+
+    if(anything == NULL) return -1;
 
     module = (vwm_module_t *)anything;
 

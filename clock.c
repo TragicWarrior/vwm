@@ -76,6 +76,9 @@ vwm_clock_driver_SIGALARM(int signum, siginfo_t *siginfo, void *uc)
 {
     extern unsigned int     clock_tick;
 
+    (void)siginfo;
+    (void)uc;
+
     if (signum != SIGALRM) return;
 
     clock_tick = 1;

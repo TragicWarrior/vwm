@@ -45,10 +45,7 @@ vwm_main_menu(void)
     int             i;
 
     menu = vk_listbox_create(width, height);
-
     vk_listbox_set_highlight(menu, COLOR_BLACK, COLOR_RED);
-
-    vk_listbox_add_item(menu, "Exit", vwm_exit, NULL);
 
     // iterate through the categories defined in modules.def
     for(i = 0;i < VWM_MOD_TYPE_MAX;i++)
@@ -68,6 +65,9 @@ vwm_main_menu(void)
         }
         while(vwm_module != NULL);
     }
+
+    // add some items manually
+    vk_listbox_add_item(menu, "Exit", vwm_exit, NULL);
 
 	vwnd = viper_window_create(CURRENT_SCREEN_ID, TRUE, " Menu ", 1, 2,
         max_width, height);
@@ -120,6 +120,8 @@ int
 vwm_main_menu_ON_CLOSE(vwnd_t *vwnd, void *anything)
 {
     vk_listbox_t    *menu;
+
+    (void)anything;
 
     if(vwnd == NULL) return -1;
 
