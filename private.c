@@ -123,6 +123,9 @@ vwm_exit(vk_widget_t *widget, void *anything)
 int
 vwm_toggle_winman(vk_widget_t *widget, void *anything)
 {
+    (void)widget;
+    (void)anything;
+
     vwm_kmio_dispatch_hook_enter(VWM_HOTKEY_WM);
 
     return 0;

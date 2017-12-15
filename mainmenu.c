@@ -40,6 +40,7 @@ vwm_main_menu(void)
     char            buf[NAME_MAX];
 
     int             max_width = 0;
+    int             max_height = 0;
 
     int             i;
 
@@ -72,10 +73,10 @@ vwm_main_menu(void)
     vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(VK_LISTBOX(menu), "Exit", vwm_exit, NULL);
 
-    vk_listbox_get_metrics(VK_LISTBOX(menu), &max_width, NULL);
+    vk_listbox_get_metrics(VK_LISTBOX(menu), &max_width, &max_height);
 
 	vwnd = viper_window_create(CURRENT_SCREEN_ID, FALSE, " Menu ", 1, 1,
-        max_width + 2, height);
+        max_width + 2, max_height + 2);
     /*
         todo:   it would be nice if the user could resize the menu
                 (especially in the horizonal direction) and add more
@@ -85,7 +86,7 @@ vwm_main_menu(void)
                 just don't allow it
     */
     vk_widget_set_surface(VK_WIDGET(menu), VWINDOW(vwnd));
-    vk_widget_resize(VK_WIDGET(menu), max_width + 2, height);
+    vk_widget_resize(VK_WIDGET(menu), max_width + 2, max_height + 2);
 
 	viper_window_set_key_func(vwnd, vwm_main_menu_ON_KEYSTROKE);
 	viper_window_set_userptr(vwnd, (void*)menu);
