@@ -42,5 +42,6 @@ int 	vwm_hook_wm_stop(WINDOW *window, void *arg);
 void    vwm_modules_preload(void);
 
 int     vwm_exit(vk_widget_t *widget, void *anything);
+int     vwm_toggle_winman(vk_widget_t *widget, void *anything);
 
 #endif

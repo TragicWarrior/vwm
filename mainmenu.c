@@ -32,7 +32,7 @@
 vwnd_t*
 vwm_main_menu(void)
 {
-    vk_listbox_t    *menu;
+    vk_menu_t       *menu;
     vwnd_t          *vwnd;
 	int			    width = 8, height = 10;
 
@@ -40,12 +40,12 @@ vwm_main_menu(void)
     char            buf[NAME_MAX];
 
     int             max_width = 0;
-    int             len;
 
     int             i;
 
-    menu = vk_listbox_create(width, height);
-    vk_listbox_set_highlight(menu, COLOR_BLACK, COLOR_RED);
+    menu = vk_menu_create(width, height);
+    vk_menu_set_frame(menu, VK_FRAME_SINGLE);
+    vk_listbox_set_highlight(VK_LISTBOX(menu), COLOR_BLACK, COLOR_RED);
 
     // iterate through the categories defined in modules.def
     for(i = 0;i < VWM_MOD_TYPE_MAX;i++)
@@ -58,19 +58,24 @@ vwm_main_menu(void)
             if(vwm_module == NULL) break;
 
             vwm_module_get_title(vwm_module, buf, sizeof(buf) - 1);
-            len = strlen(buf);
-            if(len > max_width) max_width = len;
 
-            vk_listbox_add_item(menu, buf, vwm_menu_helper, vwm_module);
+            vk_listbox_add_item(VK_LISTBOX(menu), buf,
+                vwm_menu_helper, vwm_module);
         }
         while(vwm_module != NULL);
     }
 
     // add some items manually
-    vk_listbox_add_item(menu, "Exit", vwm_exit, NULL);
+    vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);
+    vk_listbox_add_item(VK_LISTBOX(menu), "Toggle WM",
+        vwm_toggle_winman, NULL);
+    vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);
+    vk_listbox_add_item(VK_LISTBOX(menu), "Exit", vwm_exit, NULL);
 
-	vwnd = viper_window_create(CURRENT_SCREEN_ID, TRUE, " Menu ", 1, 2,
-        max_width, height);
+    vk_listbox_get_metrics(VK_LISTBOX(menu), &max_width, NULL);
+
+	vwnd = viper_window_create(CURRENT_SCREEN_ID, FALSE, " Menu ", 1, 1,
+        max_width + 2, height);
     /*
         todo:   it would be nice if the user could resize the menu
                 (especially in the horizonal direction) and add more
@@ -80,14 +85,14 @@ vwm_main_menu(void)
                 just don't allow it
     */
     vk_widget_set_surface(VK_WIDGET(menu), VWINDOW(vwnd));
-    vk_widget_resize(VK_WIDGET(menu), max_width, height);
+    vk_widget_resize(VK_WIDGET(menu), max_width + 2, height);
 
 	viper_window_set_key_func(vwnd, vwm_main_menu_ON_KEYSTROKE);
 	viper_window_set_userptr(vwnd, (void*)menu);
 
     viper_event_set(vwnd, "window-close", vwm_main_menu_ON_CLOSE, NULL);
 
-    vk_listbox_update(menu);
+    vk_menu_update(menu);
     vk_widget_draw(VK_WIDGET(menu));
     viper_window_set_focus(vwnd);
     viper_window_redraw(vwnd);
@@ -100,7 +105,7 @@ vwm_main_menu_hotkey(void)
 {
 	vwnd_t  *vwnd = NULL;
 
-	vwnd = viper_window_find_by_class(-1, TRUE, vwm_main_menu);
+	vwnd = viper_window_find_by_class(-1, FALSE, vwm_main_menu);
 
 	if(vwnd != NULL) 
 	{
@@ -119,15 +124,15 @@ vwm_main_menu_hotkey(void)
 int
 vwm_main_menu_ON_CLOSE(vwnd_t *vwnd, void *anything)
 {
-    vk_listbox_t    *menu;
+    vk_menu_t   *menu;
 
     (void)anything;
 
     if(vwnd == NULL) return -1;
 
-    menu = (vk_listbox_t *)viper_window_get_userptr(vwnd);
+    menu = (vk_menu_t *)viper_window_get_userptr(vwnd);
 
-    vk_listbox_destroy(menu);
+    vk_menu_destroy(menu);
 
     return 0;
 }

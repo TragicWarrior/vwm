@@ -26,6 +26,7 @@
 #include "modules.h"
 #include "mainmenu.h"
 #include "private.h"
+#include "hotkeys.h"
 #include "bkgd.h"
 
 int
@@ -119,3 +120,10 @@ vwm_exit(vk_widget_t *widget, void *anything)
     return 0;
 }
 
+int
+vwm_toggle_winman(vk_widget_t *widget, void *anything)
+{
+    vwm_kmio_dispatch_hook_enter(VWM_HOTKEY_WM);
+
+    return 0;
+}

@@ -201,10 +201,6 @@ vwm_init(void)
 
         vwm->wallpaper[screen_id] = newwin(height, width, 0, 0);
 
-        // endwin();
-        // printf("%x\n", vwm->wallpaper[screen_id]);
-        // exit(0);
-
         viper_screen_set_wallpaper(screen_id, vwm->wallpaper[screen_id],
             vwm_bkgd_simple_normal);
 

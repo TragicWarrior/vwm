@@ -130,8 +130,6 @@ vwm_default_VWM_START(vwnd_t *topmost_window)
     viper_screen_set_wallpaper(screen_id, vwm->wallpaper[screen_id],
             vwm_bkgd_simple_winman);
 
-    viper_event_run(topmost_window, "window-deactivate");
-
     msg_id = vwm_panel_message_find(VWM_MAIN_MENU_HELP);
     if(msg_id != 0) vwm_panel_message_del(msg_id);
 
@@ -157,8 +155,6 @@ vwm_default_VWM_STOP(vwnd_t *topmost_window)
 
     viper_screen_set_wallpaper(screen_id, vwm->wallpaper[screen_id],
             vwm_bkgd_simple_normal);
-
-	viper_event_run(topmost_window, "window-activate");
 
     msg_id = vwm_panel_message_find(VWM_WM_HELP);
     if(msg_id != 0) vwm_panel_message_del(msg_id);
