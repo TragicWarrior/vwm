@@ -72,6 +72,7 @@ int     vwm_argc;
 
 int main(int argc,char **argv)
 {
+    vwm_t                   *vwm = NULL;
     extern char             **vwm_argv;
     extern int              vwm_argc;
 	int		      		    fd;
@@ -108,9 +109,10 @@ int main(int argc,char **argv)
     vwm_argc = argc;
     vwm_argv = argv;
 
-	/*	set the locale to the default settings (as configured by env).
-		this is required for ncurses to work properly.	*/
-	// locale = setlocale(LC_ALL,"");
+	/*
+        set the locale to the default settings (as configured by env).
+		this is required for ncurses to work properly.
+    */
     locale = setlocale(LC_ALL, "UTF-8");
 
 	// print some debug information
@@ -150,7 +152,7 @@ int main(int argc,char **argv)
     viper_set_border_agent(vwm_default_border_agent_focus, 1);
 
 	// use the integrated window manager
-	vwm_init();
+	vwm = vwm_init();
     vwm_panel_init();
 
     // set hook to trap and filter keystrokes for window-management
@@ -160,9 +162,9 @@ int main(int argc,char **argv)
     viper_screen_redraw(0, REDRAW_BACKGROUND);
 	viper_screen_redraw(0, REDRAW_ALL);
 
-    vwm_modules_preload();
+    vwm_modules_preload(vwm);
 
-    vwm_settings_load(VWM_RC_FILE);
+    vwm_settings_load(vwm);
 
     vwm_panel_message_add(VWM_MAIN_MENU_HELP,-1);
 
@@ -205,6 +207,11 @@ vwm_init(void)
             vwm_bkgd_simple_normal);
 
         INIT_LIST_HEAD(&vwm->module_list);
+
+        // load user profile
+        vwm_profile_init(vwm);
+
+        // todo:  move more init stuff here
     }
 
 	return vwm;

@@ -22,6 +22,7 @@
 
 #include <viper.h>
 
+#include "profile.h"
 #include "vwm.h"
 #include "modules.h"
 #include "mainmenu.h"
@@ -80,7 +81,7 @@ vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything)
 }
 
 void
-vwm_modules_preload(void)
+vwm_modules_preload(vwm_t *vwm)
 {
     char            *module_dirs[] = { NULL, _VWM_SHARED_MODULES };
     char            *error_msg;
@@ -88,7 +89,7 @@ vwm_modules_preload(void)
     int             i;
 
     array_sz = sizeof(module_dirs) / sizeof(module_dirs[0]);
-    module_dirs[0] = VWM_MOD_DIR;
+    module_dirs[0] = vwm_profile_mod_dir_get(vwm);
 
     for(i = 0;i < array_sz;i++)
     {

@@ -52,32 +52,11 @@ enum
     VWM_MSG_SHUTDOWN    =   0x1,
 };
 
-typedef struct _vwm_s   vwm_t;
-
-typedef struct _vwm_module_s   vwm_module_t;
+typedef struct _vwm_s           vwm_t;
+typedef struct _vwm_module_s    vwm_module_t;
+typedef struct _vwm_profile_s   vwm_profile_t;
 
 /*
-typedef struct
-{
-    vwm_module_t        *scrsaver_mod;
-    int                 timeout;
-    GTimer              *timer;
-    guint32             state;
-}
-VWM_SCRSAVER;
-*/
-
-typedef struct
-{
-    uid_t   user;
-    char    *login;
-    char    *passwd;
-    char    *home;
-    char    *rc_file;
-    char    *mod_dir;
-}
-VWM_PROFILE;
-
 enum
 {
     PT_PRIORITY_NORMAL      =   0x00,
@@ -94,7 +73,7 @@ typedef struct
     void            *anything;
  }
 pt_context_t;
-
+*/
 
 /*	startup functions	*/
 vwm_t*          vwm_init(void);
@@ -139,15 +118,11 @@ vwm_module_t*   vwm_module_find_by_type(vwm_module_t *prev, int type);
 char*	        vwm_modules_load(char *module_dir);
 
 /* profile functions */
-VWM_PROFILE*    vwm_profile_init(void);
-#define         vwm_profile_acquire()      vwm_profile_init()
-char*           vwm_profile_mod_dir_get();
+int             vwm_profile_init(vwm_t *vwm);
+char*           vwm_profile_mod_dir_get(vwm_t *vwm);
 void            vwm_profile_mod_dir_set(char *module_dir);
-#define         VWM_MOD_DIR                (vwm_profile_mod_dir_get())
-char*           vwm_profile_login_get();
-#define         VWM_LOGIN                  (vwm_profile_login_get())
-char*           vwm_profile_rc_file_get();
-#define         VWM_RC_FILE                (vwm_profile_rc_file_get())
+char*           vwm_profile_login_get(vwm_t *vwm);
+char*           vwm_profile_rc_file_get(vwm_t *vwm);
 
 /* screensaver functions   */
 void            vwm_scrsaver_start(void);

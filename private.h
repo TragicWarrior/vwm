@@ -9,13 +9,36 @@
 #include <curses.h>
 #endif
 
+#include <libconfig.h>
 #include <protothread.h>
 
 #include "viper.h"
 #include "list.h"
+#include "profile.h"
+#include "vwm.h"
+
+enum
+{
+    PT_PRIORITY_NORMAL      =   0x00,
+    PT_PRIORITY_HIGH        =   0x01
+};
+
+typedef struct
+{
+    pt_thread_t     pt_thread;
+    pt_func_t       pt_func;
+
+    // data shared by all protothreads
+    int             *shutdown;
+    void            *anything;
+}
+pt_context_t;
 
 struct _vwm_s
 {
+    config_t            *config;
+    vwm_profile_t       *profile;
+
     struct list_head    module_list;
 
     WINDOW              *wallpaper[4];
@@ -39,7 +62,7 @@ int     vwm_hook_wm_start(WINDOW *window, void *arg);
 int 	vwm_hook_wm_stop(WINDOW *window, void *arg);
 
 /* helpers  */
-void    vwm_modules_preload(void);
+void    vwm_modules_preload(vwm_t *vwm);
 
 int     vwm_exit(vk_widget_t *widget, void *anything);
 int     vwm_toggle_winman(vk_widget_t *widget, void *anything);

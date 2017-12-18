@@ -9,12 +9,17 @@
 #include "hotkeys.h"
 
 int
-vwm_settings_load(char *rc_file)
+vwm_settings_load(vwm_t *vwm)
 {
     FILE    *file;
     char    *line_data;
     size_t  line_sz;
     ssize_t bytes_read;
+    char    *rc_file = NULL;
+
+    if(vwm == NULL) return -1;
+
+    rc_file = vwm_profile_rc_file_get(vwm);
 
     if(access(rc_file, R_OK) == -1) return ERR;
     line_data = NULL;
@@ -33,40 +38,13 @@ vwm_settings_load(char *rc_file)
         if(bytes_read == -1 && line_sz == 0) break;
 
         if(line_data[0] == '#' || line_data[0] == ';') continue;
-        if(vwm_settings_hotkey_load(line_data)!=ERR) continue;
-        // if(vwm_settings_scrsaver_load(line_data)!=ERR) continue;
+        if(vwm_settings_hotkey_load(line_data) != ERR) continue;
     }
     while(feof(file) == 0);
 
     fclose(file);
     return 0;
 }
-
-/*
-gint vwm_settings_scrsaver_load(gchar *line_data)
-{
-   gchar *pos;
-   glong timeout;
-
-   pos=strstr(line_data,"screen_timeout");
-   if(pos==NULL) return ERR;
-   pos+=(strlen("screen_timeout"));
-
-   line_data=pos;
-   pos=strchr(line_data,'=');
-   if(pos==NULL) return ERR;
-   pos++;
-
-   line_data=pos;
-   g_strstrip(pos);
-   timeout=strtol(pos,(char**)NULL,10);
-   if(timeout==LONG_MIN || timeout==LONG_MAX) return ERR;
-   if(timeout>90) timeout=90;
-
-   vwm_scrsaver_timeout_set((gint)timeout);
-   return 0;
-}
-*/
 
 int
 vwm_settings_hotkey_load(char *line_data)

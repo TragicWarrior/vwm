@@ -2,93 +2,137 @@
 #include <pwd.h>
 #include <string.h>
 
+#include <fcntl.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 
 #include "strings.h"
+#include "private.h"
 #include "vwm.h"
 
-VWM_PROFILE*
-vwm_profile_init(void)
+static int
+_vwm_create_rc_file(vwm_profile_t *profile);
+
+int
+vwm_profile_init(vwm_t *vwm)
 {
-    static VWM_PROFILE  *vwm_profile = NULL;
-    struct passwd       *user_info;
-    struct stat         stat_info;
-    char                *buffer;
-    int                 i;
+    static vwm_profile_t    *profile = NULL;
+    struct passwd           *user_info;
+    struct stat             stat_info;
+    char                    *buffer;
+    int                     i;
 
-    if(vwm_profile != NULL) return vwm_profile;
+    profile = (vwm_profile_t*)calloc(1, sizeof(vwm_profile_t));
+    profile->user = getuid();
 
-    vwm_profile = (VWM_PROFILE*)calloc(1, sizeof(VWM_PROFILE));
-    vwm_profile->user=getuid();
-
-    user_info=getpwuid(vwm_profile->user);
+    user_info = getpwuid(profile->user);
     if(user_info != NULL)
     {
-        vwm_profile->login = strdup(user_info->pw_name);
-        vwm_profile->passwd = strdup(user_info->pw_passwd);
-        vwm_profile->home = strdup(user_info->pw_dir);
+        profile->login = strdup(user_info->pw_name);
+        profile->passwd = strdup(user_info->pw_passwd);
+        profile->home = strdup(user_info->pw_dir);
     }
 
     /* try to get home dir from environment if getpwuid()->pw_passed fails. */
-    if(vwm_profile->home == NULL) vwm_profile->home = strdup(getenv("HOME"));
+    if(profile->home == NULL) profile->home = strdup(getenv("HOME"));
 
-    /* make sure home directory path is formatted correctly. */  
-    i = strlen(vwm_profile->home);
+    /* make sure home directory path is formatted correctly. */
+    i = strlen(profile->home);
     do
     {
         if(i < 2) break;
-        if(vwm_profile->home[i - 1] == '/') vwm_profile->home[i - 1] = '\0';
-        i = strlen(vwm_profile->home);
+        if(profile->home[i - 1] == '/') profile->home[i - 1] = '\0';
+        i = strlen(profile->home);
     }
-    while(vwm_profile->home[i - 1] == '/');
+    while(profile->home[i - 1] == '/');
 
     /* check to see if ~/.vwm/vwmrc config exists. */
-    buffer = strdup_printf("%s/.vwm/vwmrc", vwm_profile->home);
+    buffer = strdup_printf("%s/.vwm/vwmrc", profile->home);
     if(stat(buffer, &stat_info) == 0)
     {
-        if(S_ISREG(stat_info.st_mode)) vwm_profile->rc_file = buffer;
-        else free(buffer);
+        // if it exists, make sure its readable
+        if(!(S_ISREG(stat_info.st_mode)))
+        {
+            free(buffer);
+            return -1;
+        }
     }
-    else free(buffer);
+    else
+    {
+        if(_vwm_create_rc_file(profile) == 0)
+        {
+            free(buffer);
+            return -1;
+        }
+    }
+
+    profile->rc_file = buffer;
 
     /* check to see if ~/.vwm/modules directory exists. */
-    buffer = strdup_printf("%s/.vwm/modules", vwm_profile->home);
+    buffer = strdup_printf("%s/.vwm/modules", profile->home);
     if(stat(buffer, &stat_info) == 0)
     {
-        if(S_ISDIR(stat_info.st_mode)) vwm_profile->mod_dir = buffer;
+        if(S_ISDIR(stat_info.st_mode)) profile->mod_dir = buffer;
         else free(buffer);
     }
     else free(buffer);
 
-    return vwm_profile;
+    vwm->profile = profile;
+
+    return 0;
 }
 
 char*
-vwm_profile_mod_dir_get()
+vwm_profile_mod_dir_get(vwm_t *vwm)
 {
-    VWM_PROFILE     *vwm_profile;
+    if(vwm == NULL) return NULL;
+    if(vwm->profile == NULL) return NULL;
 
-    vwm_profile = vwm_profile_acquire();
-
-    return vwm_profile->mod_dir;
+    return vwm->profile->mod_dir;
 }
 
 char*
-vwm_profile_login_get()
+vwm_profile_login_get(vwm_t *vwm)
 {
-    VWM_PROFILE     *vwm_profile;
+    if(vwm == NULL) return NULL;
+    if(vwm->profile == NULL) return NULL;
 
-    vwm_profile = vwm_profile_acquire();
-
-    return vwm_profile->login;
+    return vwm->profile->login;
 }
 
 char*
-vwm_profile_rc_file_get()
+vwm_profile_rc_file_get(vwm_t *vwm)
 {
-    VWM_PROFILE     *vwm_profile;
+    if(vwm == NULL) return NULL;
+    if(vwm->profile == NULL) return NULL;
 
-    vwm_profile = vwm_profile_acquire();
+    return vwm->profile->rc_file;
+}
 
-    return vwm_profile->rc_file;
+static int
+_vwm_create_rc_file(vwm_profile_t *profile)
+{
+    char    *buf;
+    int     retval;
+
+    if(profile == NULL) return -1;
+    if(profile->home == NULL) return -1;
+
+    buf = strdup_printf("%s/.vwm", profile->home);
+
+    retval = mkdir(buf, 0755);
+    free(buf);
+
+    if(retval == -1) return -1;
+
+    buf = strdup_printf("%s/.vwm/vwmrc", profile->home);
+
+    retval = creat(buf, 0644);
+    free(buf);
+
+    if(retval == -1) return -1;
+
+    close(retval);
+
+    return 0;
 }
