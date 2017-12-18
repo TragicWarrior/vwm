@@ -56,24 +56,6 @@ typedef struct _vwm_s           vwm_t;
 typedef struct _vwm_module_s    vwm_module_t;
 typedef struct _vwm_profile_s   vwm_profile_t;
 
-/*
-enum
-{
-    PT_PRIORITY_NORMAL      =   0x00,
-    PT_PRIORITY_HIGH        =   0x01
-};
-
-typedef struct
-{
-    pt_thread_t     pt_thread;
-    pt_func_t       pt_func;
-
-    // data shared by all protothreads
-    int             *shutdown;
-    void            *anything;
- }
-pt_context_t;
-*/
 
 /*	startup functions	*/
 vwm_t*          vwm_init(void);

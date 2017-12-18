@@ -208,6 +208,8 @@ vwm_init(void)
 
         INIT_LIST_HEAD(&vwm->module_list);
 
+        vwm->hotkey_menu = VWM_HOTKEY_MENU;
+
         // load user profile
         vwm_profile_init(vwm);
 

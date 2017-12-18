@@ -104,12 +104,10 @@ vwm_kmio_dispatch_hook_enter(int32_t keystroke)
 
     if(!(vwm->state & VWM_STATE_ACTIVE))
     {
-        switch(keystroke)
+        if(keystroke == vwm->hotkey_menu)
         {
-            case VWM_HOTKEY_MENU:
-                vwm_main_menu_hotkey(); return -1;
-            default:
-                return keystroke;
+            vwm_main_menu_hotkey();
+            return -1;
         }
     }
 

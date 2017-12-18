@@ -1,6 +1,7 @@
 #ifndef _H_VWM_PRIVATE_
 #define _H_VWM_PRIVATE_
 
+#include <inttypes.h>
 #include <signal.h>
 
 #ifdef _VIPER_WIDE
@@ -25,26 +26,28 @@ enum
 
 typedef struct
 {
-    pt_thread_t     pt_thread;
-    pt_func_t       pt_func;
+    pt_thread_t             pt_thread;
+    pt_func_t               pt_func;
 
     // data shared by all protothreads
-    int             *shutdown;
-    void            *anything;
+    int                     *shutdown;
+    void                    *anything;
 }
 pt_context_t;
 
 struct _vwm_s
 {
-    config_t            *config;
-    vwm_profile_t       *profile;
+    config_t                config;
+    vwm_profile_t           *profile;
 
-    struct list_head    module_list;
+    int32_t                 hotkey_menu;
 
-    WINDOW              *wallpaper[4];
-    int                 (*wallpaper_agent)  (WINDOW *, void *);
+    struct list_head        module_list;
 
-    uint32_t            state;
+    WINDOW                  *wallpaper[4];
+    int                     (*wallpaper_agent)  (WINDOW *, void *);
+
+    uint32_t                state;
 };
 
 
