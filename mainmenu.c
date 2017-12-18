@@ -68,7 +68,7 @@ vwm_main_menu(void)
 
     // add some items manually
     vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);
-    vk_listbox_add_item(VK_LISTBOX(menu), "Toggle WM",
+    vk_listbox_add_item(VK_LISTBOX(menu), "Toggle WM (Alt + w)",
         vwm_toggle_winman, NULL);
     vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(VK_LISTBOX(menu), "Exit", vwm_exit, NULL);
