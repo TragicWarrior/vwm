@@ -35,6 +35,8 @@ vwm_default_border_agent_focus(vwnd_t *vwnd, void *anything)
 {
 	const char		*title;
 	uint32_t		window_state;
+    char            buf[16];
+    int             len;
  	int		   	    y, x;
 
     (void)anything;
@@ -45,8 +47,14 @@ vwm_default_border_agent_focus(vwnd_t *vwnd, void *anything)
     getmaxyx(WINDOW_FRAME(vwnd), y, x);
 	mvwprintw(WINDOW_FRAME(vwnd), 0, x - sizeof("[X]") + 1,"[X]");
 
+    // display window size (minus the border)
+    snprintf(buf, sizeof(buf), "[%d x %d]", x - 2, y -2 );
+    len = strlen(buf);
+    mvwprintw(WINDOW_FRAME(vwnd), y - 1, (x / 2) - (len / 2), "%s", buf);
+
+    // show resize indicator
 	window_state = viper_window_get_state(vwnd);
-    if(window_state & STATE_NORESIZE)
+    if(!(window_state & STATE_NORESIZE))
         mvwaddch(WINDOW_FRAME(vwnd), y - 1, x - 1, '*');
 
     window_modify_border(WINDOW_FRAME(vwnd), A_BOLD,
@@ -60,6 +68,8 @@ vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything)
 {
 	const char	    *title;
 	uint32_t	    window_state;
+    char            buf[16];
+    int             len;
  	int		        y, x;
 
     (void)anything;
@@ -70,8 +80,14 @@ vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything)
     getmaxyx(WINDOW_FRAME(vwnd), y, x);
 	mvwprintw(WINDOW_FRAME(vwnd), 0, x - sizeof("[X]") + 1, "[X]");
 
+    // display window size (minus the border)
+    snprintf(buf, sizeof(buf), "[%d x %d]", x - 2, y - 2);
+    len = strlen(buf);
+    mvwprintw(WINDOW_FRAME(vwnd), y - 1, (x / 2) - (len / 2), "%s", buf);
+
+    // show resize indicator
 	window_state = viper_window_get_state(vwnd);
-    if(window_state & STATE_NORESIZE)
+    if(!(window_state & STATE_NORESIZE))
         mvwaddch(WINDOW_FRAME(vwnd), y - 1, x - 1, '*');
 
     window_modify_border(WINDOW_FRAME(vwnd), A_NORMAL,
