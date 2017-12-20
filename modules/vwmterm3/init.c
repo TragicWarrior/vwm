@@ -27,11 +27,13 @@
 
 #include "vwmterm.h"
 #include "events.h"
-#include "vwmterm_thd.h"
+#include "pt_thread.h"
 #include "signals.h"
+#include "module.h"
 
 #include "../../vwm.h"
 #include "../../modules.h"
+#include "../../private.h"
 
 int
 vwm_mod_init(const char *modpath);
@@ -44,7 +46,6 @@ int
 vwm_mod_init(const char *modpath)
 {
     vwmterm_mod_t   *mod;
-    vwmterm_data_t  *vwmterm_data;
     void            *dynlib;
     int             retval;
 
@@ -60,8 +61,12 @@ vwm_mod_init(const char *modpath)
     mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
 
     VWM_MODULE(mod)->main = vwmterm_main;
+    VWM_MODULE(mod)->clone = vwmterm_module_clone;
+    VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    vwm_module_set_name(VWM_MODULE(mod), "vterm-color");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (color)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
+    mod->flags = 0;
 
 	retval = vwm_module_add(VWM_MODULE(mod));
 
@@ -69,6 +74,9 @@ vwm_mod_init(const char *modpath)
     mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
 
     VWM_MODULE(mod)->main = vwmterm_main;
+    VWM_MODULE(mod)->clone = vwmterm_module_clone;
+    VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    vwm_module_set_name(VWM_MODULE(mod), "vterm-vt100");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (vt100)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
     mod->flags |= VTERM_FLAG_VT100;
@@ -109,7 +117,10 @@ vwmterm_main(vwm_module_t *mod)
 	    if(height > 25) height = 25;
     }
 
-    vterm = vterm_create(width, height, vwmterm_mod->flags);
+    // vterm = vterm_create(width, height, vwmterm_mod->flags);
+    vterm = vterm_alloc();
+    vterm_set_exec(vterm, vwmterm_mod->bin_path, vwmterm_mod->exec_args);
+    vterm_init(vterm, width, height, vwmterm_mod->flags);
     vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
 
     // setup SIGIO responsiveness

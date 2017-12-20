@@ -85,6 +85,9 @@ int             vwm_panel_message_promote(uintmax_t msg_id);
 
 /*	extensibility functions	*/
 vwm_module_t*   vwm_module_create(void);
+vwm_module_t*   vwm_module_clone(vwm_module_t *mod);
+int             vwm_module_configure(vwm_module_t *mod, ...);
+int             vwm_module_set_name(vwm_module_t *mod, char *name);
 void            vwm_module_set_type(vwm_module_t *mod, int type);
 int             vwm_module_get_type(vwm_module_t *mod);
 void            vwm_module_set_title(vwm_module_t *mod, char *title);
@@ -94,6 +97,9 @@ void*           vwm_module_get_userptr(vwm_module_t *mod);
 int 		    vwm_module_add(const vwm_module_t *mod);
 vwnd_t*         vwm_module_exec(vwm_module_t *mod);
 
+int             vwm_module_type_value(char *string);
+const char*     vwm_module_type_string(int value);
+vwm_module_t*   vwm_module_find_by_name(char *name);
 vwm_module_t*   vwm_module_find_by_title(char *title);
 vwm_module_t*   vwm_module_find_by_type(vwm_module_t *prev, int type);
 

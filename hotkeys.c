@@ -118,9 +118,10 @@ void
 vwm_default_VWM_START(vwnd_t *topmost_window)
 {
     vwm_t       *vwm;
-    // WINDOW      *wallpaper_wnd;
     uintmax_t   msg_id;
     int         screen_id;
+
+    (void)topmost_window;
 
     vwm = vwm_get_instance();
     screen_id = CURRENT_SCREEN_ID;
@@ -144,9 +145,10 @@ void
 vwm_default_VWM_STOP(vwnd_t *topmost_window)
 {
     vwm_t           *vwm;
-    // WINDOW          *wallpaper_wnd;
     uintmax_t       msg_id;
     int             screen_id;
+
+    (void)topmost_window;
 
 	vwm = vwm_get_instance();
     screen_id = CURRENT_SCREEN_ID;

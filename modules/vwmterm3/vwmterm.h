@@ -17,15 +17,6 @@
 #include "../../modules.h"
 #include "../../vwm.h"
 
-// extend the standard vwm module
-struct _vwmterm_mod_s
-{
-    vwm_module_t    module;
-
-    uint32_t        flags;
-    char            **exec_args;
-};
-
 struct _vwmterm_data_s
 {
     vwnd_t          *vwnd;
@@ -41,6 +32,5 @@ enum
 };
 
 typedef struct _vwmterm_data_s  vwmterm_data_t;
-typedef struct _vwmterm_mod_s   vwmterm_mod_t;
 
 #endif

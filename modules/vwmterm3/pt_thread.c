@@ -33,9 +33,10 @@
 
 #include "vwmterm.h"
 #include "events.h"
-#include "vwmterm_thd.h"
-#include "../../vwm.h"
+#include "pt_thread.h"
 
+#include "../../vwm.h"
+#include "../../private.h"
 
 pt_t vwmterm_thd(void * const env)
 {

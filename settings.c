@@ -13,9 +13,9 @@
 int
 vwm_settings_load(vwm_t *vwm)
 {
-    char    *value;
-    int32_t keystroke;
-    int     retval;
+    const char  *value;
+    int32_t     keystroke;
+    int         retval;
 
     if(vwm == NULL) return -1;
     if(vwm->profile == NULL) return -1;
@@ -24,7 +24,7 @@ vwm_settings_load(vwm_t *vwm)
     config_init(&vwm->config);
     config_read_file(&vwm->config, vwm->profile->rc_file);
 
-    retval = config_lookup_string(&vwm->config, "hotkeys.menu", &value);
+    retval = config_lookup_string(&vwm->config, "hotkeys.menu.key", &value);
 
     if(retval == CONFIG_TRUE)
     {

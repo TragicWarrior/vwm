@@ -41,6 +41,7 @@ vwm_main_menu(void)
 
     int             max_width = 0;
     int             max_height = 0;
+    bool            category_found;
 
     int             i;
 
@@ -52,11 +53,14 @@ vwm_main_menu(void)
     for(i = 0;i < VWM_MOD_TYPE_MAX;i++)
     {
         vwm_module = NULL;
+        category_found = FALSE;
 
         do
         {
             vwm_module = vwm_module_find_by_type(vwm_module, i);
             if(vwm_module == NULL) break;
+
+            category_found = TRUE;
 
             vwm_module_get_title(vwm_module, buf, sizeof(buf) - 1);
 
@@ -64,10 +68,13 @@ vwm_main_menu(void)
                 vwm_menu_helper, vwm_module);
         }
         while(vwm_module != NULL);
+
+        // add a separator whenever a new category of module is found
+        if(category_found == TRUE)
+            vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);
     }
 
     // add some items manually
-    vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(VK_LISTBOX(menu), "Toggle WM (Alt + w)",
         vwm_toggle_winman, NULL);
     vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);

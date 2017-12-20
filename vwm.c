@@ -53,6 +53,7 @@
 #include "list.h"
 #include "clock.h"
 #include "poll_input_thd.h"
+#include "programs.h"
 
 /*
    According to GNU libc documentation. sig_atomic_t "is always atomic...
@@ -163,8 +164,8 @@ int main(int argc,char **argv)
 	viper_screen_redraw(0, REDRAW_ALL);
 
     vwm_modules_preload(vwm);
-
     vwm_settings_load(vwm);
+    vwm_programs_load(vwm);
 
     vwm_panel_message_add(VWM_MAIN_MENU_HELP,-1);
 
@@ -209,6 +210,7 @@ vwm_init(void)
         INIT_LIST_HEAD(&vwm->module_list);
 
         vwm->hotkey_menu = VWM_HOTKEY_MENU;
+        vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP;
 
         // load user profile
         vwm_profile_init(vwm);

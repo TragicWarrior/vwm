@@ -10,7 +10,7 @@
 #endif
 
 #define VWM_MAIN_MENU_HELP \
-"Press [alt ~] for Main Menu.  Press [alt w] to manage windows."
+"Press [alt ~] for Main Menu"
 
 vwnd_t* vwm_main_menu(void);
 int	    vwm_main_menu_hotkey(void);

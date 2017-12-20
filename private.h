@@ -41,6 +41,7 @@ struct _vwm_s
     vwm_profile_t           *profile;
 
     int32_t                 hotkey_menu;
+    char                    *hotkey_menu_msg;
 
     struct list_head        module_list;
 

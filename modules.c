@@ -1,6 +1,7 @@
 #include <dirent.h>
 #include <string.h>
 #include <dlfcn.h>
+#include <stdarg.h>
 
 #include <sys/types.h>
 
@@ -11,16 +12,68 @@
 #include "strings.h"
 #include "list.h"
 
-static int _vwm_module_init(const char *);
+#define X_MOD(modtype_val, modtype_text) modtype_text,
+char *mod_desc[] =
+{
+#include "modules.def"
+};
+#undef  X_MOD
+
+static int
+_vwm_module_init(const char *modpath);
 
 vwm_module_t*
 vwm_module_create(void)
 {
     vwm_module_t    *module;
 
-    module = (vwm_module_t*)calloc(1, sizeof(vwm_module_t));
+    module = (vwm_module_t *)calloc(1, sizeof(vwm_module_t));
+
+    // install a default cloning module
+    module->clone = vwm_module_simple_clone;
 
     return module;
+}
+
+vwm_module_t*
+vwm_module_clone(vwm_module_t *mod)
+{
+    vwm_module_t    *new_mod = NULL;
+
+    if(mod == NULL) return NULL;
+
+    new_mod = mod->clone(mod);
+
+    return new_mod;
+}
+
+int
+vwm_module_configure(vwm_module_t *mod, ...)
+{
+    va_list argp;
+    int     retval;
+
+    if(mod == NULL) return -1;
+
+    va_start(argp, mod);
+
+    retval = mod->configure(mod, &argp);
+
+    va_end(argp);
+
+    return retval;
+}
+
+int
+vwm_module_set_name(vwm_module_t *mod, char *name)
+{
+    if(mod == NULL) return -1;
+    if(name == NULL) return -1;
+
+    memset(mod->name, 0, NAME_MAX);
+    strncpy(mod->name, name, NAME_MAX - 1);
+
+    return 0;
 }
 
 void
@@ -183,11 +236,7 @@ vwm_module_add(const vwm_module_t *mod)
 {
 	vwm_t		        *vwm;
 
-    if(mod->type == 0) return -1;
     if(mod->title == '\0') return -1;
-
-    if(mod->modpath == '\0') return -1;
-    if(strlen(mod->modpath) > NAME_MAX - 1) return -1;
 
 	vwm = vwm_get_instance();
 
@@ -195,6 +244,50 @@ vwm_module_add(const vwm_module_t *mod)
     list_add(&mod->list, &vwm->module_list);
 
 	return 0;
+}
+
+int
+vwm_module_type_value(char *string)
+{
+    extern char     *mod_desc[];
+    int             array_sz;
+    int             i;
+
+    if(string == NULL) return -1;
+
+    array_sz = sizeof(mod_desc) / sizeof(mod_desc[0]);
+
+    for(i = 0; i < array_sz; i++)
+    {
+        if(strcmp(mod_desc[i], string) == 0) break;
+    }
+
+    // no match found
+    if(i == array_sz) return -1;
+
+    return i;
+}
+
+vwm_module_t*
+vwm_module_find_by_name(char *name)
+{
+    vwm_t               *vwm;
+    vwm_module_t        *module = NULL;
+    struct list_head    *pos;
+
+    if(name == NULL) return NULL;
+    vwm = vwm_get_instance();
+
+    list_for_each(pos, &vwm->module_list)
+    {
+        module = list_entry(pos, vwm_module_t, list);
+
+        if(strcmp(module->name, name) == 0) break;
+
+        module = NULL;
+    }
+
+	return module;
 }
 
 vwm_module_t*
@@ -244,6 +337,7 @@ vwm_module_find_by_type(vwm_module_t *prev_mod, int type)
 
         // return module if match found
         if(prev_mod->type == type) return prev_mod;
+
         // return NULL if no match found and is the last item
         if(list_is_last(&prev_mod->list, &vwm->module_list)) return NULL;
     }
@@ -294,6 +388,25 @@ _vwm_module_init(const char *modpath)
     }
 
     return 0;
+}
+
+/*
+    this function is set by default for cloning modules but
+    can be replaced.
+*/
+vwm_module_t*
+vwm_module_simple_clone(vwm_module_t *mod)
+{
+    vwm_module_t    *new_mod;
+
+    if(mod == NULL) return NULL;
+
+    new_mod = (vwm_module_t *)calloc(1, sizeof(vwm_module_t));
+
+    memcpy(new_mod, mod, sizeof(vwm_module_t));
+    memset(&new_mod->list, 0, sizeof(struct list_head));
+
+    return new_mod;
 }
 
 int
