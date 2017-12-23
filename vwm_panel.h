@@ -50,14 +50,14 @@ typedef struct
 VWM_PANEL_MSG;
 
 /* panel events   */
-int     vwm_panel_ON_TERM_RESIZED(WINDOW *window, void *arg);
-int     vwm_panel_ON_CLOCK_TICK(WINDOW *window, void *arg);
+int     vwm_panel_ON_TERM_RESIZED(vwnd_t *vwnd, void *arg);
+int     vwm_panel_ON_CLOCK_TICK(vwnd_t *vwnd, void *arg);
 
 /* helpers  */
-void	vwm_panel_update_throbber(WINDOW *window);
-void    vwm_panel_update_clock(WINDOW *window);
-void    vwm_panel_marshall(VWM_PANEL *vwm_panel);
-void    vwm_panel_display(VWM_PANEL *vwm_panel, WINDOW *window);
+void	vwm_panel_update_throbber(vwnd_t *vwnd);
+void    vwm_panel_update_clock(vwnd_t *vwnd);
+void    vwm_panel_marshall(vwnd_t *vwnd);
+void    vwm_panel_display(VWM_PANEL *vwm_panel, vwnd_t *vwnd);
 void    vwm_panel_scroll(VWM_PANEL *vwm_panel);
 
 #endif

@@ -9,9 +9,10 @@
 #include <curses.h>
 #endif
 
-int     vwmterm_ON_RESIZE(WINDOW *window, void *anything);
-int	    vwmterm_ON_CLOSE(WINDOW *window, void *anything);
-int	    vwmterm_ON_DESTROY(WINDOW *window, void *anything);
-int	    vwmterm_ON_KEYSTROKE(int32_t keystroke, WINDOW *window);
+#include <viper.h>
+
+int     vwmterm_ON_RESIZE(vwnd_t *vwnd, void *anything);
+int	    vwmterm_ON_CLOSE(vwnd_t *vwnd, void *anything);
+int	    vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd);
 
 #endif

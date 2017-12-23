@@ -20,75 +20,92 @@
 #include <string.h>
 #include <inttypes.h>
 
+#include <viper.h>
+
+#include "profile.h"
 #include "vwm.h"
 #include "modules.h"
 #include "mainmenu.h"
 #include "private.h"
+#include "hotkeys.h"
 #include "bkgd.h"
 
-static WINDOW*
-vwm_fmod_exit(vwm_module_t *mod);
-
 int
-vwm_default_border_agent_focus(WINDOW *window, void *anything)
+vwm_default_border_agent_focus(vwnd_t *vwnd, void *anything)
 {
-	WINDOW			*border_wnd;
 	const char		*title;
 	uint32_t		window_state;
+    char            buf[16];
+    int             len;
  	int		   	    y, x;
 
-	border_wnd = viper_get_window_frame(window);
-	title = viper_window_get_title(window);
+    (void)anything;
 
-    window_decorate(border_wnd, (char*)title,TRUE);
-    getmaxyx(border_wnd, y, x);
-	mvwprintw(border_wnd,0,x - sizeof("[X]") + 1,"[X]");
+	title = viper_window_get_title(vwnd);
 
-	window_state = viper_window_get_state(window);
-    if(window_state & STATE_NORESIZE) mvwaddch(border_wnd, y - 1, x - 1, '*');
+    window_decorate(WINDOW_FRAME(vwnd), (char*)title,TRUE);
+    getmaxyx(WINDOW_FRAME(vwnd), y, x);
+	mvwprintw(WINDOW_FRAME(vwnd), 0, x - sizeof("[X]") + 1,"[X]");
 
-    window_modify_border(border_wnd, A_BOLD,
+    // display window size (minus the border)
+    snprintf(buf, sizeof(buf), "[%d x %d]", x - 2, y -2 );
+    len = strlen(buf);
+    mvwprintw(WINDOW_FRAME(vwnd), y - 1, (x / 2) - (len / 2), "%s", buf);
+
+    // show resize indicator
+	window_state = viper_window_get_state(vwnd);
+    if(!(window_state & STATE_NORESIZE))
+        mvwaddch(WINDOW_FRAME(vwnd), y - 1, x - 1, '*');
+
+    window_modify_border(WINDOW_FRAME(vwnd), A_BOLD,
         viper_color_pair(COLOR_WHITE, COLOR_MAGENTA));
 
     return 0;
 }
 
 int
-vwm_default_border_agent_unfocus(WINDOW *window, void *anything)
+vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything)
 {
-	WINDOW		    *border_wnd;
 	const char	    *title;
 	uint32_t	    window_state;
+    char            buf[16];
+    int             len;
  	int		        y, x;
 
-	border_wnd = viper_get_window_frame(window);
-	title = viper_window_get_title(window);
+    (void)anything;
 
-    window_decorate(border_wnd, (char*)title, TRUE);
-    getmaxyx(border_wnd, y, x);
-	mvwprintw(border_wnd, 0, x - sizeof("[X]") + 1, "[X]");
+	title = viper_window_get_title(vwnd);
 
-	window_state = viper_window_get_state(window);
-    if(window_state & STATE_NORESIZE) mvwaddch(border_wnd, y - 1, x - 1, '*');
+    window_decorate(WINDOW_FRAME(vwnd), (char*)title, TRUE);
+    getmaxyx(WINDOW_FRAME(vwnd), y, x);
+	mvwprintw(WINDOW_FRAME(vwnd), 0, x - sizeof("[X]") + 1, "[X]");
 
-    window_modify_border(border_wnd, A_NORMAL,
+    // display window size (minus the border)
+    snprintf(buf, sizeof(buf), "[%d x %d]", x - 2, y - 2);
+    len = strlen(buf);
+    mvwprintw(WINDOW_FRAME(vwnd), y - 1, (x / 2) - (len / 2), "%s", buf);
+
+    // show resize indicator
+	window_state = viper_window_get_state(vwnd);
+    if(!(window_state & STATE_NORESIZE))
+        mvwaddch(WINDOW_FRAME(vwnd), y - 1, x - 1, '*');
+
+    window_modify_border(WINDOW_FRAME(vwnd), A_NORMAL,
 	    viper_color_pair(COLOR_BLACK,COLOR_CYAN));
 
     return 0;
 }
 
 void
-vwm_modules_preload(void)
+vwm_modules_preload(vwm_t *vwm)
 {
-    WINDOW          *msgbox;
+    char            *module_dirs[] = { NULL, _VWM_SHARED_MODULES };
     char            *error_msg;
-    char            *module_dirs[] = {NULL,_VWM_SHARED_MODULES};
-    vwm_module_t    *fake_mod;
     int             array_sz;
     int             i;
 
     array_sz = sizeof(module_dirs) / sizeof(module_dirs[0]);
-    module_dirs[0] = VWM_MOD_DIR;
+    module_dirs[0] = vwm_profile_mod_dir_get(vwm);
 
     for(i = 0;i < array_sz;i++)
     {
@@ -96,58 +113,37 @@ vwm_modules_preload(void)
 
         if(error_msg != NULL)
         {
-            msgbox = viper_msgbox_create(" Module Warning! ",
-                0.5, 0.5, 0, 0, error_msg,
-                MSGBOX_ICON_WARN | MSGBOX_TYPE_OK);
-            viper_window_show(msgbox);
-            free(error_msg);
+
+            endwin();
+            printf("[EE] Module loading failed\n\r");
+            printf("%s\n\r", error_msg);
+            exit(0);
         }
     }
-
- 	/* these "fake" modules will appear on the menu in the same order whereby
-		they were added below	*/
-	//vwm_module_add("VWM","Window List",vwm_fmod_wndlist,NULL,
-	//	"vwm_fmod_winlist");
-
-    fake_mod = vwm_module_create();
-    vwm_module_set_title(fake_mod, "Exit");
-    vwm_module_set_type(fake_mod, VWM_MOD_TYPE_SYSTEM);
-
-    sprintf(fake_mod->modpath, "/vwmroot/Exit");
-    fake_mod->main = vwm_fmod_exit;
-    fake_mod->anything = (void*)"shutdown vwm";
-
-    if(vwm_module_add(fake_mod) < 0)
-    {
-        endwin();
-        printf("Unable to load static modules.\n\r");
-        exit(0);
-    }
-
-/*
-	vwm_module_add("VWM","Screensaver",vwm_fmod_scrsaver,NULL,
-		"vwm_fmod_scrsaver");
-*/
-
-	// vwm_module_add("VWM","Exit",vwm_fmod_exit,NULL,
-	//	"vwm_fmod_exit");
-
-/*
-	// special handling for default screensaver
-	vwm_module_add(VWM_SCREENSAVER,"SysSaver",vwm_fmod_syssaver,
-      NULL,"vwm_fmod_sysinfo");
-   // vwm_scrsaver_start();
-*/
 
 	return;
 }
 
-WINDOW*
-vwm_fmod_exit(vwm_module_t *mod)
+int
+vwm_exit(vk_widget_t *widget, void *anything)
 {
-    extern int      shutdown;
+    extern int  shutdown;
+
+    (void)widget;
+    (void)anything;
 
     shutdown = 1;
 
-	return NULL;
+    return 0;
+}
+
+int
+vwm_toggle_winman(vk_widget_t *widget, void *anything)
+{
+    (void)widget;
+    (void)anything;
+
+    vwm_kmio_dispatch_hook_enter(VWM_HOTKEY_WM);
+
+    return 0;
 }

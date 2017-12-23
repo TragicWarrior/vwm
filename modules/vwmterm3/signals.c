@@ -1,10 +1,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include <vwm.h>
 #include <vterm.h>
 
 #include "signals.h"
+
+#include "../../vwm.h"
 
 void
 vterm_init_sigio(vterm_t *vterm)
@@ -35,7 +36,7 @@ vterm_init_sigio(vterm_t *vterm)
 void
 vwmterm_SIGIO(int signum, siginfo_t *siginfo, void *uc)
 {
-    extern unsigned int wake_counter;
+    (void)uc;
 
 #ifdef SIGPOLL
     if(signum != SIGPOLL) return;
@@ -46,7 +47,7 @@ vwmterm_SIGIO(int signum, siginfo_t *siginfo, void *uc)
     // suppress the sleep thread if term is emitting output
     if (siginfo->si_code & POLL_OUT)
     {
-        wake_counter++;
+        // wake_counter++;
     }
 
     return;

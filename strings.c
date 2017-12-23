@@ -110,7 +110,7 @@ strsplitv(char *string, char *delim)
 }
 
 char**
-strdupv(char **array)
+strdupv(char **array, int limit)
 {
     int     i = 0;
     char    **retval;
@@ -128,9 +128,44 @@ strdupv(char **array)
     {
         retval[i] = strdup(array[i]);
         i++;
+
+        if(limit > 0)
+        {
+            if((i - 1) == limit) break;
+        }
     }
 
     return retval;
+}
+
+char**
+strcatv(char **array, char *string)
+{
+    int     i = 0;
+    char    **pos;
+
+    if(string == NULL) return array;
+
+    if(array == NULL)
+    {
+        array = (char **)calloc(2, sizeof(char *));
+        array[0] = strdup(string);
+
+        return array;
+    }
+
+    pos = array;
+    while(pos[0] != NULL)
+    {
+        i++;
+        pos++;
+    }
+
+    array = (char **)realloc(array, sizeof(char*) * (i + 1));
+    pos[0] = strdup(string);
+    pos[1] = '\0';
+
+    return array;
 }
 
 void

@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <libconfig.h>
+
 #include "vwm.h"
 #include "settings.h"
 #include "profile.h"
@@ -9,89 +11,30 @@
 #include "hotkeys.h"
 
 int
-vwm_settings_load(char *rc_file)
+vwm_settings_load(vwm_t *vwm)
 {
-    FILE    *file;
-    char    *line_data;
-    size_t  line_sz;
-    ssize_t bytes_read;
+    const char  *value;
+    int32_t     keystroke;
+    int         retval;
 
-    if(access(rc_file, R_OK) == -1) return ERR;
-    line_data = NULL;
+    if(vwm == NULL) return -1;
+    if(vwm->profile == NULL) return -1;
+    if(vwm->profile->rc_file == NULL) return -1;
 
-    file = fopen(rc_file, "r");
-    do
+    config_init(&vwm->config);
+    config_read_file(&vwm->config, vwm->profile->rc_file);
+
+    retval = config_lookup_string(&vwm->config, "hotkeys.menu.key", &value);
+
+    if(retval == CONFIG_TRUE)
     {
-        if(line_data != NULL)
-        {
-            free(line_data);
-            line_data = NULL;
-        }
-
-        line_sz = 0;
-        bytes_read = getline(&line_data, &line_sz, file);
-        if(bytes_read == -1 && line_sz == 0) break;
-
-        if(line_data[0] == '#' || line_data[0] == ';') continue;
-        if(vwm_settings_hotkey_load(line_data)!=ERR) continue;
-        // if(vwm_settings_scrsaver_load(line_data)!=ERR) continue;
+        retval = sscanf(value, "%x", &keystroke);
+        vwm->hotkey_menu = keystroke;
     }
-    while(feof(file) == 0);
 
-    fclose(file);
+    config_destroy(&vwm->config);
+
     return 0;
 }
-
-/*
-gint vwm_settings_scrsaver_load(gchar *line_data)
-{
-   gchar *pos;
-   glong timeout;
-
-   pos=strstr(line_data,"screen_timeout");
-   if(pos==NULL) return ERR;
-   pos+=(strlen("screen_timeout"));
-
-   line_data=pos;
-   pos=strchr(line_data,'=');
-   if(pos==NULL) return ERR;
-   pos++;
-
-   line_data=pos;
-   g_strstrip(pos);
-   timeout=strtol(pos,(char**)NULL,10);
-   if(timeout==LONG_MIN || timeout==LONG_MAX) return ERR;
-   if(timeout>90) timeout=90;
-
-   vwm_scrsaver_timeout_set((gint)timeout);
-   return 0;
-}
-*/
-
-int
-vwm_settings_hotkey_load(char *line_data)
-{
-    char    *pos;
-    int32_t keystroke = 0;
-    int     retval;
-
-    pos = strstr(line_data, "menu_hotkey");
-    if(pos == NULL) return ERR;
-    pos += (strlen("menu_hotkey"));
-
-    line_data = pos;
-    pos = strchr(line_data, '=');
-    if(pos == NULL) return ERR;
-    pos++;
-
-    line_data = pos;
-    // g_strstrip(pos);
-    retval = sscanf(pos, "%x", &keystroke);
-    if(retval != 1) return 0;
-
-    // vwm_hotkey_swap(VWM_HOTKEY_MENU,keystroke,1);
-    return 0;
-}
-
 
 
