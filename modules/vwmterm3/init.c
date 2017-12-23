@@ -49,6 +49,8 @@ vwm_mod_init(const char *modpath)
     void            *dynlib;
     int             retval;
 
+    (void)modpath;
+
 	// preload libutil for use with this module.
 	dynlib = dlopen("libutil.so",RTLD_LAZY | RTLD_GLOBAL);
     if(dynlib == NULL) return -1;

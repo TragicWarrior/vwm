@@ -203,7 +203,6 @@ void
 vwm_panel_scroll(VWM_PANEL *vwm_panel)
 {
     VWM_PANEL_MSG       *vwm_panel_msg;
-    // struct list_head    *pos;
 
     /*
         don't do anything if there are no messages to display or the panel
@@ -217,16 +216,6 @@ vwm_panel_scroll(VWM_PANEL *vwm_panel)
 
     /* do nothing if panel is frozen.   */
     if(vwm_panel->state & VWM_PANEL_STATE_FROZEN) return;
-
-    /*
-        this is a special case where there is only one message in the queue
-        and it is short enough to fit on the display. */
-    if((vwm_panel->msg_count == 1) &&
-        (vwm_panel_msg->msg_len <= vwm_panel->display_sz))
-    {
-        vwm_panel->pos = vwm_panel_msg->msg;
-        return;
-    }
 
     // rotate the list and point the next entry
     list_rotate_left(&vwm_panel->msg_list);

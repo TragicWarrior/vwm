@@ -232,7 +232,7 @@ vwm_modules_load(char *module_dir)
 }
 
 int
-vwm_module_add(const vwm_module_t *mod)
+vwm_module_add(vwm_module_t *mod)
 {
 	vwm_t		        *vwm;
 

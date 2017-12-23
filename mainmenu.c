@@ -28,6 +28,7 @@
 #include "modules.h"
 #include "strings.h"
 #include "private.h"
+#include "events.h"
 
 vwnd_t*
 vwm_main_menu(void)
@@ -41,13 +42,20 @@ vwm_main_menu(void)
 
     int             max_width = 0;
     int             max_height = 0;
+    int             scr_width;
+    int             scr_height;
     bool            category_found;
 
     int             i;
 
+    getmaxyx(CURRENT_SCREEN, scr_height, scr_width);
+    scr_width -= 4;
+    scr_height -= 4;
+
     menu = vk_menu_create(width, height);
     vk_menu_set_frame(menu, VK_FRAME_SINGLE);
     vk_listbox_set_highlight(VK_LISTBOX(menu), COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_wrap(VK_LISTBOX(menu), TRUE);
 
     // iterate through the categories defined in modules.def
     for(i = 0;i < VWM_MOD_TYPE_MAX;i++)
@@ -75,12 +83,14 @@ vwm_main_menu(void)
     }
 
     // add some items manually
-    vk_listbox_add_item(VK_LISTBOX(menu), "Toggle WM (Alt + w)",
+    vk_listbox_add_item(VK_LISTBOX(menu), "Toggle WM (alt + w)",
         vwm_toggle_winman, NULL);
     vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(VK_LISTBOX(menu), "Exit", vwm_exit, NULL);
 
     vk_listbox_get_metrics(VK_LISTBOX(menu), &max_width, &max_height);
+    if(max_width > scr_width) max_width = scr_width;
+    if(max_height > scr_height) max_height = scr_height;
 
 	vwnd = viper_window_create(CURRENT_SCREEN_ID, FALSE, " Menu ", 1, 1,
         max_width + 2, max_height + 2);
@@ -99,6 +109,8 @@ vwm_main_menu(void)
 	viper_window_set_userptr(vwnd, (void*)menu);
 
     viper_event_set(vwnd, "window-close", vwm_main_menu_ON_CLOSE, NULL);
+    viper_event_set(vwnd, "term-resized",
+        vwm_main_menu_ON_TERM_RESIZED, (void*)menu);
 
     vk_menu_update(menu);
     vk_widget_draw(VK_WIDGET(menu));

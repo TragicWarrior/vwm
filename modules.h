@@ -25,19 +25,19 @@ VWM_MOD_TYPE_MAX
 
 struct _vwm_module_s
 {
-    char                modpath[NAME_MAX];
+    char                    modpath[NAME_MAX];
 
-    char                name[NAME_MAX];     // a unique name for the module
-    char                title[NAME_MAX];    // module "display name"
-    int                 type;               // classificaton of module
+    char                    name[NAME_MAX];     // a unique name for the module
+    char                    title[NAME_MAX];    // module "display name"
+    int                     type;               // classificaton of module
 
-    vwm_module_t*       (*clone)            (vwm_module_t *);
-    int                 (*configure)        (vwm_module_t *, va_list *);
+    vwm_module_t*           (*clone)            (vwm_module_t *);
+    int                     (*configure)        (vwm_module_t *, va_list *);
 
-    struct list_head    list;
+    struct list_head        list;
 
-    vwnd_t*             (*main)             (vwm_module_t *);
-    void                *anything;
+    vwnd_t*                 (*main)             (vwm_module_t *);
+    void                    *anything;
 };
 
 // this is the standard callback which clones a module

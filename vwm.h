@@ -25,7 +25,7 @@
 #ifdef  _VIPER_WIDE
 #define _VWM_SHARED_MODULES         "/usr/lib/vwm/modules_wide/"
 #else
-#define _VWM_SHARED_MODULES         "/usr/lib/vwm/modules/"
+#define _VWM_SHARED_MODULES         "/usr/local/lib/vwm/"
 #endif
 #endif
 
@@ -94,7 +94,7 @@ void            vwm_module_set_title(vwm_module_t *mod, char *title);
 void            vwm_module_get_title(vwm_module_t *mod, char *buf, int buf_sz);
 void            vwm_module_set_userptr(vwm_module_t *mod, void *anything);
 void*           vwm_module_get_userptr(vwm_module_t *mod);
-int 		    vwm_module_add(const vwm_module_t *mod);
+int 		    vwm_module_add(vwm_module_t *mod);
 vwnd_t*         vwm_module_exec(vwm_module_t *mod);
 
 int             vwm_module_type_value(char *string);

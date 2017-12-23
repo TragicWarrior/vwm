@@ -30,6 +30,14 @@ endif()
 
 find_package(CONFIG)
 
+add_library(vwmterm SHARED
+    modules/vwmterm3/events.c
+    modules/vwmterm3/init.c
+    modules/vwmterm3/module.c
+    modules/vwmterm3/pt_thread.c
+    modules/vwmterm3/signals.c
+    )
+
 add_executable(vwm
     bkgd.c
     clock.c
@@ -45,6 +53,7 @@ add_executable(vwm
     strings.c
     vwm.c
     vwm_panel.c
+    events.c
     )
 
 if (GPM_FOUND)
@@ -61,4 +70,4 @@ set(PKG_CONFIG_LIBS
 )
 
 install (TARGETS vwm DESTINATION bin)
-
+install (TARGETS vwmterm DESTINATION lib/vwm/)

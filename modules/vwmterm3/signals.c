@@ -1,10 +1,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include <vwm.h>
 #include <vterm.h>
 
 #include "signals.h"
+
+#include "../../vwm.h"
 
 void
 vterm_init_sigio(vterm_t *vterm)
@@ -35,6 +36,7 @@ vterm_init_sigio(vterm_t *vterm)
 void
 vwmterm_SIGIO(int signum, siginfo_t *siginfo, void *uc)
 {
+    (void)uc;
 
 #ifdef SIGPOLL
     if(signum != SIGPOLL) return;

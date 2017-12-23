@@ -18,9 +18,11 @@ vwm_programs_load(vwm_t *vwm)
     const char          *title;
     const char          *type;
     const char          *bin;
+    const char          *params;
     char                **args;
     int                 value;
 
+    char                buf[256];
     int                 i = 0;
 
     if(vwm == NULL) return -1;
@@ -45,26 +47,45 @@ vwm_programs_load(vwm_t *vwm)
 
         if(entry != NULL)
         {
+            // check to see if program has a dependency
+            requires = NULL;
+            params = NULL;
             config_setting_lookup_string(entry, "requires", &requires);
+
+            // if the program requires a module that's not installed, move on
+            if(requires != NULL)
+            {
+                module = vwm_module_find_by_name((char *)requires);
+                if(module == NULL)
+                {
+                    i++;
+                    continue;
+                }
+            }
+
             config_setting_lookup_string(entry, "title", &title);
             config_setting_lookup_string(entry, "type", &type);
             config_setting_lookup_string(entry, "bin", &bin);
-
-            module = vwm_module_find_by_name((char *)requires);
-            if(module == NULL)
-            {
-                i++;
-                continue;
-            }
+            config_setting_lookup_string(entry, "params", &params);
 
             value = vwm_module_type_value((char *)type);
             if(value == -1) value = VWM_MOD_TYPE_MISC;
 
-            args = strcatv(NULL, (char *)bin);
-
             module = vwm_module_clone(module);
             vwm_module_set_title(module, (char *)title);
             vwm_module_set_type(module, value);
+
+            // copy it bin and params  into a buffer so we can explode it
+            if(params != NULL)
+            {
+                snprintf(buf, sizeof(buf), "%s %s", bin, params);
+                args = strsplitv(buf, " ");
+            }
+            else
+            {
+                args = strcatv(NULL, (char *)bin);
+            }
+
             vwm_module_configure(module, 0, bin, args);
             vwm_module_add(module);
             strfreev(args);

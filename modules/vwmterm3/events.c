@@ -44,6 +44,8 @@ vwmterm_ON_CLOSE(vwnd_t *vwnd, void *anything)
     vwmterm_data_t  *vwmterm_data;
     pid_t           child_pid;
 
+    (void)vwnd;
+
     vwmterm_data = (vwmterm_data_t*)anything;
 
     // tell the pseudo thread we're shutting down
