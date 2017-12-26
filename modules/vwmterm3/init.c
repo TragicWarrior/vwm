@@ -85,7 +85,18 @@ vwm_mod_init(const char *modpath)
 
 	retval = vwm_module_add(VWM_MODULE(mod));
 
-    if(retval != 0) exit(-1);
+	// allloc, configure, and register module for fullscreen  instance
+    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
+
+    VWM_MODULE(mod)->main = vwmterm_main;
+    VWM_MODULE(mod)->clone = vwmterm_module_clone;
+    VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    vwm_module_set_name(VWM_MODULE(mod), "vterm-fullscreen");
+    vwm_module_set_title(VWM_MODULE(mod), "VTerm (fullscreen)");
+    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
+    mod->fullscreen = TRUE;
+
+	retval = vwm_module_add(VWM_MODULE(mod));
 
 	return 0;
 }
@@ -106,17 +117,22 @@ vwmterm_main(vwm_module_t *mod)
     vwmterm_mod = (vwmterm_mod_t *)mod;
 
     getmaxyx(CURRENT_SCREEN, height, width);
-    if(height > 30 && width > 84)
+
+    // if the term is not fullscreen, calculate a sane window size
+    if(vwmterm_mod->fullscreen == FALSE)
     {
-        height = 25;
-        width = 80;
-    }
-    else
-    {
-        // calculate scaled window size
-	    window_get_size_scaled(NULL, &width, &height, 0.85, 0.65);
-	    if(width > 80) width = 80;
-	    if(height > 25) height = 25;
+        if(height > 30 && width > 84)
+        {
+            height = 25;
+            width = 80;
+        }
+        else
+        {
+            // calculate scaled window size
+	        window_get_size_scaled(NULL, &width, &height, 0.85, 0.65);
+	        if(width > 80) width = 80;
+	        if(height > 25) height = 25;
+        }
     }
 
     // vterm = vterm_create(width, height, vwmterm_mod->flags);
@@ -129,10 +145,19 @@ vwmterm_main(vwm_module_t *mod)
     vterm_init_sigio(vterm);
 
     // create window
-	vwnd = viper_window_create(CURRENT_SCREEN_ID, TRUE, " VTerm ",
-        0.5, 0.5, width, height);
-    viper_window_set_resizable(vwnd, TRUE);
-	viper_window_set_limits(vwnd, 15, 2, WSIZE_UNCHANGED, WSIZE_UNCHANGED);
+    if(vwmterm_mod->fullscreen == FALSE)
+    {
+	    vwnd = viper_window_create(CURRENT_SCREEN_ID, TRUE, " VTerm ",
+            0.5, 0.5, width, height);
+        viper_window_set_resizable(vwnd, TRUE);
+	    viper_window_set_limits(vwnd, 15, 2, WSIZE_UNCHANGED, WSIZE_UNCHANGED);
+    }
+    else
+    {
+        vwnd = viper_window_create(CURRENT_SCREEN_ID, FALSE, " VTerm ",
+            0, 0, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
+        viper_window_set_resizable(vwnd, FALSE);
+    }
 
     // libviper set the default bkgd OR to WHITE on BLACK.  undo it.
     wbkgdset(VWINDOW(vwnd), 0);
@@ -155,10 +180,13 @@ vwmterm_main(vwm_module_t *mod)
     ctx_vwmterm->shutdown = &shutdown;
 
     // attach event handlers
+    viper_event_set(vwnd, "term-resized",
+        vwmterm_ON_SCREEN_RESIZED,
+            vwmterm_mod->fullscreen ? (void *)"fullscreen" : NULL);
 	viper_event_set(vwnd, "window-resized",
-        vwmterm_ON_RESIZE, (void*)vterm);
+        vwmterm_ON_RESIZE, (void *)vterm);
 	viper_event_set(vwnd, "window-close",
-        vwmterm_ON_CLOSE, (void*)vwmterm_data);
+        vwmterm_ON_CLOSE, (void *)vwmterm_data);
 	viper_window_set_key_func(vwnd,
         vwmterm_ON_KEYSTROKE);
 	viper_window_set_userptr(vwnd, (void*)vterm);

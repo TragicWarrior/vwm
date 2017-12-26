@@ -12,6 +12,7 @@
 #include <viper.h>
 
 int     vwmterm_ON_RESIZE(vwnd_t *vwnd, void *anything);
+int     vwmterm_ON_SCREEN_RESIZED(vwnd_t *vwnd, void *anything);
 int	    vwmterm_ON_CLOSE(vwnd_t *vwnd, void *anything);
 int	    vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd);
 

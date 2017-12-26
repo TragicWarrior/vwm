@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <sys/types.h>
 #include <sys/wait.h>
 
@@ -19,6 +21,20 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
     vterm_write_pipe(vterm, keystroke);
 
 	return 1;
+}
+
+int
+vwmterm_ON_SCREEN_RESIZED(vwnd_t *vwnd, void *anything)
+{
+    if(anything != NULL)
+    {
+        if(strcmp((char *)anything, "fullscreen") == 0)
+        {
+            viper_wresize_abs(vwnd, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
+        }
+    }
+
+    return 0;
 }
 
 
