@@ -27,8 +27,9 @@
 #include "modules.h"
 #include "mainmenu.h"
 #include "private.h"
-#include "hotkeys.h"
+#include "winman.h"
 #include "bkgd.h"
+#include "panel.h"
 
 int
 vwm_default_border_agent_focus(vwnd_t *vwnd, void *anything)
@@ -143,7 +144,8 @@ vwm_toggle_winman(vk_widget_t *widget, void *anything)
     (void)widget;
     (void)anything;
 
-    vwm_kmio_dispatch_hook_enter(VWM_HOTKEY_WM);
+    // push window management hotkey into panel
+    vwm_panel_ON_KEYSTROKE(VWM_HOTKEY_WM, NULL);
 
     return 0;
 }

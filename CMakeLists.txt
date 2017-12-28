@@ -41,7 +41,7 @@ add_library(vwmterm SHARED
 add_executable(vwm
     bkgd.c
     clock.c
-    hotkeys.c
+    winman.c
     mainmenu.c
     modules.c
     poll_input_thd.c
@@ -52,7 +52,7 @@ add_executable(vwm
     signals.c
     strings.c
     vwm.c
-    vwm_panel.c
+    panel.c
     events.c
     )
 

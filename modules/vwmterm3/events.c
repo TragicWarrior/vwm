@@ -20,7 +20,9 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 
     vterm_write_pipe(vterm, keystroke);
 
-	return 1;
+	// return 1;
+
+    return KMIO_HANDLED;
 }
 
 int

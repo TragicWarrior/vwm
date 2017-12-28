@@ -125,15 +125,6 @@ vwm_main_menu_hotkey(void)
 {
 	vwnd_t  *vwnd = NULL;
 
-	vwnd = viper_window_find_by_class(-1, FALSE, vwm_main_menu);
-
-	if(vwnd != NULL) 
-	{
-		viper_window_close(vwnd);
-
-		return 0;
-	}
-
 	vwnd = vwm_main_menu();
 	viper_window_set_class(vwnd, vwm_main_menu);
 	viper_window_set_top(vwnd);
@@ -161,11 +152,20 @@ vwm_main_menu_ON_CLOSE(vwnd_t *vwnd, void *anything)
 int
 vwm_main_menu_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 {
+    vwm_t           *vwm;
     vk_listbox_t    *menu;
     int             retval;
 
+    vwm = vwm_get_instance();
+
 	menu = (vk_listbox_t*)viper_window_get_userptr(vwnd);
-    if(keystroke == -1) return 1;
+    if(keystroke == -1) return -1;
+
+    if(keystroke == vwm->hotkey_menu)
+    {
+        viper_window_close(vwnd);
+        return 0;
+    }
 
     retval = vk_object_push_keystroke(VK_OBJECT(menu), keystroke);
 
@@ -173,11 +173,18 @@ vwm_main_menu_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
     if(keystroke == 10 && retval == 0)
     {
         viper_window_close(vwnd);
-        return 1;
+
+        // return -1 to inidcate keystroke was handled
+        return KMIO_HANDLED;
     }
 
-    viper_window_redraw(vwnd);
+    // vk_menu widget handled the key
+    if(retval == 0)
+    {
+        viper_window_redraw(vwnd);
+        return KMIO_HANDLED;
+    }
 
-	return 1;
+	return keystroke;
 }
 

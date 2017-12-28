@@ -22,97 +22,11 @@
 #include <viper.h>
 
 #include "vwm.h"
-#include "hotkeys.h"
+#include "winman.h"
 #include "mainmenu.h"
 #include "bkgd.h"
 #include "private.h"
 
-#define     KEY_PLUS            '+'
-#define     KEY_CTRL_DOWN       525
-
-#define     KEY_MINUS           '-'
-#define     KEY_CTRL_UP         566
-
-#define     KEY_GREATER_THAN    '>'
-#define     KEY_CTRL_RIGHT      560
-
-#define     KEY_LESS_THAN       '<'
-#define     KEY_CTRL_LEFT       545
-
-static void vwm_default_WINDOW_INCREASE_HEIGHT(vwnd_t *);
-static void vwm_default_WINDOW_DECREASE_HEIGHT(vwnd_t *);
-static void vwm_default_WINDOW_INCREASE_WIDTH(vwnd_t *);
-static void vwm_default_WINDOW_DECREASE_WIDTH(vwnd_t *);
-
-
-int32_t
-vwm_kmio_dispatch_hook_enter(int32_t keystroke)
-{
-    vwm_t       *vwm;
-
-    vwm = vwm_get_instance();
-
-    if(keystroke == VWM_HOTKEY_WM)
-    {
-        vwm->state ^= VWM_STATE_ACTIVE;
-
-        if(vwm->state & VWM_STATE_ACTIVE)
-            vwm_default_VWM_START((void*)TOPMOST_MANAGED);
-        else
-            vwm_default_VWM_STOP((void*)TOPMOST_MANAGED);
-
-        return -1;
-    }
-
-    if(vwm->state & VWM_STATE_ACTIVE)
-    {
-        switch(keystroke)
-        {
-            case 17:
-                vwm_default_WINDOW_CLOSE(TOPMOST_MANAGED); return -1;
-            case KEY_TAB:
-                vwm_default_WINDOW_CYCLE(); return -1;
-            case KEY_UP:
-                vwm_default_WINDOW_MOVE_UP(TOPMOST_MANAGED); return -1;
-            case KEY_DOWN:
-                vwm_default_WINDOW_MOVE_DOWN(TOPMOST_MANAGED); return -1;
-            case KEY_LEFT:
-                vwm_default_WINDOW_MOVE_LEFT(TOPMOST_MANAGED); return -1;
-            case KEY_RIGHT:
-                vwm_default_WINDOW_MOVE_RIGHT(TOPMOST_MANAGED); return -1;
-
-            case KEY_PLUS:
-            case KEY_CTRL_DOWN:
-                vwm_default_WINDOW_INCREASE_HEIGHT(TOPMOST_MANAGED); return -1;
-            case KEY_MINUS:
-            case KEY_CTRL_UP:
-                vwm_default_WINDOW_DECREASE_HEIGHT(TOPMOST_MANAGED); return -1;
-            case KEY_GREATER_THAN:
-            case KEY_CTRL_RIGHT:
-                vwm_default_WINDOW_INCREASE_WIDTH(TOPMOST_MANAGED); return -1;
-            case KEY_LESS_THAN:
-            case KEY_CTRL_LEFT:
-                vwm_default_WINDOW_DECREASE_WIDTH(TOPMOST_MANAGED); return -1;
-
-            default:
-                // endwin();
-                // printf("%d\n",keystroke);
-                // exit(0);
-                return keystroke;
-        }
-    }
-
-    if(!(vwm->state & VWM_STATE_ACTIVE))
-    {
-        if(keystroke == vwm->hotkey_menu)
-        {
-            vwm_main_menu_hotkey();
-            return -1;
-        }
-    }
-
-    return keystroke;
-}
 
 void
 vwm_default_VWM_START(vwnd_t *topmost_window)
@@ -216,46 +130,45 @@ vwm_default_WINDOW_MOVE_RIGHT(vwnd_t *topmost_window)
 	return;
 }
 
-static void
+void
 vwm_default_WINDOW_INCREASE_HEIGHT(vwnd_t *topmost_window)
 {
-	viper_wresize_rel(topmost_window, 0, 1);
+    viper_wresize_rel(topmost_window, 0, 1);
 
-	return;
+    return;
 }
 
-static void
+void
 vwm_default_WINDOW_DECREASE_HEIGHT(vwnd_t *topmost_window)
 {
     int screen_id;
 
     screen_id = viper_window_get_screen_id(topmost_window);
 
-	viper_wresize_rel(topmost_window, 0, -1);
+    viper_wresize_rel(topmost_window, 0, -1);
     viper_screen_redraw(screen_id, REDRAW_ALL | REDRAW_BACKGROUND);
 
-	return;
+    return;
 }
 
-static void
+void
 vwm_default_WINDOW_INCREASE_WIDTH(vwnd_t *topmost_window)
 {
-	viper_wresize_rel(topmost_window, 1, 0);
+    viper_wresize_rel(topmost_window, 1, 0);
 
-	return;
+    return;
 }
 
-static void
+void
 vwm_default_WINDOW_DECREASE_WIDTH(vwnd_t *topmost_window)
 {
     int screen_id;
 
-	viper_wresize_rel(topmost_window, -1, 0);
+    viper_wresize_rel(topmost_window, -1, 0);
 
     screen_id = viper_window_get_screen_id(topmost_window);
     viper_screen_redraw(screen_id, REDRAW_ALL | REDRAW_BACKGROUND);
 
-	return;
+    return;
 }
-
 

@@ -8,7 +8,7 @@
 #include "settings.h"
 #include "profile.h"
 #include "private.h"
-#include "hotkeys.h"
+#include "winman.h"
 
 int
 vwm_settings_load(vwm_t *vwm)
