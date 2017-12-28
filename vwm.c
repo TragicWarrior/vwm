@@ -45,11 +45,11 @@
 #include "private.h"
 #include "bkgd.h"
 #include "mainmenu.h"
-#include "vwm_panel.h"
+#include "panel.h"
 #include "modules.h"
 #include "settings.h"
 #include "signals.h"
-#include "hotkeys.h"
+#include "winman.h"
 #include "list.h"
 #include "clock.h"
 #include "poll_input_thd.h"
@@ -157,8 +157,8 @@ int main(int argc,char **argv)
     vwm_panel_init();
 
     // set hook to trap and filter keystrokes for window-management
-    viper_kmio_dispatch_set_hook(KMIO_HOOK_ENTER,
-        vwm_kmio_dispatch_hook_enter);
+    // viper_kmio_dispatch_set_hook(KMIO_HOOK_ENTER,
+        // vwm_kmio_dispatch_hook_enter);
 
     viper_screen_redraw(0, REDRAW_BACKGROUND);
 	viper_screen_redraw(0, REDRAW_ALL);

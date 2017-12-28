@@ -47,7 +47,6 @@ vwm_mod_init(const char *modpath)
 {
     vwmterm_mod_t   *mod;
     void            *dynlib;
-    int             retval;
 
     (void)modpath;
 
@@ -70,7 +69,7 @@ vwm_mod_init(const char *modpath)
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
     mod->flags = 0;
 
-	retval = vwm_module_add(VWM_MODULE(mod));
+	vwm_module_add(VWM_MODULE(mod));
 
 	// allloc, configure, and register module for vt100 instance
     mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
@@ -83,7 +82,7 @@ vwm_mod_init(const char *modpath)
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
     mod->flags |= VTERM_FLAG_VT100;
 
-	retval = vwm_module_add(VWM_MODULE(mod));
+	vwm_module_add(VWM_MODULE(mod));
 
 	// allloc, configure, and register module for fullscreen  instance
     mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
@@ -96,7 +95,7 @@ vwm_mod_init(const char *modpath)
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
     mod->fullscreen = TRUE;
 
-	retval = vwm_module_add(VWM_MODULE(mod));
+	vwm_module_add(VWM_MODULE(mod));
 
 	return 0;
 }

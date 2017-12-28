@@ -52,6 +52,7 @@ VWM_PANEL_MSG;
 /* panel events   */
 int     vwm_panel_ON_TERM_RESIZED(vwnd_t *vwnd, void *arg);
 int     vwm_panel_ON_CLOCK_TICK(vwnd_t *vwnd, void *arg);
+int     vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd);
 
 /* helpers  */
 void	vwm_panel_update_throbber(vwnd_t *vwnd);

@@ -29,9 +29,24 @@
 #include <viper.h>
 
 #include "vwm.h"
-#include "vwm_panel.h"
+#include "panel.h"
+#include "private.h"
 #include "strings.h"
 #include "list.h"
+#include "winman.h"
+#include "mainmenu.h"
+
+#define     KEY_PLUS            '+'
+#define     KEY_CTRL_DOWN       525
+
+#define     KEY_MINUS           '-'
+#define     KEY_CTRL_UP         566
+
+#define     KEY_GREATER_THAN    '>'
+#define     KEY_CTRL_RIGHT      560
+
+#define     KEY_LESS_THAN       '<'
+#define     KEY_CTRL_LEFT       545
 
 vwnd_t*
 vwm_panel_init(void)
@@ -48,6 +63,7 @@ vwm_panel_init(void)
 
 	vwnd = viper_window_create(0, FALSE, "vwm panel", 0, 0, WSIZE_FULLSCREEN, 1);
 	wbkgdset(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
+    viper_window_set_key_func(vwnd, vwm_panel_ON_KEYSTROKE);
     viper_event_set(vwnd, "vwm-clock-tick", vwm_panel_ON_CLOCK_TICK,
         (void*)vwm_panel);
     viper_event_set(vwnd, "term-resized", vwm_panel_ON_TERM_RESIZED,
@@ -70,6 +86,78 @@ vwm_panel_init(void)
     (void)max_y;
 
 	return vwnd;
+}
+
+int
+vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
+{
+    vwm_t       *vwm;
+
+    (void)vwnd;
+
+    vwm = vwm_get_instance();
+
+    // check to see if window manager was invoked
+    if(keystroke == VWM_HOTKEY_WM)
+    {
+        vwm->state ^= VWM_STATE_ACTIVE;
+
+        if(vwm->state & VWM_STATE_ACTIVE)
+            vwm_default_VWM_START((void*)TOPMOST_MANAGED);
+        else
+            vwm_default_VWM_STOP((void*)TOPMOST_MANAGED);
+
+        // indicate key was handled
+        return KMIO_HANDLED;
+    }
+
+    if(vwm->state & VWM_STATE_ACTIVE)
+    {
+        switch(keystroke)
+        {
+            case 17:
+                vwm_default_WINDOW_CLOSE(TOPMOST_MANAGED); return -1;
+            case KEY_TAB:
+                vwm_default_WINDOW_CYCLE(); return -1;
+            case KEY_UP:
+                vwm_default_WINDOW_MOVE_UP(TOPMOST_MANAGED); return -1;
+            case KEY_DOWN:
+                vwm_default_WINDOW_MOVE_DOWN(TOPMOST_MANAGED); return -1;
+            case KEY_LEFT:
+                vwm_default_WINDOW_MOVE_LEFT(TOPMOST_MANAGED); return -1;
+            case KEY_RIGHT:
+                vwm_default_WINDOW_MOVE_RIGHT(TOPMOST_MANAGED); return -1;
+
+            case KEY_PLUS:
+            case KEY_CTRL_DOWN:
+                vwm_default_WINDOW_INCREASE_HEIGHT(TOPMOST_MANAGED); return -1;
+            case KEY_MINUS:
+            case KEY_CTRL_UP:
+                vwm_default_WINDOW_DECREASE_HEIGHT(TOPMOST_MANAGED); return -1;
+            case KEY_GREATER_THAN:
+            case KEY_CTRL_RIGHT:
+                vwm_default_WINDOW_INCREASE_WIDTH(TOPMOST_MANAGED); return -1;
+            case KEY_LESS_THAN:
+            case KEY_CTRL_LEFT:
+                vwm_default_WINDOW_DECREASE_WIDTH(TOPMOST_MANAGED); return -1;
+
+            default:
+                return keystroke;
+        }
+    }
+
+    if(!(vwm->state & VWM_STATE_ACTIVE))
+    {
+        if(keystroke == vwm->hotkey_menu)
+        {
+            vwm_main_menu_hotkey();
+
+            // indicate key was handled
+            return KMIO_HANDLED;
+        }
+    }
+
+    return keystroke;
 }
 
 int
@@ -388,5 +476,6 @@ vwm_panel_message_find(char *msg)
 
     return vwm_panel_msg->msg_id.msg_handle;
 }
+
 
 

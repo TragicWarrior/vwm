@@ -9,6 +9,8 @@
 #include <menu.h>
 #endif
 
+#define VWM_HOTKEY_MENU     (27 | (96 << 8))
+
 #define VWM_MAIN_MENU_HELP \
 "Press [alt ~] for Main Menu"
 
