@@ -1,3 +1,8 @@
+Version 3.0.2
+
+*  [Bryan Christ] Quit using obsolete libviper kmio hooks and placed
+   hotkey logic inside the panel... where it ought to be.
+
 Version 3.0.1
 
 *  [Bryan Christ] Build system now uses cmake.  Modules load can be
