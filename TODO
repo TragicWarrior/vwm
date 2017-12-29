@@ -1,0 +1,12 @@
+This is an evergreen TODO list in no particular order:
+
+* Support multiple desktops.
+* Load wallpaper created by Aewan.
+* Create a true screen saver subsystem.
+* Create a module for loading files with mplayer.
+* Update panel when libviper supports clock and spinner klasses.
+* Add an About and Credits panel.
+* Support screen freezing (for GPM copy and paste).
+* Create a menu editor module which can take care of adding and removing
+  programs from the main menu.
+* Don't hard-code menu categories.

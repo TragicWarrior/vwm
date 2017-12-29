@@ -1,15 +1,157 @@
-# this is a template for user specific profile settings.  place
-# this file in the ~/.vwm/ and it will automatically be read
-# when VWM starts
+hotkeys:
+{
+    menu:
+    {
+        // key = "00006d1b";  // alt-m
+        msg = "Press [alt m] for Main Menu";
+    }
+}
 
-# this value controls the inactivity timeout for the screensaver
-# screen_timout = 5
+programs = (
+                {
+                    requires = "vterm-color";
+                    title = "htop";
+                    bin = "/usr/bin/htop";
+                    type = "System";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "MyMan";
+                    bin = "/usr/local/bin/myman";
+                    type = "Game";
+                    params = "-z big";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Bastest";
+                    bin = "/usr/games/bastet";
+                    type = "Game";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Scim"
+                    bin = "/usr/local/bin/scim";
+                    type = "Office";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Midnight Commander";
+                    bin = "/usr/bin/mc";
+                    type = "System";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Nano";
+                    bin = "/bin/nano";
+                    type = "Office";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Last File Manager";
+                    bin = "/usr/bin/lfm";
+                    type = "System";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "nInvaders";
+                    bin = "/usr/games/ninvaders";
+                    type = "Game";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Links";
+                    bin = "/usr/bin/links";
+                    type = "Web";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "ALSA Mixer";
+                    bin = "/usr/bin/alsamixer";
+                    type = "Multimedia";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Ranger";
+                    bin = "/usr/bin/ranger";
+                    type = "System";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Lynx";
+                    bin = "/usr/bin/lynx";
+                    type = "Web";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Moon Buggy";
+                    bin = "/usr/games/moon-buggy";
+                    type = "Game";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Network Manager";
+                    bin = "/usr/bin/nmtui";
+                    type = "Network";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Hexedit";
+                    bin = "/usr/bin/hexedit";
+                    type = "Development";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Disk Usage";
+                    bin = "/usr/bin/ncdu";
+                    type = "System";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "dstat";
+                    bin = "/usr/bin/dstat";
+                    type = "System";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "CDW";
+                    bin = "/usr/bin/cdw";
+                    type = "Multimedia";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Weechat";
+                    bin = "/usr/bin/weechat";
+                    type = "Messaging";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Finch";
+                    bin = "/usr/bin/finch";
+                    type = "Messaging";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Aewan";
+                    bin = "/usr/bin/aewan";
+                    type = "Office";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Glances";
+                    bin = "/usr/bin/glances";
+                    type = "System";
+                },
+                {
+                    requires = "vterm-color";
+                    title = "Mutt";
+                    bin = "/usr/bin/mutt";
+                    type = "Messaging";
+                },
+                {
+                    requires = "vterm-fullscreen";
+                    title = "Lock Screen";
+                    bin = "/usr/local/bin/vlock";
+                    type = "System";
+                },
+            );
 
-screen_timeout=7
-
-# this value controls which keystroke/combination causes the VWM
-# main menu to be displayed.  use the "keycodes" tool to get the
-# value for your custom hotkeys.  in this example, 361b
-# corresponds to [alt 6]
- 
-menu_hotkey=361b
