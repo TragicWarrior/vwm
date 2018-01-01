@@ -114,7 +114,8 @@ int main(int argc,char **argv)
         set the locale to the default settings (as configured by env).
 		this is required for ncurses to work properly.
     */
-    locale = setlocale(LC_ALL, "UTF-8");
+    // locale = setlocale(LC_ALL, "UTF-8");
+    // locale = setlocale(LC_ALL, "");
 
 	// print some debug information
 	printf("%s\n\r", locale);
