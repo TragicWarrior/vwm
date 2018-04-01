@@ -15,7 +15,7 @@
 
 #include <viper.h>
 
-#define VWM_VERSION					"3.0.2"
+#define VWM_VERSION					"3.1.0"
 
 #ifndef _VWM_SCREENSAVER_TIMEOUT
 #define _VWM_SCREENSAVER_TIMEOUT    5
@@ -90,6 +90,7 @@ int             vwm_module_configure(vwm_module_t *mod, ...);
 int             vwm_module_set_name(vwm_module_t *mod, char *name);
 void            vwm_module_set_type(vwm_module_t *mod, int type);
 int             vwm_module_get_type(vwm_module_t *mod);
+int             vwm_module_get_zone(vwm_module_t *mod);
 void            vwm_module_set_title(vwm_module_t *mod, char *title);
 void            vwm_module_get_title(vwm_module_t *mod, char *buf, int buf_sz);
 void            vwm_module_set_userptr(vwm_module_t *mod, void *anything);

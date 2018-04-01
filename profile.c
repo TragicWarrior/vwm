@@ -59,7 +59,7 @@ vwm_profile_init(vwm_t *vwm)
     }
     else
     {
-        if(_vwm_create_rc_file(profile) == 0)
+        if(_vwm_create_rc_file(profile) == -1)
         {
             free(buffer);
             return -1;
@@ -112,8 +112,13 @@ vwm_profile_rc_file_get(vwm_t *vwm)
 static int
 _vwm_create_rc_file(vwm_profile_t *profile)
 {
-    char    *buf;
-    int     retval;
+    config_t            config;
+    config_setting_t    *root;
+    config_setting_t    *programs;
+    config_setting_t    *entry;
+    config_setting_t    *setting;
+    char                *buf;
+    int                 retval = 0;
 
     if(profile == NULL) return -1;
     if(profile->home == NULL) return -1;
@@ -123,16 +128,30 @@ _vwm_create_rc_file(vwm_profile_t *profile)
     retval = mkdir(buf, 0755);
     free(buf);
 
-    if(retval == -1) return -1;
-
     buf = strdup_printf("%s/.vwm/vwmrc", profile->home);
 
-    retval = creat(buf, 0644);
+    config_init(&config);
+    root = config_root_setting(&config);
+    programs = config_setting_add(root, "programs", CONFIG_TYPE_LIST);
+
+    entry = config_setting_add(programs, NULL, CONFIG_TYPE_GROUP);
+
+    setting = config_setting_add(entry, "requires", CONFIG_TYPE_STRING);
+    config_setting_set_string(setting, "vterm-color");
+
+    setting = config_setting_add(entry, "title", CONFIG_TYPE_STRING);
+    config_setting_set_string(setting, "VTerm Color");
+
+    setting = config_setting_add(entry, "bin", CONFIG_TYPE_STRING);
+    config_setting_set_string(setting, "/bin/bash");
+
+    setting = config_setting_add(entry, "type", CONFIG_TYPE_STRING);
+    config_setting_set_string(setting, "Tool");
+
+    config_write_file(&config, buf);
     free(buf);
 
-    if(retval == -1) return -1;
-
-    close(retval);
+    config_destroy(&config);
 
     return 0;
 }

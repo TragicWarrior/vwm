@@ -68,6 +68,9 @@ vwm_main_menu(void)
             vwm_module = vwm_module_find_by_type(vwm_module, i);
             if(vwm_module == NULL) break;
 
+            // skip modules that are core modules
+            if(vwm_module_get_zone(vwm_module) == MODULE_ZONE_CORE) continue;
+
             category_found = TRUE;
 
             vwm_module_get_title(vwm_module, buf, sizeof(buf) - 1);
