@@ -19,6 +19,12 @@ VWM_MOD_TYPE_MAX
 };
 #undef  X_MOD
 
+enum
+{
+    MODULE_ZONE_CORE    = 0x00,
+    MODULE_ZONE_APP,
+    MODULE_ZONE_USER,
+};
 
 #include "vwm.h"
 #include "list.h"
@@ -31,6 +37,8 @@ struct _vwm_module_s
     char                    title[NAME_MAX];    // module "display name"
     int                     type;               // classificaton of module
 
+    int                     zone;               // built-in, or user loaded
+
     vwm_module_t*           (*clone)            (vwm_module_t *);
     int                     (*configure)        (vwm_module_t *, va_list *);
 
@@ -41,8 +49,8 @@ struct _vwm_module_s
 };
 
 // this is the standard callback which clones a module
-vwm_module_t* vwm_module_simple_clone(vwm_module_t *mod);
-
+vwm_module_t*   vwm_module_simple_clone(vwm_module_t *mod);
+int             vwm_module_set_zone(vwm_module_t *mod, int zone);
 
 int vwm_menu_helper(vk_widget_t *widget, void *anything);
 

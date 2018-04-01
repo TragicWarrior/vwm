@@ -10,6 +10,24 @@ hotkeys:
 programs = (
                 {
                     requires = "vterm-color";
+                    title = "VTerm Color";
+                    bin = "/bin/bash";
+                    type = "Tool";
+                },
+                {
+                    requires = "vterm-fullscreen";
+                    title = "VTerm Color (fullscreen)";
+                    bin = "/bin/bash";
+                    type = "Tool";
+                },
+                {
+                    requires = "vterm-vt100";
+                    title = "VTerm (vt100 mode)";
+                    bin = "/bin/sh";
+                    type = "Tool";
+                },
+                {
+                    requires = "vterm-color";
                     title = "htop";
                     bin = "/usr/bin/htop";
                     type = "System";

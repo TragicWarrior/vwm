@@ -1,3 +1,9 @@
+Version 3.1.0
+
+*  [Bryan Christ] Add module zone classification for dynamic menu
+   management.  VWM now creates a base configuration at start-up
+   if none exists.
+
 Version 3.0.2
 
 *  [Bryan Christ] Quit using obsolete libviper kmio hooks and placed

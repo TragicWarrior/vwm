@@ -94,6 +94,25 @@ vwm_module_get_type(vwm_module_t *mod)
     return mod->type;
 }
 
+int
+vwm_module_set_zone(vwm_module_t *mod, int zone)
+{
+    if(mod == NULL) return -1;
+
+    mod->zone = zone;
+
+    return 0;
+}
+
+int
+vwm_module_get_zone(vwm_module_t *mod)
+{
+    if(mod == NULL) return -1;
+
+    return mod->zone;
+}
+
+
 void
 vwm_module_set_title(vwm_module_t *mod, char *title)
 {

@@ -87,6 +87,7 @@ vwm_programs_load(vwm_t *vwm)
             }
 
             vwm_module_configure(module, 0, bin, args);
+            vwm_module_set_zone(module, MODULE_ZONE_USER);
             vwm_module_add(module);
             strfreev(args);
             args = NULL;
