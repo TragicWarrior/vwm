@@ -88,6 +88,7 @@ int main(int argc,char **argv)
     pt_context_t            *ctx_clock;
     pt_context_t            *ctx_poll_input;
     clock_data_t            *clock_data;
+    MEVENT                  mouse_event;
 
     pt[PT_PRIORITY_NORMAL] = protothread_create();
     pt[PT_PRIORITY_HIGH] = protothread_create();
@@ -100,6 +101,7 @@ int main(int argc,char **argv)
 
     // setup prototrhead for input polling
     ctx_poll_input = malloc(sizeof(pt_context_t));
+    ctx_poll_input->anything = &mouse_event;
     ctx_poll_input->shutdown = &shutdown;
 
     pt_create(pt[PT_PRIORITY_NORMAL], &ctx_clock->pt_thread,
