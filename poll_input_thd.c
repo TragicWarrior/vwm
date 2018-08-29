@@ -16,19 +16,23 @@ pt_t
 vwm_poll_input(void * const env)
 {
     int32_t         keystroke;
-    static MEVENT   mouse_event;
+    MEVENT          *mouse_event;
+    extern vwm_t    *vwm;
+
     pt_context_t    *ctx_poll_input;
 
     ctx_poll_input = (pt_context_t *)env;
+    mouse_event = (MEVENT*)ctx_poll_input->anything;
+
 	pt_resume(ctx_poll_input);
 
     do
     {
-        keystroke = viper_kmio_fetch(&mouse_event);
+        keystroke = viper_kmio_fetch(mouse_event);
 
         if(keystroke != -1)
         {
-            viper_kmio_dispatch(keystroke,&mouse_event);
+            viper_kmio_dispatch(keystroke, mouse_event);
         }
 
         pt_yield(ctx_poll_input);
