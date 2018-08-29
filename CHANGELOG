@@ -1,3 +1,8 @@
+Version 3.1.1
+
+*  [Bryan Christ] Moved MEVENT into protothread context to make sure it
+   doesn't get discared when stack is unwound.
+
 Version 3.1.0
 
 *  [Bryan Christ] Add module zone classification for dynamic menu
