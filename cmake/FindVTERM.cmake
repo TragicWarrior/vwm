@@ -23,21 +23,21 @@
 # (See accompanying file LICENSE_1_0.txt or copy at
 # http://www.boost.org/LICENSE_1_0.txt)
 
-find_library(VIPER_LIBRARY
-    NAMES viper)
+find_library(VTERM_LIBRARY
+    NAMES vterm)
 
-find_path(VIPER_INCLUDE_DIR
-    NAMES viper.h)
+find_path(VTERM_INCLUDE_DIR
+    NAMES vterm.h)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(VIPER
+find_package_handle_standard_args(VTERM
     DEFAULT_MSG
-    VIPER_LIBRARY
-    VIPER_INCLUDE_DIR)
+    VTERM_LIBRARY
+    VTERM_INCLUDE_DIR)
 
-if(VIPER_FOUND)
-    set(VIPER_LIBRARIES "${VIPER_LIBRARY}")
+if(VTERM_FOUND)
+    set(VTERM_LIBRARIES "${VTERM_LIBRARY}")
 
-    set(VIPER_INCLUDE_DIRS "${VIPER_INCLUDE_DIR}")
+    set(VTERM_INCLUDE_DIRS "${VTERM_INCLUDE_DIR}")
 endif()
 
