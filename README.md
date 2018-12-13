@@ -7,7 +7,7 @@ protothread - https://github.com/LarryRuane/protothread
 libviper 2.1.5+  - https://github.com/TragicWarrior/libviper
 libconfig
 libgpm (optional)
-libvterm 2.0+ - https://github.com/TragicWarrior/libvterm
+libvterm 3.1+ - https://github.com/TragicWarrior/libvterm
 
 INSTALLATION
 ============

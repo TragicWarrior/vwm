@@ -15,7 +15,7 @@
 
 #include <viper.h>
 
-#define VWM_VERSION					"3.1.2"
+#define VWM_VERSION					"3.1.3"
 
 #ifndef _VWM_SCREENSAVER_TIMEOUT
 #define _VWM_SCREENSAVER_TIMEOUT    5

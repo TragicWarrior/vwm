@@ -164,7 +164,7 @@ vwmterm_main(vwm_module_t *mod)
 
     // init terminal
     vterm_wnd_set(vterm, VWINDOW(vwnd));
-    vterm_erase(vterm);
+    vterm_erase(vterm, -1);
 
     // allocate thread context and stateful data
     vwmterm_data = (vwmterm_data_t*)calloc(1, sizeof(vwmterm_data_t));
