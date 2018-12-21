@@ -1,10 +1,6 @@
 #include <time.h>
 
-#ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
-#else
-#include <curses.h>
-#endif
 
 #include <protothread.h>
 
@@ -17,7 +13,7 @@ vwm_poll_input(void * const env)
 {
     int32_t         keystroke;
     MEVENT          *mouse_event;
-    extern vwm_t    *vwm;
+    // extern vwm_t    *vwm;
 
     pt_context_t    *ctx_poll_input;
 

@@ -1,13 +1,8 @@
 #ifndef _H_VWM_MENU_
 #define _H_VWM_MENU_
 
-#ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
-#include <ncursesw/menu.h>
-#else
-#include <curses.h>
-#include <menu.h>
-#endif
+// #include <ncursesw/menu.h>
 
 #define VWM_HOTKEY_MENU     (27 | (96 << 8))
 

@@ -178,7 +178,7 @@ vwm_modules_load(char *module_dir)
 {
     vwm_t               *vwm;
     vwm_module_t        *module = NULL;
-	char			    modpath[NAME_MAX];
+	char			    modpath[NAME_MAX + 4];
 	DIR				    *search_dir = NULL;
 	struct dirent	    *dirent_file = NULL;
     struct list_head    *pos;
@@ -205,9 +205,15 @@ vwm_modules_load(char *module_dir)
 
 		// fix module file name (maybe not necessary)
 		if(module_dir[strlen(module_dir) - 1] == '/')
-			sprintf(modpath, "%s%s", module_dir, dirent_file->d_name);
+        {
+			snprintf(modpath, sizeof(modpath) - 1, "%s%s",
+                module_dir, dirent_file->d_name);
+        }
 		else
-			sprintf(modpath, "%s/%s", module_dir, dirent_file->d_name);
+        {
+			snprintf(modpath, sizeof(modpath) - 1, "%s/%s",
+                module_dir, dirent_file->d_name);
+        }
 
 		// check to see if module is already registered
         list_for_each(pos, &vwm->module_list)
@@ -255,7 +261,8 @@ vwm_module_add(vwm_module_t *mod)
 {
 	vwm_t		        *vwm;
 
-    if(mod->title == '\0') return -1;
+    if(mod->title == NULL) return -1;
+    if(mod->title[0] == '\0') return -1;
 
 	vwm = vwm_get_instance();
 

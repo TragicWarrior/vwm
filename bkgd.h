@@ -1,7 +1,7 @@
 #ifndef _H_VWM_BKGD_
 #define _H_VWM_BKGD_
 
-#include <curses.h>
+#include <ncursesw/ncurses.h>
 
 void    vwm_bkgd_simple_normal(int screen_id);
 void    vwm_bkgd_simple_winman(int screen_id);

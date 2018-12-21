@@ -4,11 +4,7 @@
 #include <inttypes.h>
 #include <signal.h>
 
-#ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
-#else
-#include <curses.h>
-#endif
 
 #include <libconfig.h>
 #include <protothread.h>

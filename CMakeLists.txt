@@ -15,7 +15,13 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
 add_definitions("-D_REENTRANT")
 add_definitions("-D_GNU_SOURCE")
 
+# needed for cchar_t definition and turn on "wide support"
+add_definitions("-D_XOPEN_SOURCE_EXTENDED")
+
+# set these before running the find_package directive for Curses
 set(CURSES_NEED_NCURSES "TRUE")
+set(CURSES_NEED_WIDE "TRUE")
+
 find_package(Curses REQUIRED)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -56,6 +62,7 @@ add_executable(vwm
     vwm.c
     panel.c
     events.c
+    utf8_wide.c
     )
 
 if (GPM_FOUND)
