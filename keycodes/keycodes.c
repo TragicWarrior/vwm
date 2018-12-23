@@ -2,72 +2,83 @@
 #include <unistd.h>
 #include <poll.h>
 #include <string.h>
+#include <stdint.h>
 
-#include <glib.h>
-#ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
-#else
-#include <curses.h>
-#endif
 
-gint32 keystroke_pop(void);
+uint32_t keystroke_pop(int *retval);
 
 int main(void)
 {
-   gint32         keystroke;
-   WINDOW         *window;
-   struct pollfd  fds;
+    uint32_t        keystroke;
+    WINDOW          *window;
+    struct pollfd   fds;
+    int             retval = 0;
 
-   window=initscr();
- 	keypad(window,TRUE);
-	nodelay(window,TRUE);
-   noecho();
-   raw();
+    window = initscr();
+    keypad(window, TRUE);
+	nodelay(window, TRUE);
+    noecho();
+    raw();
 
-   memset(&fds,0,sizeof(fds));
-   fds.fd=STDIN_FILENO;
-   fds.events=POLLIN;
+    memset(&fds, 0, sizeof(fds));
+    fds.fd = STDIN_FILENO;
+    fds.events = POLLIN;
 
-   printw("press ESC to exit\n\r");
-   refresh();
+    printw("press ESC to exit\n\r");
+    refresh();
 
-   do
+    do
 	{
-      while(poll(&fds,1,25000)==0);
-		keystroke=keystroke_pop();
-		printw("%x\n\r",keystroke);
-      refresh();
+        while(poll(&fds, 1, 25000) == 0);
+		keystroke = keystroke_pop(&retval);
+		printw("%x\n\r", keystroke);
+        refresh();
 	}
-   while(keystroke!=0x1b);	
+    while(keystroke != 0x1b);
 
    endwin();
 
 	return 0;
 }
 
-gint32 keystroke_pop(void)
+uint32_t
+keystroke_pop(int *retval)
 {
-	gint32	keystroke=0;
-	gint32	key_code=0;
+	uint32_t    keystroke = 0;
+	uint32_t	key_code = 0;
+    int         i;
 
-	key_code=getch();
-	if(key_code==-1) return -1;
-	
-	if(key_code!=27) return key_code;
-	
-	keystroke=27;
-	key_code=getch();
-	if(key_code==-1) return keystroke;
-	keystroke=keystroke | (key_code<<8);
 
-	key_code=getch();
-	if(key_code==-1) return keystroke;
-	keystroke=keystroke | (key_code<<16);
+	key_code = getch();
+	if(key_code == -1)
+    {
+        *retval = 1;
+        return;
+    }
 
-	key_code=getch();
-	if(key_code==-1) return keystroke;
-	keystroke=keystroke | (key_code<<24);
+	if(key_code != 27) return key_code;
 
+	keystroke = 27;
+
+    for(i = 0; i < 3; i++)
+    {
+        key_code = getch();
+        if(key_code == -1) return keystroke;
+
+        keystroke = keystroke << 8;
+        keystroke |= (uint8_t)key_code;
+    }
+
+/*
+    for(i = 0; i < 3; i++)
+    {
+	    key_code = getch();
+        if(key_code == -1) return keystroke;
+
+        keystroke |= key_code << (8 * (i + 1));
+    }
+*/
 	return keystroke;
 }
 

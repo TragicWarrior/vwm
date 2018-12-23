@@ -128,6 +128,9 @@ _vwm_create_rc_file(vwm_profile_t *profile)
     retval = mkdir(buf, 0755);
     free(buf);
 
+    // couldn't create config dir
+    if(retval == -1) return -1;
+
     buf = strdup_printf("%s/.vwm/vwmrc", profile->home);
 
     config_init(&config);

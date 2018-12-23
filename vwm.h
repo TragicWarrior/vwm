@@ -5,15 +5,11 @@
 
 #include <sys/types.h>
 
-#include <protothread.h>
-
-#ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
-#else
-#include <curses.h>
-#endif
 
+#include <protothread.h>
 #include <viper.h>
+
 
 #define VWM_VERSION					"3.1.3"
 

@@ -3,11 +3,8 @@
 
 #include <inttypes.h>
 
-#ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
-#else
-#include <curses.h>
-#endif
+
 
 #define VWM_HOTKEY_WM       (27 | (119 << 8))
 
