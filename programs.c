@@ -56,6 +56,7 @@ vwm_programs_load(vwm_t *vwm)
             if(requires != NULL)
             {
                 module = vwm_module_find_by_name((char *)requires);
+
                 if(module == NULL)
                 {
                     i++;
@@ -86,7 +87,7 @@ vwm_programs_load(vwm_t *vwm)
                 args = strcatv(NULL, (char *)bin);
             }
 
-            vwm_module_configure(module, 0, bin, args);
+            vwm_module_configure(module, bin, args);
             vwm_module_set_zone(module, MODULE_ZONE_USER);
             vwm_module_add(module);
             strfreev(args);

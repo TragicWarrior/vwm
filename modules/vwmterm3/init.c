@@ -67,7 +67,7 @@ vwm_mod_init(const char *modpath)
     vwm_module_set_name(VWM_MODULE(mod), "vterm-color");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (color)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
-    mod->flags = 0;
+    mod->flags = VTERM_FLAG_RXVT;
 
 	vwm_module_add(VWM_MODULE(mod));
 
@@ -80,7 +80,7 @@ vwm_mod_init(const char *modpath)
     vwm_module_set_name(VWM_MODULE(mod), "vterm-vt100");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (vt100)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
-    mod->flags |= VTERM_FLAG_VT100;
+    mod->flags = VTERM_FLAG_VT100;
 
 	vwm_module_add(VWM_MODULE(mod));
 
@@ -94,8 +94,36 @@ vwm_mod_init(const char *modpath)
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (fullscreen)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
     mod->fullscreen = TRUE;
+    mod->flags = VTERM_FLAG_XTERM;
 
 	vwm_module_add(VWM_MODULE(mod));
+
+	// allloc, configure, and register module for xterm instance
+    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
+
+    VWM_MODULE(mod)->main = vwmterm_main;
+    VWM_MODULE(mod)->clone = vwmterm_module_clone;
+    VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    vwm_module_set_name(VWM_MODULE(mod), "vterm-xterm");
+    vwm_module_set_title(VWM_MODULE(mod), "VTerm (xterm)");
+    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
+    mod->flags = VTERM_FLAG_XTERM;
+
+	vwm_module_add(VWM_MODULE(mod));
+
+	// allloc, configure, and register module for vt100 instance
+    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
+
+    VWM_MODULE(mod)->main = vwmterm_main;
+    VWM_MODULE(mod)->clone = vwmterm_module_clone;
+    VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    vwm_module_set_name(VWM_MODULE(mod), "vterm-xterm256");
+    vwm_module_set_title(VWM_MODULE(mod), "VTerm (xterm 256)");
+    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
+    mod->flags = VTERM_FLAG_XTERM_256;
+
+	vwm_module_add(VWM_MODULE(mod));
+
 
 	return 0;
 }
