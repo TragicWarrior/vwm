@@ -1,3 +1,7 @@
+Version 3.3.1
+
+*  [Bryan Christ] Sync up with version 7 of libvterm API.
+
 Version 3.3.0
 
 *  [Bryan Christ] Add support for the xterm mode int libvterm.

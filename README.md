@@ -1,5 +1,5 @@
-REQUIRMENTS
-===========
+REQUIREMENTS
+============
 
 CMake
 ncursesw 5.4+
