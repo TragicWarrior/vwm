@@ -61,7 +61,7 @@ pt_t vwmterm_thd(void * const env)
         // check to see if thread is exiting
         if(vwmterm_data->state == VWMTERM_STATE_EXITING) break;
 
-        bytes_read = vterm_read_pipe(vterm);
+        bytes_read = vterm_read_pipe(vterm, 10);
 
         if(bytes_read == 0)
         {
@@ -81,7 +81,7 @@ pt_t vwmterm_thd(void * const env)
 
         if(bytes_read > 0)
         {
-            vterm_wnd_update(vterm);
+            vterm_wnd_update(vterm, -1, 0);
             total_bytes += bytes_read;
         }
     }

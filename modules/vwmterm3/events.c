@@ -51,7 +51,7 @@ vwmterm_ON_RESIZE(vwnd_t *vwnd, void *anything)
 
 	getmaxyx(VWINDOW(vwnd), height, width);
     vterm_resize(vterm, width, height);
-    vterm_wnd_update(vterm);
+    vterm_wnd_update(vterm, -1, 0);
 
 	return 0;
 }
