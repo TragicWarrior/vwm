@@ -39,7 +39,7 @@
 #endif
 
 #include <viper.h>
-#include <protothread.h>
+#include "protothread.h"
 
 #include "vwm.h"
 #include "private.h"

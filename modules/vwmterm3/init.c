@@ -23,7 +23,7 @@
 
 #include <viper.h>
 #include <vterm.h>
-#include <protothread.h>
+//#include <protothread.h>
 
 #include "vwmterm.h"
 #include "events.h"
@@ -34,6 +34,7 @@
 #include "../../vwm.h"
 #include "../../modules.h"
 #include "../../private.h"
+#include "../../protothread.h"
 
 int
 vwm_mod_init(const char *modpath);

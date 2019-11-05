@@ -29,7 +29,7 @@
 
 #include <viper.h>
 #include <vterm.h>
-#include <protothread.h>
+// #include <protothread.h>
 
 #include "vwmterm.h"
 #include "events.h"
@@ -37,6 +37,7 @@
 
 #include "../../vwm.h"
 #include "../../private.h"
+#include "../../protothread.h"
 
 pt_t vwmterm_thd(void * const env)
 {
