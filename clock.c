@@ -22,9 +22,9 @@ vwm_clock_init(void)
     sigaction(SIGALRM, &clock_data->s_action, NULL);
 
     // setup timer
-    clock_data->s_event.sigev_notify = SIGEV_SIGNAL;
-    clock_data->s_event.sigev_signo = SIGALRM;
-    clock_data->s_event.sigev_value.sival_ptr = &clock_data->timer_id;
+    // clock_data->s_event.sigev_notify = SIGEV_SIGNAL;
+    // clock_data->s_event.sigev_signo = SIGALRM;
+    // clock_data->s_event.sigev_value.sival_ptr = &clock_data->timer_id;
     clock_data->itimer.it_value.tv_sec = 0;
     clock_data->itimer.it_value.tv_nsec = VWM_TICK_FREQ;      // 1/10 sec
     clock_data->itimer.it_interval.tv_sec = 0;
