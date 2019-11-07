@@ -7,7 +7,7 @@
 
 #include <ncursesw/curses.h>
 
-#include <protothread.h>
+#include "protothread.h"
 #include <viper.h>
 
 
