@@ -2,7 +2,7 @@
 
 #include <ncursesw/curses.h>
 
-#include <protothread.h>
+#include "protothread.h"
 
 #include "vwm.h"
 #include "poll_input_thd.h"

@@ -4,7 +4,7 @@
 #include <signal.h>
 #include <time.h>
 
-#include <protothread.h>
+#include "protothread.h"
 
 struct _clock_data_s
 {

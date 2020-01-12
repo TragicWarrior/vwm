@@ -26,7 +26,7 @@ find_package(Curses REQUIRED)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
-find_package(PROTOTHREAD REQUIRED)
+#find_package(PROTOTHREAD REQUIRED)
 
 find_package(VTERM REQUIRED)
 
@@ -68,17 +68,22 @@ add_executable(vwm
     )
 
 if (GPM_FOUND)
-target_link_libraries(vwm -lutil -lm -lrt ${PROTOTHREAD_LIBRARY} ${CONFIG_LIBRARY} ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VTERM_LIBRARY}" )
+target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VTERM_LIBRARY}" )
 else()
-target_link_libraries(vwm -lutil -lm -lrt ${PROTOTHREAD_LIBRARY} ${CONFIG_LIBRARY} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VTERM_LIBRARY}")
+target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VTERM_LIBRARY}")
 endif()
 
 # set the subst vars that configure_file() will use
 set(PROJECT_VERSION 1.0)
 
+#set(PKG_CONFIG_LIBS
+#    "-lviper -lprotothread"
+#)
+
 set(PKG_CONFIG_LIBS
-    "-lviper -lprotothread"
+    "-lviper"
 )
+
 
 install (TARGETS vwm DESTINATION bin)
 install (TARGETS vwmterm DESTINATION lib/vwm/)

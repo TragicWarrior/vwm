@@ -23,7 +23,7 @@
 
 #include <viper.h>
 #include <vterm.h>
-#include <protothread.h>
+//#include <protothread.h>
 
 #include "vwmterm.h"
 #include "events.h"
@@ -34,6 +34,7 @@
 #include "../../vwm.h"
 #include "../../modules.h"
 #include "../../private.h"
+#include "../../protothread.h"
 
 int
 vwm_mod_init(const char *modpath);
@@ -123,7 +124,6 @@ vwm_mod_init(const char *modpath)
     mod->flags = VTERM_FLAG_XTERM_256;
 
 	vwm_module_add(VWM_MODULE(mod));
-
 
 	return 0;
 }
@@ -217,6 +217,10 @@ vwmterm_main(vwm_module_t *mod)
 	viper_window_set_key_func(vwnd,
         vwmterm_ON_KEYSTROKE);
 	viper_window_set_userptr(vwnd, (void*)vterm);
+
+    //endwin(); exit(0);
+
+    // if(pt[PT_PRIORITY_NORMAL]) { endwin(); exit(0); /* do nothing */ }
 
     pt_create(pt[PT_PRIORITY_NORMAL], &ctx_vwmterm->pt_thread,
         vwmterm_thd, ctx_vwmterm);

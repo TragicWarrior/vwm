@@ -39,7 +39,7 @@
 #endif
 
 #include <viper.h>
-#include <protothread.h>
+#include "protothread.h"
 
 #include "vwm.h"
 #include "private.h"
@@ -62,7 +62,7 @@
    but not necessarily true otherwise.
 */
 
-protothread_t           pt[2];
+protothread_t           pt[2] = { NULL, NULL };
 int                     shutdown = 0;
 
 unsigned int            clock_tick = 0;
