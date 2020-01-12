@@ -3,11 +3,10 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-protothread - https://github.com/LarryRuane/protothread
 libviper 3.0.0+  - https://github.com/TragicWarrior/libviper
 libconfig
 libgpm (optional)
-libvterm 3.5+ - https://github.com/TragicWarrior/libvterm
+libvterm 9.0+ - https://github.com/TragicWarrior/libvterm
 
 INSTALLATION
 ============
