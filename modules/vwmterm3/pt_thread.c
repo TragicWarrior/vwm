@@ -82,7 +82,7 @@ pt_t vwmterm_thd(void * const env)
 
         if(bytes_read > 0)
         {
-            vterm_wnd_update(vterm, -1, 0);
+            vterm_wnd_update(vterm, -1, 0, 0);
             total_bytes += bytes_read;
         }
     }
