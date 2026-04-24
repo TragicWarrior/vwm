@@ -8,28 +8,12 @@
 
 #include <libconfig.h>
 #include "protothread.h"
+#include "sched.h"
 
 #include "viper.h"
 #include "list.h"
 #include "profile.h"
 #include "vwm.h"
-
-enum
-{
-    PT_PRIORITY_NORMAL      =   0x00,
-    PT_PRIORITY_HIGH        =   0x01
-};
-
-typedef struct
-{
-    pt_thread_t             pt_thread;
-    pt_func_t               pt_func;
-
-    // data shared by all protothreads
-    int                     *shutdown;
-    void                    *anything;
-}
-pt_context_t;
 
 struct _vwm_s
 {

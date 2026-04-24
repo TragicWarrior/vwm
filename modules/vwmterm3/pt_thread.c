@@ -38,19 +38,19 @@
 #include "../../vwm.h"
 #include "../../private.h"
 #include "../../protothread.h"
+#include "../../sched.h"
 
 pt_t vwmterm_thd(void * const env)
 {
-    vwnd_t          *vwnd;
-    vterm_t         *vterm;
-    ssize_t         bytes_read;
-    ssize_t         total_bytes = 0;
+    vwnd_t              *vwnd;
+    vterm_t             *vterm;
+    ssize_t             bytes_read;
 
-    pt_context_t    *ctx_vwmterm;
-    vwmterm_data_t  *vwmterm_data;
+    vwm_sched_ctx_t     *ctx_vwmterm;
+    vwmterm_data_t      *vwmterm_data;
 
     // the stack gets lost on every iteration so we need to copy
-    ctx_vwmterm = (pt_context_t *)env;
+    ctx_vwmterm = (vwm_sched_ctx_t *)env;
     vwmterm_data = (vwmterm_data_t *)ctx_vwmterm->anything;
     vwnd = vwmterm_data->vwnd;
     vterm = vwmterm_data->vterm;
@@ -66,7 +66,11 @@ pt_t vwmterm_thd(void * const env)
 
         if(bytes_read == 0)
         {
-            if(total_bytes > 0) viper_window_redraw(vwnd);
+            if(vwmterm_data->redraw_pending)
+            {
+                viper_window_redraw(vwnd);
+                vwmterm_data->redraw_pending = 0;
+            }
 
             pt_yield(ctx_vwmterm);
 
@@ -83,7 +87,9 @@ pt_t vwmterm_thd(void * const env)
         if(bytes_read > 0)
         {
             vterm_wnd_update(vterm, -1, 0, 0);
-            total_bytes += bytes_read;
+            vwmterm_data->redraw_pending = 1;
+            ctx_vwmterm->did_work = 1;
+            pt_yield(ctx_vwmterm);
         }
     }
     while(!(*ctx_vwmterm->shutdown));

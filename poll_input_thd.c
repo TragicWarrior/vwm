@@ -1,5 +1,3 @@
-#include <time.h>
-
 #include <ncursesw/curses.h>
 
 #include "protothread.h"
@@ -11,13 +9,12 @@
 pt_t
 vwm_poll_input(void * const env)
 {
-    int32_t         keystroke;
-    MEVENT          *mouse_event;
-    // extern vwm_t    *vwm;
+    int32_t             keystroke;
+    MEVENT              *mouse_event;
 
-    pt_context_t    *ctx_poll_input;
+    vwm_sched_ctx_t     *ctx_poll_input;
 
-    ctx_poll_input = (pt_context_t *)env;
+    ctx_poll_input = (vwm_sched_ctx_t *)env;
     mouse_event = (MEVENT*)ctx_poll_input->anything;
 
 	pt_resume(ctx_poll_input);
@@ -29,6 +26,7 @@ vwm_poll_input(void * const env)
         if(keystroke != -1)
         {
             viper_kmio_dispatch(keystroke, mouse_event);
+            ctx_poll_input->did_work = 1;
         }
 
         pt_yield(ctx_poll_input);

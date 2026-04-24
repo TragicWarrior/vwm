@@ -52,6 +52,7 @@ int     vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd);
 
 /* helpers  */
 void	vwm_panel_update_throbber(vwnd_t *vwnd);
+void    vwm_panel_update_taskcount(vwnd_t *vwnd);
 void    vwm_panel_update_clock(vwnd_t *vwnd);
 void    vwm_panel_marshall(vwnd_t *vwnd);
 void    vwm_panel_display(VWM_PANEL *vwm_panel, vwnd_t *vwnd);

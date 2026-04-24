@@ -57,6 +57,7 @@ add_executable(vwm
     poll_input_thd.c
     private.c
     profile.c
+    sched.c
     settings.c
     programs.c
     signals.c

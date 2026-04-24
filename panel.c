@@ -27,6 +27,7 @@
 #include "vwm.h"
 #include "panel.h"
 #include "private.h"
+#include "sched.h"
 #include "strings.h"
 #include "list.h"
 #include "winman.h"
@@ -67,8 +68,8 @@ vwm_panel_init(void)
     viper_window_set_userptr(vwnd, (void*)vwm_panel);
 
     getmaxyx(VWINDOW(vwnd), max_y, max_x);
-    if(max_x > 25) vwm_panel->display = (char*)calloc(1, max_x - 21);
-    vwm_panel->display_sz = max_x - 22;
+    if(max_x > 29) vwm_panel->display = (char*)calloc(1, max_x - 25);
+    vwm_panel->display_sz = max_x - 26;
 
     wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
     mvwprintw(VWINDOW(vwnd), 0, 0, "%*c", vwm_panel->display_sz, ' ');
@@ -169,16 +170,16 @@ vwm_panel_ON_TERM_RESIZED(vwnd_t *vwnd, void *arg)
     werase(VWINDOW(vwnd));
 
     /* resize the marquee based on new metrics.  */
-    if(max_x < 25)
+    if(max_x < 29)
     {
         if(vwm_panel->display != NULL) free(vwm_panel->display);
-        vwm_panel->display_sz = max_x - 22;
+        vwm_panel->display_sz = max_x - 26;
         vwm_panel->display = NULL;
     }
     else
     {
-        vwm_panel->display = (char*)realloc(vwm_panel->display, max_x - 21);
-        vwm_panel->display_sz = max_x - 22;
+        vwm_panel->display = (char*)realloc(vwm_panel->display, max_x - 25);
+        vwm_panel->display_sz = max_x - 26;
     }
 
     viper_window_redraw(vwnd);
@@ -199,7 +200,10 @@ vwm_panel_ON_CLOCK_TICK(vwnd_t *vwnd, void *arg)
 
     /* update throbber on every tick (currently 1/10 sec). */
     if((vwm_panel->clock % 5) == 0)
+    {
         vwm_panel_update_throbber(vwnd);
+        vwm_panel_update_taskcount(vwnd);
+    }
 
     /* update clock and marshall the panel once every second.  */
     if((vwm_panel->clock % VWM_CLOCK_TICKS_PER_SEC) == 0)
@@ -231,6 +235,25 @@ vwm_panel_update_throbber(vwnd_t *vwnd)
     (void)y;
 
 	return;
+}
+
+void
+vwm_panel_update_taskcount(vwnd_t *vwnd)
+{
+    extern vwm_sched_t  *sched;
+    int                 x, y;
+    int                 n;
+
+    getmaxyx(VWINDOW(vwnd), y, x);
+
+    n = vwm_sched_active_count(sched);
+
+    wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_WHITE, COLOR_MAGENTA));
+    mvwprintw(VWINDOW(vwnd), 0, x - 26, " %2d ", n);
+
+    (void)y;
+
+    return;
 }
 
 void

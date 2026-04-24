@@ -35,6 +35,7 @@
 #include "../../modules.h"
 #include "../../private.h"
 #include "../../protothread.h"
+#include "../../sched.h"
 
 int
 vwm_mod_init(const char *modpath);
@@ -145,8 +146,8 @@ vwmterm_main(vwm_module_t *mod)
 	vwnd_t	      	        *vwnd;
 	int		      	        width, height;
 
-    extern protothread_t    pt[2];
-    pt_context_t            *ctx_vwmterm;
+    extern vwm_sched_t      *sched;
+    vwm_sched_ctx_t         *ctx_vwmterm;
     extern int              shutdown;
 
     vwmterm_mod = (vwmterm_mod_t *)mod;
@@ -204,7 +205,7 @@ vwmterm_main(vwm_module_t *mod)
 
     // allocate thread context and stateful data
     vwmterm_data = (vwmterm_data_t*)calloc(1, sizeof(vwmterm_data_t));
-    ctx_vwmterm = malloc(sizeof(pt_context_t));
+    ctx_vwmterm = calloc(1, sizeof(vwm_sched_ctx_t));
 
     // initialize stateful data
     vwmterm_data->vwnd = vwnd;
@@ -226,12 +227,7 @@ vwmterm_main(vwm_module_t *mod)
         vwmterm_ON_KEYSTROKE);
 	viper_window_set_userptr(vwnd, (void*)vterm);
 
-    //endwin(); exit(0);
-
-    // if(pt[PT_PRIORITY_NORMAL]) { endwin(); exit(0); /* do nothing */ }
-
-    pt_create(pt[PT_PRIORITY_NORMAL], &ctx_vwmterm->pt_thread,
-        vwmterm_thd, ctx_vwmterm);
+    vwm_sched_task_create(sched, ctx_vwmterm, vwmterm_thd, VWM_SCHED_NORMAL);
 
 	return vwnd;
 }

@@ -22,6 +22,7 @@ struct _vwmterm_data_s
     vwnd_t          *vwnd;
     vterm_t         *vterm;
     unsigned int    state;
+    int             redraw_pending;
 };
 
 enum
