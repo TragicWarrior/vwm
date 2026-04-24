@@ -40,11 +40,19 @@
 #include "../../protothread.h"
 #include "../../sched.h"
 
+/*
+    maximum pipe chunks consumed per scheduler dispatch.  higher values
+    give each vterm more throughput per turn at the cost of interleaving
+    with other tasks; 4 is the sweet spot for typical console apps.
+*/
+#define VWMTERM_DRAIN_CHUNKS    4
+
 pt_t vwmterm_thd(void * const env)
 {
     vwnd_t              *vwnd;
     vterm_t             *vterm;
     ssize_t             bytes_read;
+    int                 i;
 
     vwm_sched_ctx_t     *ctx_vwmterm;
     vwmterm_data_t      *vwmterm_data;
@@ -62,8 +70,18 @@ pt_t vwmterm_thd(void * const env)
         // check to see if thread is exiting
         if(vwmterm_data->state == VWMTERM_STATE_EXITING) break;
 
-        bytes_read = vterm_read_pipe(vterm, 10);
+        /* drain up to VWMTERM_DRAIN_CHUNKS chunks per dispatch */
+        bytes_read = 0;
+        for(i = 0; i < VWMTERM_DRAIN_CHUNKS; i++)
+        {
+            bytes_read = vterm_read_pipe(vterm, 10);
+            if(bytes_read <= 0) break;
 
+            vterm_wnd_update(vterm, -1, 0, 0);
+            vwmterm_data->redraw_pending = 1;
+        }
+
+        // pipe empty: flush any pending redraw, then yield
         if(bytes_read == 0)
         {
             if(vwmterm_data->redraw_pending)
@@ -84,13 +102,9 @@ pt_t vwmterm_thd(void * const env)
             break;
         }
 
-        if(bytes_read > 0)
-        {
-            vterm_wnd_update(vterm, -1, 0, 0);
-            vwmterm_data->redraw_pending = 1;
-            ctx_vwmterm->did_work = 1;
-            pt_yield(ctx_vwmterm);
-        }
+        // chunk budget exhausted; mark busy and yield
+        ctx_vwmterm->did_work = 1;
+        pt_yield(ctx_vwmterm);
     }
     while(!(*ctx_vwmterm->shutdown));
 
