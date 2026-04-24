@@ -143,6 +143,9 @@ vwm_sched_run(vwm_sched_t *sched, int *shutdown)
     long                elapsed_ms;
     long                remaining_ms;
     int                 n_active;
+    int                 n_normal;
+    int                 high_ratio;
+    unsigned int        step;
     int                 sweep_had_work;
     int                 sweep_pos;
     int                 watchdog_armed;
@@ -159,17 +162,30 @@ vwm_sched_run(vwm_sched_t *sched, int *shutdown)
     sweep_had_work = 0;
     sweep_pos = 0;
     watchdog_armed = 0;
+    step = 0;
 
     clock_gettime(CLOCK_MONOTONIC, &last_tick);
 
     for(;;)
     {
-        /* count active slots */
+        /* count active slots (total and NORMAL-only) */
         n_active = 0;
+        n_normal = 0;
         for(i = 0; i < VWM_SCHED_MAX_TASKS; i++)
         {
-            if(sched->slots[i].state == VWM_SCHED_SLOT_ACTIVE) n_active++;
+            if(sched->slots[i].state != VWM_SCHED_SLOT_ACTIVE) continue;
+            n_active++;
+            if(sched->slots[i].priority == VWM_SCHED_NORMAL) n_normal++;
         }
+
+        /*
+            linear ratio: max(1, (n_normal + 1) / 2).  HIGH runs every
+            step for 1-2 NORMAL tasks, every 2nd for 3-4, every 3rd
+            for 5-6, every 4th for 7-8.  moderate throttling that
+            preserves input responsiveness through typical loads.
+        */
+        high_ratio = (n_normal + 1) / 2;
+        if(high_ratio < 1) high_ratio = 1;
 
         /* arm watchdog on first observation of shutdown */
         if(*shutdown && !watchdog_armed)
@@ -200,12 +216,16 @@ vwm_sched_run(vwm_sched_t *sched, int *shutdown)
         }
 
         /*
-            one scheduler step.  priority interleave: run one HIGH task
-            and one NORMAL task.  when either queue is empty,
-            protothread_run() is a cheap no-op.
+            one scheduler step.  the HIGH queue is dispatched once per
+            high_ratio steps; the NORMAL queue every step.  when either
+            queue is empty, protothread_run() is a cheap no-op.
         */
-        protothread_run(sched->pt_high);
+        if(step % (unsigned int)high_ratio == 0)
+            protothread_run(sched->pt_high);
+
         protothread_run(sched->pt_normal);
+
+        step++;
 
         /*
             harvest ref bits set by the trampoline.  note whether any
