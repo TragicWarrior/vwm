@@ -52,12 +52,20 @@ vwm_mod_init(const char *modpath)
     (void)modpath;
 
 	// preload libutil for use with this module.
-	dynlib = dlopen("libutil.so",RTLD_LAZY | RTLD_GLOBAL);
-    if(dynlib == NULL) return -1;
+	dynlib = dlopen("libutil.so", RTLD_LAZY | RTLD_GLOBAL);
+    if(dynlib == NULL)
+    {
+        fprintf(stderr, "[EE] Could not load libutil.so\n\r");
+        return -1;
+    }
 
     // preload libvterm for use with this module
-    dynlib = dlopen("libvterm.so",RTLD_LAZY | RTLD_GLOBAL);
-    if(dynlib == NULL) return -1;
+    dynlib = dlopen("libvterm.so", RTLD_LAZY | RTLD_GLOBAL);
+    if(dynlib == NULL)
+    {
+        fprintf(stderr, "[EE] Could not load libvterm.so\n\r");
+        return -1;
+    }
 
 	// configure and register module for color instance
     mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
