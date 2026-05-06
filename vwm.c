@@ -40,6 +40,7 @@
 
 #include <viper.h>
 #include "protothread.h"
+#include "sched.h"
 
 #include "vwm.h"
 #include "private.h"
@@ -62,10 +63,8 @@
    but not necessarily true otherwise.
 */
 
-protothread_t           pt[2] = { NULL, NULL };
+vwm_sched_t             *sched = NULL;
 int                     shutdown = 0;
-
-unsigned int            clock_tick = 0;
 
 // store argv and argc for use elsewhere (with modules)
 char    **vwm_argv;
@@ -81,33 +80,27 @@ int main(int argc,char **argv)
 	int						flags;
 
     extern int              shutdown;
+    extern vwm_sched_t      *sched;
 
-    extern protothread_t    pt[2];
-    bool                    pt_status[2];
-    unsigned int            pt_selector;
-    pt_context_t            *ctx_clock;
-    pt_context_t            *ctx_poll_input;
-    clock_data_t            *clock_data;
+    vwm_sched_ctx_t         *ctx_clock;
+    vwm_sched_ctx_t         *ctx_poll_input;
     MEVENT                  mouse_event;
 
-    pt[PT_PRIORITY_NORMAL] = protothread_create();
-    pt[PT_PRIORITY_HIGH] = protothread_create();
+    sched = vwm_sched_init();
 
-    // setup protothread for clock
-    ctx_clock = malloc(sizeof(pt_context_t));
-    clock_data = vwm_clock_init();
+    // setup clock task (NORMAL priority)
+    ctx_clock = calloc(1, sizeof(vwm_sched_ctx_t));
     ctx_clock->shutdown = &shutdown;
-    ctx_clock->anything = (void *)clock_data;
 
-    // setup prototrhead for input polling
-    ctx_poll_input = malloc(sizeof(pt_context_t));
+    // setup input-polling task (HIGH priority)
+    ctx_poll_input = calloc(1, sizeof(vwm_sched_ctx_t));
     ctx_poll_input->anything = &mouse_event;
     ctx_poll_input->shutdown = &shutdown;
 
-    pt_create(pt[PT_PRIORITY_NORMAL], &ctx_clock->pt_thread,
-                vwm_clock_driver, ctx_clock);
-    pt_create(pt[PT_PRIORITY_HIGH], &ctx_poll_input->pt_thread,
-                vwm_poll_input, ctx_poll_input);
+    vwm_sched_task_create(sched, ctx_clock,
+                vwm_clock_driver, VWM_SCHED_NORMAL);
+    vwm_sched_task_create(sched, ctx_poll_input,
+                vwm_poll_input, VWM_SCHED_HIGH);
 
     vwm_argc = argc;
     vwm_argv = argv;
@@ -174,16 +167,9 @@ int main(int argc,char **argv)
 
     vwm_panel_message_add(VWM_MAIN_MENU_HELP,-1);
 
-    // protothread driver
-    do
-    {
-        pt_selector = PT_PRIORITY_NORMAL;
-        pt_status[pt_selector] = protothread_run(pt[pt_selector]);
+    vwm_sched_run(sched, &shutdown);
 
-        pt_selector = PT_PRIORITY_HIGH;
-        pt_status[pt_selector] = protothread_run(pt[pt_selector]);
-    }
-    while(pt_status[PT_PRIORITY_NORMAL] && pt_status[PT_PRIORITY_HIGH]);
+    vwm_sched_deinit(sched);
 
     viper_end();
     fsync(fd);

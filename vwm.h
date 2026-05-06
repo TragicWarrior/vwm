@@ -28,8 +28,6 @@
 #define VWM_CLOCK_TICK              (0.1F)
 #define VWM_CLOCK_TICKS_PER_SEC     ((short int)(1/VWM_CLOCK_TICK))
 
-#define VWM_TICK_FREQ               100000000   // nanoseconds for system tick
-
 #define VWM_STATE_NORMAL            0
 #define VMW_STATE_ASLEEP            (1 << 1)    // screensaver active
 #define VWM_STATE_ACTIVE            (1 << 2)    // indiates WM mode
