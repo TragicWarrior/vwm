@@ -99,6 +99,19 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
             }
         }
 
+        vk_widget_t *load_pop = vwm_manage_apps_get_load_popup();
+        if(load_pop != NULL)
+        {
+            vk_widget_get_position(load_pop, &wx, &wy);
+            vk_widget_get_metrics(load_pop, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = load_pop;
+                return ZONE_MANAGE_APPS;
+            }
+        }
+
         vk_widget_t *edit_pop = vwm_manage_apps_get_edit_popup();
         if(edit_pop != NULL)
         {

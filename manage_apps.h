@@ -11,5 +11,6 @@ bool    vwm_manage_apps_is_open(void);
 int     vwm_manage_apps_mouse(MEVENT *mouse_event);
 vk_widget_t *vwm_manage_apps_get_edit_popup(void);
 vk_widget_t *vwm_manage_apps_get_dropdown_popup(void);
+vk_widget_t *vwm_manage_apps_get_load_popup(void);
 
 #endif

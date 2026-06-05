@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <time.h>
 
 #include <libconfig.h>
 #include <ncursesw/curses.h>
@@ -145,9 +146,21 @@ static int             edit_focus = EDIT_FOCUS_TITLE;
 static int             edit_active_btn = EDIT_BTN_OK;
 static vk_dropdown_t   *active_dropdown = NULL;
 
+#define LOAD_WIDTH          50
+#define LOAD_HEIGHT         20
+
+static struct timespec      list_last_click_time;
+static int                 list_last_click_item = -1;
+
+static vk_window_t         *load_popup = NULL;
+static vk_filedialog_t     *load_filedialog = NULL;
+static struct timespec     load_last_click_time;
+static int                 load_last_click_item = -1;
+
 static void listbox_rebuild(void);
 static void refresh_dialog(void);
 static void refresh_edit_popup(void);
+static void refresh_load_popup(void);
 static int  manage_apps_kmio(vk_object_t *object, int32_t keystroke);
 
 static void
@@ -626,10 +639,20 @@ update_edit_button_highlights(void)
 
     for(i = 0; i < 2; i++)
     {
+        vk_button_release(edit_buttons[i]);
+
         if(edit_focus == EDIT_FOCUS_BUTTONS && i == edit_active_btn)
-            vk_button_press(edit_buttons[i]);
+        {
+            vk_widget_set_colors(VK_WIDGET(edit_buttons[i]),
+                COLOR_YELLOW, COLOR_BLUE);
+            vk_widget_set_attrs(VK_WIDGET(edit_buttons[i]), A_BOLD);
+        }
         else
-            vk_button_release(edit_buttons[i]);
+        {
+            vk_widget_set_colors(VK_WIDGET(edit_buttons[i]),
+                COLOR_WHITE, COLOR_BLUE);
+            vk_widget_set_attrs(VK_WIDGET(edit_buttons[i]), A_BOLD);
+        }
 
         vk_button_update(edit_buttons[i]);
     }
@@ -912,9 +935,6 @@ edit_popup_open(void)
             vk_widget_set_colors(VK_WIDGET(edit_buttons[i]),
                 COLOR_WHITE, COLOR_BLUE);
             vk_widget_set_attrs(VK_WIDGET(edit_buttons[i]), A_BOLD);
-            vk_button_set_pressed_colors(edit_buttons[i],
-                COLOR_WHITE, COLOR_CYAN);
-            vk_button_release(edit_buttons[i]);
         }
     }
 
@@ -950,6 +970,188 @@ edit_popup_open(void)
         VK_WIDGET(edit_popup));
 
     refresh_edit_popup();
+}
+
+/* ── load popup ─────────────────────────────────────────────── */
+
+static void
+load_popup_close(void)
+{
+    vwm_t *vwm;
+
+    if(load_popup == NULL) return;
+
+    vwm = vwm_get_instance();
+
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(load_popup));
+
+    vk_window_destroy(load_popup);
+    load_popup = NULL;
+
+    vk_filedialog_destroy(load_filedialog);
+    load_filedialog = NULL;
+
+    refresh_dialog();
+}
+
+static void
+load_popup_ok(void)
+{
+    const char  *path;
+    const char  *selected;
+    char        fullpath[PATH_MAX];
+
+    if(load_filedialog == NULL) return;
+
+    path = vk_filedialog_get_path(load_filedialog);
+    selected = vk_filedialog_get_selected(load_filedialog);
+
+    if(path == NULL || selected == NULL)
+    {
+        load_popup_close();
+        return;
+    }
+
+    if(selected[strlen(selected) - 1] == '/')
+        return;
+
+    if(strcmp(path, "/") == 0)
+        snprintf(fullpath, sizeof(fullpath), "/%s", selected);
+    else
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", path, selected);
+
+    strncpy(model->file_path, fullpath, PATH_MAX - 1);
+    model->file_path[PATH_MAX - 1] = '\0';
+
+    load_popup_close();
+
+    model_load_from_config(model->file_path);
+    model->selected = 0;
+
+    listbox_rebuild();
+
+    if(model->count > 0)
+    {
+        vk_listbox_set_curr(app_listbox, 0);
+        vk_listbox_update(app_listbox);
+        populate_dropdowns_from_entry(0);
+    }
+
+    refresh_dialog();
+}
+
+static int
+load_popup_kmio(vk_object_t *object, int32_t keystroke)
+{
+    (void)object;
+
+    if(keystroke == 27)
+    {
+        load_popup_close();
+        return 0;
+    }
+
+    vk_object_push_keystroke(VK_OBJECT(load_filedialog), keystroke);
+    vk_filedialog_update(load_filedialog);
+
+    if(keystroke == KEY_CRLF)
+    {
+        const char *selected = vk_filedialog_get_selected(load_filedialog);
+        if(selected != NULL && selected[0] != '\0')
+        {
+            int len = strlen(selected);
+            if(selected[len - 1] != '/' && strcmp(selected, "..") != 0)
+            {
+                load_popup_ok();
+                return 0;
+            }
+        }
+    }
+
+    refresh_load_popup();
+
+    return 0;
+}
+
+static void
+refresh_load_popup(void)
+{
+    vwm_t *vwm;
+
+    if(load_popup == NULL) return;
+
+    vk_filedialog_update(load_filedialog);
+    vk_window_update(load_popup);
+
+    vwm = vwm_get_instance();
+    vk_screen_refresh(vwm->screen);
+}
+
+static void
+load_popup_open(void)
+{
+    vwm_t   *vwm;
+    int     scr_width, scr_height;
+    int     pos_x, pos_y;
+    int     interior_w, interior_h;
+
+    if(load_popup != NULL) return;
+
+    load_last_click_item = -1;
+    memset(&load_last_click_time, 0, sizeof(load_last_click_time));
+
+    vwm = vwm_get_instance();
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
+
+    load_popup = vk_window_create(LOAD_WIDTH, LOAD_HEIGHT);
+    vk_window_set_title(load_popup, " Load Config ");
+    vk_window_set_border_style(load_popup, VK_FRAME_SINGLE);
+    vk_window_set_border_colors(load_popup, COLOR_WHITE, COLOR_BLUE);
+    vk_window_set_border_attrs(load_popup, A_BOLD);
+
+    interior_w = LOAD_WIDTH - 2;
+    interior_h = LOAD_HEIGHT - 2;
+
+    load_filedialog = vk_filedialog_create(interior_w, interior_h,
+        VK_FRAME_SINGLE, false);
+    vk_filedialog_set_colors(load_filedialog, COLOR_WHITE, COLOR_BLUE);
+    vk_filedialog_set_highlight(load_filedialog, COLOR_WHITE, COLOR_RED);
+    vk_filedialog_set_button_colors(load_filedialog, COLOR_WHITE, COLOR_BLUE);
+    vk_filedialog_set_button_attrs(load_filedialog, A_BOLD);
+
+    {
+        char dirpath[PATH_MAX];
+        strncpy(dirpath, model->file_path, PATH_MAX - 1);
+        dirpath[PATH_MAX - 1] = '\0';
+
+        char *slash = strrchr(dirpath, '/');
+        if(slash != NULL && slash != dirpath)
+            *slash = '\0';
+        else if(slash == dirpath)
+            dirpath[1] = '\0';
+
+        vk_filedialog_set_path(load_filedialog, dirpath);
+    }
+
+    vk_filedialog_update(load_filedialog);
+
+    vk_window_set_child(load_popup, VK_WIDGET(load_filedialog));
+    vk_object_set_kmio(VK_OBJECT(load_popup), load_popup_kmio);
+
+    pos_x = (scr_width - LOAD_WIDTH) / 2;
+    pos_y = (scr_height - LOAD_HEIGHT) / 2;
+    if(pos_x < 0) pos_x = 0;
+    if(pos_y < 0) pos_y = 0;
+
+    vk_widget_move(VK_WIDGET(load_popup), pos_x, pos_y);
+
+    vk_screen_attach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(load_popup));
+
+    refresh_load_popup();
 }
 
 /* ── main dialog callbacks ──────────────────────────────────── */
@@ -1032,17 +1234,7 @@ on_save(void)
 static void
 on_load(void)
 {
-    model_load_from_config(model->file_path);
-    model->selected = 0;
-
-    listbox_rebuild();
-
-    if(model->count > 0)
-    {
-        vk_listbox_set_curr(app_listbox, 0);
-        vk_listbox_update(app_listbox);
-        populate_dropdowns_from_entry(0);
-    }
+    load_popup_open();
 }
 
 static void
@@ -1140,6 +1332,9 @@ manage_apps_kmio(vk_object_t *object, int32_t keystroke)
     int     retval = -1;
 
     (void)object;
+
+    if(load_popup != NULL)
+        return load_popup_kmio(NULL, keystroke);
 
     if(edit_popup != NULL)
         return edit_popup_kmio(NULL, keystroke);
@@ -1487,6 +1682,9 @@ vwm_manage_apps_open(vk_widget_t *widget, void *anything)
     model = (manage_app_model_t *)calloc(1, sizeof(manage_app_model_t));
     model->focus_zone = FOCUS_APP_LIST;
 
+    list_last_click_item = -1;
+    memset(&list_last_click_time, 0, sizeof(list_last_click_time));
+
     rc_file = vwm_profile_rc_file_get(vwm);
     if(rc_file != NULL)
         strncpy(model->file_path, rc_file, PATH_MAX - 1);
@@ -1504,6 +1702,9 @@ vwm_manage_apps_close(void)
     vwm_t *vwm;
 
     if(dialog_window == NULL) return;
+
+    if(load_popup != NULL)
+        load_popup_close();
 
     if(active_dropdown != NULL)
         dropdown_popup_detach();
@@ -1559,6 +1760,12 @@ vwm_manage_apps_get_dropdown_popup(void)
     return vk_dropdown_get_popup(active_dropdown);
 }
 
+vk_widget_t *
+vwm_manage_apps_get_load_popup(void)
+{
+    return VK_WIDGET(load_popup);
+}
+
 int
 vwm_manage_apps_mouse(MEVENT *mouse_event)
 {
@@ -1570,6 +1777,143 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
     if(mouse_event == NULL) return -1;
 
     bs = mouse_event->bstate;
+
+    if(load_popup != NULL)
+    {
+        int lp_x, lp_y, lp_w, lp_h;
+        int lx, ly;
+        int interior_w, interior_h;
+        int btn_h = 3;
+        int input_h = 3;
+
+        vk_widget_get_position(VK_WIDGET(load_popup), &lp_x, &lp_y);
+        vk_widget_get_metrics(VK_WIDGET(load_popup), &lp_w, &lp_h);
+
+        lx = mouse_event->x - lp_x - 1;
+        ly = mouse_event->y - lp_y - 1;
+
+        interior_w = lp_w - 2;
+        interior_h = lp_h - 2;
+
+        if(lx < 0 || lx >= interior_w || ly < 0 || ly >= interior_h)
+            return 0;
+
+        if(!(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED | BUTTON4_PRESSED
+            | BUTTON5_PRESSED)))
+            return 0;
+
+        if(ly < input_h)
+        {
+            vk_object_push_keystroke(VK_OBJECT(load_filedialog), '/');
+            vk_filedialog_update(load_filedialog);
+            refresh_load_popup();
+            return 0;
+        }
+
+        if(ly >= interior_h - btn_h)
+        {
+            int mid = interior_w / 2;
+
+            if(lx < mid && (bs & (BUTTON1_CLICKED | BUTTON1_PRESSED)))
+            {
+                load_popup_ok();
+                return 0;
+            }
+            else if(lx >= mid && (bs & (BUTTON1_CLICKED | BUTTON1_PRESSED)))
+            {
+                load_popup_close();
+                return 0;
+            }
+
+            return 0;
+        }
+
+        {
+            vk_listbox_t *file_list;
+            int list_y;
+
+            file_list = vk_filedialog_get_file_list(load_filedialog);
+            list_y = ly - input_h;
+
+            if(bs & BUTTON4_PRESSED)
+            {
+                vk_listbox_set_prev(file_list);
+                vk_listbox_update(file_list);
+                vk_filedialog_update(load_filedialog);
+                refresh_load_popup();
+                return 0;
+            }
+
+            if(bs & BUTTON5_PRESSED)
+            {
+                vk_listbox_set_next(file_list);
+                vk_listbox_update(file_list);
+                vk_filedialog_update(load_filedialog);
+                refresh_load_popup();
+                return 0;
+            }
+
+            if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+            {
+                int scroll_pos = vk_listbox_get_scroll_pos(file_list);
+                int clicked = scroll_pos + list_y;
+                int count = vk_listbox_get_item_count(file_list);
+
+                if(clicked >= 0 && clicked < count)
+                {
+                    struct timespec now;
+                    long elapsed_ms;
+                    bool is_dblclick = false;
+
+                    clock_gettime(CLOCK_MONOTONIC, &now);
+
+                    if(clicked == load_last_click_item)
+                    {
+                        elapsed_ms =
+                            (now.tv_sec - load_last_click_time.tv_sec)
+                                * 1000
+                            + (now.tv_nsec - load_last_click_time.tv_nsec)
+                                / 1000000;
+
+                        if(elapsed_ms >= 0 && elapsed_ms < 400)
+                            is_dblclick = true;
+                    }
+
+                    load_last_click_time = now;
+                    load_last_click_item = clicked;
+
+                    vk_listbox_set_curr(file_list, clicked);
+                    vk_listbox_update(file_list);
+                    vk_filedialog_update(load_filedialog);
+                    refresh_load_popup();
+
+                    if(is_dblclick)
+                    {
+                        vk_object_push_keystroke(
+                            VK_OBJECT(load_filedialog), KEY_CRLF);
+                        vk_filedialog_update(load_filedialog);
+
+                        const char *sel =
+                            vk_filedialog_get_selected(load_filedialog);
+                        if(sel != NULL && sel[0] != '\0')
+                        {
+                            int len = strlen(sel);
+                            if(sel[len - 1] != '/'
+                                && strcmp(sel, "..") != 0)
+                            {
+                                load_popup_ok();
+                                return 0;
+                            }
+                        }
+
+                        refresh_load_popup();
+                    }
+                }
+            }
+        }
+
+        return 0;
+    }
 
     if(active_dropdown != NULL)
     {
@@ -1759,6 +2103,9 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         {
             int scroll_pos = vk_listbox_get_scroll_pos(app_listbox);
             int new_sel = scroll_pos + (ry - 1);
+            struct timespec now;
+            long elapsed_ms;
+            bool is_dblclick = false;
 
             commit_dropdowns_to_entry(model->selected);
             model->focus_zone = FOCUS_APP_LIST;
@@ -1768,6 +2115,22 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
                 if(new_sel >= model->count) new_sel = model->count - 1;
                 if(new_sel < 0) new_sel = 0;
 
+                clock_gettime(CLOCK_MONOTONIC, &now);
+
+                if(new_sel == list_last_click_item)
+                {
+                    elapsed_ms =
+                        (now.tv_sec - list_last_click_time.tv_sec) * 1000
+                        + (now.tv_nsec - list_last_click_time.tv_nsec)
+                            / 1000000;
+
+                    if(elapsed_ms >= 0 && elapsed_ms < 400)
+                        is_dblclick = true;
+                }
+
+                list_last_click_time = now;
+                list_last_click_item = new_sel;
+
                 vk_listbox_set_curr(app_listbox, new_sel);
                 vk_listbox_update(app_listbox);
                 model->selected = new_sel;
@@ -1776,6 +2139,9 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
 
             update_button_highlights();
             refresh_dialog();
+
+            if(is_dblclick)
+                edit_popup_open();
         }
 
         return 0;
