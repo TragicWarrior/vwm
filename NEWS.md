@@ -1,3 +1,26 @@
+2026-05-30
+
+The four picker-style tools -- Manage Apps Menu, Manage Hotkeys,
+Manage Settings, and the CUPS Print File picker -- now share a
+unified sunken-cyan look.  The listbox sits inside a vk_frame_t
+drawn with sunken 3D relief (top + left edges black, bottom + right
+edges white, both on cyan; A_BOLD), and the listbox itself is
+black-on-cyan instead of the older white-on-black.  Focus on the
+frame still toggles A_BOLD on the relief so it's visually
+distinguishable from an unfocused picker.  STYLE_GUIDE.md updated
+with a new "Picker frame -- sunken 3D relief" subsection.
+
+File dialogs (the Load picker in Manage Apps, Hotkeys, and Settings)
+now label the confirm button "Okay" instead of "OK".
+
+Fixed the Load dialog in the Settings tool: the Okay and Cancel
+buttons at the bottom would not respond to mouse clicks, and clicks
+on the file list landed on the wrong row (off by the input strip's
+height).  The mouse handler now mirrors the Manage Apps / Hotkeys
+load handler -- input-row click focuses the dialog, button-row
+click dispatches Okay/Cancel by left/right half, and the file-list
+y-coordinate is corrected by subtracting the input-row height.
+
 2026-05-29
 
 Improved mouse responsiveness on the Linux console.  The scheduler now

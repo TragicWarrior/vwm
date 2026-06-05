@@ -1275,10 +1275,11 @@ build_dialog(void)
     vk_listbox_set_wrap(hotkey_listbox, FALSE);
     vk_listbox_set_highlight(hotkey_listbox, COLOR_WHITE, COLOR_RED);
     vk_widget_set_colors(VK_WIDGET(hotkey_listbox),
-        COLOR_WHITE, COLOR_BLACK);
+        COLOR_BLACK, COLOR_CYAN);
 
     listbox_frame = vk_frame_create(INTERIOR_WIDTH, lb_height + 2);
-    vk_frame_set_border_style(listbox_frame, VK_BORDER_SINGLE);
+    vk_frame_set_border_style(listbox_frame,
+        VK_BORDER_SINGLE | VK_RELIEF_SUNKEN);
     vk_frame_set_border_colors(listbox_frame, COLOR_YELLOW, COLOR_CYAN);
     vk_frame_set_border_attrs(listbox_frame, A_BOLD);
     vk_frame_set_child(listbox_frame, VK_WIDGET(hotkey_listbox));

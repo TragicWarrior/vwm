@@ -2034,10 +2034,11 @@ build_dialog(void)
     app_listbox = vk_listbox_create(INTERIOR_WIDTH - 2, lb_height);
     vk_listbox_set_wrap(app_listbox, FALSE);
     vk_listbox_set_highlight(app_listbox, COLOR_WHITE, COLOR_RED);
-    vk_widget_set_colors(VK_WIDGET(app_listbox), COLOR_WHITE, COLOR_BLACK);
+    vk_widget_set_colors(VK_WIDGET(app_listbox), COLOR_BLACK, COLOR_CYAN);
 
     listbox_frame = vk_frame_create(INTERIOR_WIDTH, lb_height + 2);
-    vk_frame_set_border_style(listbox_frame, VK_BORDER_SINGLE);
+    vk_frame_set_border_style(listbox_frame,
+        VK_BORDER_SINGLE | VK_RELIEF_SUNKEN);
     vk_frame_set_border_colors(listbox_frame, COLOR_BLACK, COLOR_CYAN);
     vk_frame_set_child(listbox_frame, VK_WIDGET(app_listbox));
     vk_widget_set_expand(VK_WIDGET(listbox_frame));

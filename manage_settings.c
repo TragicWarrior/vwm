@@ -2026,10 +2026,11 @@ build_dialog(void)
     vk_listbox_set_wrap(settings_listbox, FALSE);
     vk_listbox_set_highlight(settings_listbox, COLOR_WHITE, COLOR_RED);
     vk_widget_set_colors(VK_WIDGET(settings_listbox),
-        COLOR_WHITE, COLOR_BLACK);
+        COLOR_BLACK, COLOR_CYAN);
 
     listbox_frame = vk_frame_create(INTERIOR_WIDTH, lb_height + 2);
-    vk_frame_set_border_style(listbox_frame, VK_BORDER_SINGLE);
+    vk_frame_set_border_style(listbox_frame,
+        VK_BORDER_SINGLE | VK_RELIEF_SUNKEN);
     vk_frame_set_border_colors(listbox_frame, COLOR_YELLOW, COLOR_CYAN);
     vk_frame_set_border_attrs(listbox_frame, A_BOLD);
     vk_frame_set_child(listbox_frame, VK_WIDGET(settings_listbox));
@@ -2493,6 +2494,8 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
         int lp_x, lp_y, lp_w, lp_h;
         int lx, ly;
         int interior_w, interior_h;
+        int btn_h = 3;
+        int input_h = 3;
 
         vk_widget_get_position(VK_WIDGET(load_popup), &lp_x, &lp_y);
         vk_widget_get_metrics(VK_WIDGET(load_popup), &lp_w, &lp_h);
@@ -2509,8 +2512,37 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
             BUTTON4_PRESSED | BUTTON5_PRESSED)))
             return 0;
 
+        /* input row at the top: route to filedialog so it accepts text */
+        if(ly < input_h)
+        {
+            vk_object_push_keystroke(VK_OBJECT(load_filedialog), '/');
+            vk_filedialog_update(load_filedialog);
+            refresh_load_popup();
+            return 0;
+        }
+
+        /* button row at the bottom: left half = Okay, right half = Cancel */
+        if(ly >= interior_h - btn_h)
+        {
+            int mid = interior_w / 2;
+
+            if(lx < mid && (bs & (BUTTON1_CLICKED | BUTTON1_PRESSED)))
+            {
+                load_popup_ok();
+                return 0;
+            }
+            else if(lx >= mid && (bs & (BUTTON1_CLICKED | BUTTON1_PRESSED)))
+            {
+                load_popup_close();
+                return 0;
+            }
+
+            return 0;
+        }
+
         {
             vk_listbox_t *file_list;
+            int list_y = ly - input_h;
 
             file_list = vk_filedialog_get_file_list(load_filedialog);
 
@@ -2535,7 +2567,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
             if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
             {
                 int scroll_pos = vk_listbox_get_scroll_pos(file_list);
-                int clicked = scroll_pos + ly;
+                int clicked = scroll_pos + list_y;
                 int count = vk_listbox_get_item_count(file_list);
 
                 if(clicked >= 0 && clicked < count)

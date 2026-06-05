@@ -5,23 +5,56 @@ All colors reference ncurses `COLOR_*` constants.
 
 ## Main Dialogs
 
-Used for full control panels: Manage Apps Menu, Manage Hotkeys, Calendar.
+Used for full control panels: Manage Apps Menu, Manage Hotkeys,
+Manage Settings, CUPS print picker, Calendar.
 
 | Element              | Foreground | Background | Attrs  |
 |----------------------|------------|------------|--------|
 | Window border        | WHITE      | CYAN       | A_BOLD |
 | Interior / vbox      | BLACK      | CYAN       |        |
 | Labels               | BLACK      | CYAN       |        |
-| Listbox text         | WHITE      | BLACK      |        |
+| Listbox text         | BLACK      | CYAN       |        |
 | Listbox highlight    | WHITE      | RED        |        |
-| Listbox frame (focus)| YELLOW     | CYAN       |        |
-| Listbox frame        | BLACK      | CYAN       |        |
+| Listbox frame        | (sunken 3D relief — see below) |
 | Scroller border      | BLACK      | CYAN       |        |
 | Dropdowns            | BLACK      | CYAN       | A_BOLD |
 | Dropdown highlight   | CYAN       | BLACK      |        |
 | Button (active)      | YELLOW     | CYAN       | A_BOLD |
 | Button (inactive)    | BLACK      | CYAN       | A_BOLD |
 | Button bar / spacer  | BLACK      | CYAN       |        |
+
+### Picker frame — sunken 3D relief
+
+The four picker-style tools (Manage Apps, Hotkeys, Settings, CUPS
+print) wrap their listbox in a `vk_frame_t` drawn with sunken relief.
+That shared visual signature is what makes them feel like the same
+family of dialog.  Set the border style to
+`VK_BORDER_SINGLE | VK_RELIEF_SUNKEN`; the frame then paints its top +
+left edges in `widget->relief_lo` (default BLACK) and its bottom +
+right edges in `widget->relief_hi` (default WHITE), both on the
+border background.  When a relief flag is set, `border_fg` is ignored
+— relief colors come exclusively from `relief_hi`/`relief_lo`
+(override per-frame with `vk_widget_set_relief_colors()` if the
+defaults don't read well against your bg).
+
+```c
+listbox_frame = vk_frame_create(W, H);
+vk_frame_set_border_style(listbox_frame,
+    VK_BORDER_SINGLE | VK_RELIEF_SUNKEN);
+vk_frame_set_border_colors(listbox_frame, COLOR_BLACK, COLOR_CYAN);
+vk_frame_set_border_attrs(listbox_frame, A_BOLD);
+vk_frame_set_child(listbox_frame, VK_WIDGET(listbox));
+```
+
+`border_fg` (`COLOR_BLACK` above) is a placeholder; pick any value.
+`border_bg` (CYAN) is the actual background each relief cell paints
+against.  `A_BOLD` applies to the relief cells.
+
+Focus indication: toggle `border_attrs` between `A_BOLD` (focused)
+and `0` (unfocused) — the relief reads as bold-sunken vs normal-
+sunken rather than the older yellow-vs-black border-fg swap.  The
+`border_fg` toggle in legacy focus-update code is now a no-op but is
+harmless to leave in.
 
 Calendar-specific additions:
 
@@ -96,11 +129,11 @@ to fill the rest.
 
 | Element                | Foreground | Background | Attrs  |
 |------------------------|------------|------------|--------|
-| Enclosing border       | WHITE      | BLUE       | A_BOLD |
-| File list / path text  | WHITE      | BLUE       |        |
-| Selection highlight    | WHITE      | RED        |        |
-| OK / Cancel (inactive) | WHITE      | BLUE       | A_BOLD |
-| OK / Cancel (focused)  | YELLOW     | BLUE       | A_BOLD |
+| Enclosing border         | WHITE      | BLUE       | A_BOLD |
+| File list / path text    | WHITE      | BLUE       |        |
+| Selection highlight      | WHITE      | RED        |        |
+| Okay / Cancel (inactive) | WHITE      | BLUE       | A_BOLD |
+| Okay / Cancel (focused)  | YELLOW     | BLUE       | A_BOLD |
 
 ```c
 fd = vk_filedialog_create(interior_w, interior_h, VK_FRAME_SINGLE, false);
@@ -113,27 +146,32 @@ vk_filedialog_set_button_attrs(fd, A_BOLD);
 ### Internal layout (for mouse hit-testing)
 
 Relative to the filedialog's own area: the top 3 rows are the path input,
-the bottom 3 rows are the OK/Cancel button bar, and everything between is
-the file list. Map a list click as `item = scroll_pos + (rel_row - 3)`
+the bottom 3 rows are the Okay/Cancel button bar, and everything between
+is the file list. Map a list click as `item = scroll_pos + (rel_row - 3)`
 where `rel_row` is the click row within the filedialog. In the button row,
-OK is the left half (`x < interior_w / 2`), Cancel the right half. A click
-in the path strip can focus it by pushing `'/'` to the dialog.
+Okay is the left half (`x < interior_w / 2`), Cancel the right half. A
+click in the path strip can focus it by pushing `'/'` to the dialog.
+
+Forgetting the `- 3` adjustment for `list_y` makes file-list clicks land
+on the wrong row; omitting the button-row branch entirely makes Okay and
+Cancel unclickable (this is exactly the bug that hid in Settings' Load
+dialog before the mouse handler was completed).
 
 ### Tab stops / button focus
 
-The OK/Cancel buttons have no public accessor, but the filedialog is a
-`vk_box`, so reach them through the box getter (avoids pulling in
+The Okay/Cancel buttons have no public accessor, but the filedialog is
+a `vk_box`, so reach them through the box getter (avoids pulling in
 `vk_filedialog.h`, which transitively fails to find `list.h`):
 
 ```c
 vk_widget_t *bar    = vk_box_get_widget(VK_BOX(fd), 2);  /* slot 2 = bar */
-vk_widget_t *ok     = vk_box_get_widget(VK_BOX(bar), 0); /* slot 0 = OK   */
+vk_widget_t *ok     = vk_box_get_widget(VK_BOX(bar), 0); /* slot 0 = Okay */
 vk_widget_t *cancel = vk_box_get_widget(VK_BOX(bar), 1); /* slot 1 = Cancel */
 ```
 
 Cycle focus with Tab in visual (top-to-bottom) order — e.g. filename →
-browser → OK → Cancel, or just browser → OK → Cancel for a load dialog.
-Highlight the focused button and reset the rest:
+browser → Okay → Cancel, or just browser → Okay → Cancel for a load
+dialog.  Highlight the focused button and reset the rest:
 
 ```c
 vk_button_release(VK_BUTTON(ok));
