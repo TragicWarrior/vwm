@@ -230,6 +230,19 @@ vwmterm_exit_selection(vwmterm_data_t *vwmterm_data)
     vk_screen_refresh(vwm->screen);
 }
 
+static int
+vwmterm_write_mouse(vterm_t *vterm, vk_window_t *window, MEVENT *me)
+{
+    int win_x, win_y;
+    MEVENT adjusted = *me;
+
+    vk_widget_get_position(VK_WIDGET(window), &win_x, &win_y);
+    adjusted.x -= win_x;
+    adjusted.y -= win_y;
+
+    return vterm_write_mouse_event(vterm, &adjusted);
+}
+
 int
 vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 {
@@ -316,7 +329,10 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             if(vwmterm_data->frozen == 3)
             {
                 vwmterm_data->frozen = 0;
-                vterm_write_mouse_event(vterm, me);
+
+                MEVENT click = *me;
+                click.bstate = BUTTON1_CLICKED;
+                vwmterm_write_mouse(vterm, window, &click);
             }
             else if(vwmterm_data->sel_anchor_row == vwmterm_data->sel_end_row &&
                     vwmterm_data->sel_anchor_col == vwmterm_data->sel_end_col)
@@ -343,7 +359,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 
         if(me->bstate & BUTTON4_PRESSED)
         {
-            if(vterm_write_mouse_event(vterm, me) > 0)
+            if(vwmterm_write_mouse(vterm, window, me) > 0)
                 return KMIO_HANDLED;
 
             vterm_wnd_size(vterm, &width, &height);
@@ -368,7 +384,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 
         if(me->bstate & BUTTON5_PRESSED)
         {
-            if(vterm_write_mouse_event(vterm, me) > 0)
+            if(vwmterm_write_mouse(vterm, window, me) > 0)
                 return KMIO_HANDLED;
 
             if(vwmterm_data->scroll_offset == 0) return KMIO_HANDLED;

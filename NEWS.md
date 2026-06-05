@@ -1,5 +1,11 @@
 2026-05-26
 
+Fixed mouse clicks not reaching terminal applications (e.g. Midnight
+Commander) after moving a window.  Coordinates are now adjusted for
+the window position before forwarding to the PTY.  Also fixed simple
+clicks not being forwarded at all due to mouseinterval(0) preventing
+ncurses BUTTON1_CLICKED synthesis.
+
 Added multiple desktops (3 surfaces) with per-surface window decks.
 Ctrl+Shift+Right/Left cycles between desktops with wrap-around.
 Panel and status bar follow the active surface.  Each desktop has a
