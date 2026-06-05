@@ -108,6 +108,18 @@ static int                  list_last_click_item = -1;
 
 static vk_popup_t           *load_popup = NULL;
 static vk_filedialog_t      *load_filedialog = NULL;
+static struct timespec       load_last_click_time;
+static int                   load_last_click_item = -1;
+
+/* Tab-stop focus inside the Load Config popup */
+enum
+{
+    HL_FILEDIALOG = 0,
+    HL_OKAY,
+    HL_CANCEL,
+    HL_COUNT
+};
+static int                   hk_load_focus = HL_FILEDIALOG;
 
 static vk_popup_t           *error_popup = NULL;
 static vk_popup_t           *confirm_popup = NULL;
@@ -373,6 +385,10 @@ update_button_highlights(void)
         vk_frame_set_border_colors(listbox_frame, COLOR_BLACK, COLOR_CYAN);
         vk_frame_set_border_attrs(listbox_frame, 0);
     }
+
+    vk_listbox_set_focused(hotkey_listbox,
+        model->focus_zone == FOCUS_HOTKEY_LIST);
+    vk_listbox_update(hotkey_listbox);
 
     vk_frame_update(listbox_frame);
 }
@@ -911,6 +927,50 @@ hk_load_popup_ok(void)
     refresh_dialog();
 }
 
+/*
+    Highlight the focused Okay/Cancel button and toggle the file_list
+    listbox between focused (BLACK/RED) and unfocused (BLACK/WHITE).
+*/
+static void
+update_hk_load_focus(void)
+{
+    vk_widget_t *bar_w;
+    vk_widget_t *ok = NULL;
+    vk_widget_t *cancel = NULL;
+
+    if(load_filedialog == NULL) return;
+
+    bar_w = vk_box_get_widget(VK_BOX(load_filedialog), 2);
+    if(bar_w != NULL)
+    {
+        ok     = vk_box_get_widget(VK_BOX(bar_w), 0);
+        cancel = vk_box_get_widget(VK_BOX(bar_w), 1);
+    }
+
+    if(ok != NULL)
+    {
+        vk_button_release(VK_BUTTON(ok));
+        vk_widget_set_colors(ok,
+            (hk_load_focus == HL_OKAY) ? COLOR_YELLOW : COLOR_WHITE,
+            COLOR_BLUE);
+        vk_widget_set_attrs(ok, A_BOLD);
+        vk_button_update(VK_BUTTON(ok));
+    }
+
+    if(cancel != NULL)
+    {
+        vk_button_release(VK_BUTTON(cancel));
+        vk_widget_set_colors(cancel,
+            (hk_load_focus == HL_CANCEL) ? COLOR_YELLOW : COLOR_WHITE,
+            COLOR_BLUE);
+        vk_widget_set_attrs(cancel, A_BOLD);
+        vk_button_update(VK_BUTTON(cancel));
+    }
+
+    vk_listbox_set_focused(vk_filedialog_get_file_list(load_filedialog),
+        hk_load_focus == HL_FILEDIALOG);
+}
+
 static int
 hk_load_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
@@ -922,6 +982,29 @@ hk_load_popup_kmio(vk_object_t *object, int32_t keystroke)
         return 0;
     }
 
+    if(keystroke == '\t')
+    {
+        hk_load_focus = (hk_load_focus + 1) % HL_COUNT;
+        update_hk_load_focus();
+        refresh_load_popup();
+        return 0;
+    }
+
+    if(hk_load_focus == HL_OKAY)
+    {
+        if(keystroke == KEY_CRLF || keystroke == ' ')
+            hk_load_popup_ok();
+        return 0;
+    }
+
+    if(hk_load_focus == HL_CANCEL)
+    {
+        if(keystroke == KEY_CRLF || keystroke == ' ')
+            hk_load_popup_close();
+        return 0;
+    }
+
+    /* HL_FILEDIALOG: forward to the dialog (existing behavior) */
     vk_object_push_keystroke(VK_OBJECT(load_filedialog), keystroke);
     vk_filedialog_update(load_filedialog);
 
@@ -968,6 +1051,13 @@ hk_load_popup_open(void)
 
     if(load_popup != NULL) return;
 
+    /* reset double-click tracker so the first click after open is a single */
+    load_last_click_item = -1;
+    memset(&load_last_click_time, 0, sizeof(load_last_click_time));
+
+    /* start with focus on the file browser */
+    hk_load_focus = HL_FILEDIALOG;
+
     vwm = vwm_get_instance();
     getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
 
@@ -983,7 +1073,10 @@ hk_load_popup_open(void)
     load_filedialog = vk_filedialog_create(interior_w, interior_h,
         VK_BORDER_SINGLE, false);
     vk_filedialog_set_colors(load_filedialog, COLOR_WHITE, COLOR_BLUE);
-    vk_filedialog_set_highlight(load_filedialog, COLOR_WHITE, COLOR_RED);
+    vk_filedialog_set_highlight(load_filedialog, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(
+        vk_filedialog_get_file_list(load_filedialog),
+        COLOR_BLACK, COLOR_WHITE);
     vk_filedialog_set_button_colors(load_filedialog,
         COLOR_WHITE, COLOR_BLUE);
     vk_filedialog_set_button_attrs(load_filedialog, A_BOLD);
@@ -1003,6 +1096,9 @@ hk_load_popup_open(void)
     }
 
     vk_filedialog_update(load_filedialog);
+
+    /* paint initial button colors so they read as inactive */
+    update_hk_load_focus();
 
     vk_popup_set_client(load_popup, VK_WIDGET(load_filedialog));
     vk_object_set_kmio(VK_OBJECT(load_popup), hk_load_popup_kmio);
@@ -1273,7 +1369,8 @@ build_dialog(void)
 
     hotkey_listbox = vk_listbox_create(INTERIOR_WIDTH - 2, lb_height);
     vk_listbox_set_wrap(hotkey_listbox, FALSE);
-    vk_listbox_set_highlight(hotkey_listbox, COLOR_WHITE, COLOR_RED);
+    vk_listbox_set_highlight(hotkey_listbox, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(hotkey_listbox, COLOR_BLACK, COLOR_WHITE);
     vk_widget_set_colors(VK_WIDGET(hotkey_listbox),
         COLOR_BLACK, COLOR_CYAN);
 
@@ -1622,7 +1719,8 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
             int list_y;
 
             file_list = vk_filedialog_get_file_list(load_filedialog);
-            list_y = ly - input_h;
+            /* -1 extra for the sunken-relief frame's top border */
+            list_y = ly - input_h - 1;
 
             if(bs & BUTTON4_PRESSED)
             {
@@ -1650,22 +1748,54 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
 
                 if(clicked >= 0 && clicked < count)
                 {
+                    struct timespec now;
+                    long elapsed_ms;
+                    bool is_dblclick = false;
+
+                    clock_gettime(CLOCK_MONOTONIC, &now);
+
+                    if(clicked == load_last_click_item)
+                    {
+                        elapsed_ms =
+                            (now.tv_sec - load_last_click_time.tv_sec)
+                                * 1000
+                            + (now.tv_nsec - load_last_click_time.tv_nsec)
+                                / 1000000;
+
+                        if(elapsed_ms >= 0 && elapsed_ms < 400)
+                            is_dblclick = true;
+                    }
+
+                    load_last_click_time = now;
+                    load_last_click_item = clicked;
+
                     vk_listbox_set_curr(file_list, clicked);
                     vk_listbox_update(file_list);
                     vk_filedialog_update(load_filedialog);
                     refresh_load_popup();
 
-                    const char *sel =
-                        vk_filedialog_get_selected(load_filedialog);
-                    if(sel != NULL && sel[0] != '\0')
+                    if(is_dblclick)
                     {
-                        int len = strlen(sel);
-                        if(sel[len - 1] != '/'
-                            && strcmp(sel, "..") != 0)
+                        /* push Enter so the filedialog navigates into a
+                           directory or accepts a regular file */
+                        vk_object_push_keystroke(
+                            VK_OBJECT(load_filedialog), KEY_CRLF);
+                        vk_filedialog_update(load_filedialog);
+
+                        const char *sel =
+                            vk_filedialog_get_selected(load_filedialog);
+                        if(sel != NULL && sel[0] != '\0')
                         {
-                            hk_load_popup_ok();
-                            return 0;
+                            int len = strlen(sel);
+                            if(sel[len - 1] != '/'
+                                && strcmp(sel, "..") != 0)
+                            {
+                                hk_load_popup_ok();
+                                return 0;
+                            }
                         }
+
+                        refresh_load_popup();
                     }
                 }
             }

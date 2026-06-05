@@ -457,6 +457,11 @@ update_dropdown_highlights(void)
         vk_frame_set_border_attrs(listbox_frame, 0);
     }
 
+    /* toggle listbox highlight (red focused / gray blurred) */
+    vk_listbox_set_focused(app_listbox,
+        model->focus_zone == FOCUS_APP_LIST);
+    vk_listbox_update(app_listbox);
+
     vk_frame_update(listbox_frame);
 
     for(i = 0; i < 3; i++)
@@ -1080,6 +1085,11 @@ update_load_focus(void)
 
     if(load_filedialog == NULL) return;
 
+    /* swap the file_list highlight: BLACK/RED when browser focused,
+       BLACK/WHITE when focus has moved to the buttons */
+    vk_listbox_set_focused(vk_filedialog_get_file_list(load_filedialog),
+        load_focus == LF_FILEDIALOG);
+
     bar_w = vk_box_get_widget(VK_BOX(load_filedialog), 2);
     if(bar_w != NULL)
     {
@@ -1206,7 +1216,10 @@ load_popup_open(void)
     load_filedialog = vk_filedialog_create(interior_w, interior_h,
         VK_BORDER_SINGLE, false);
     vk_filedialog_set_colors(load_filedialog, COLOR_WHITE, COLOR_BLUE);
-    vk_filedialog_set_highlight(load_filedialog, COLOR_WHITE, COLOR_RED);
+    vk_filedialog_set_highlight(load_filedialog, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(
+        vk_filedialog_get_file_list(load_filedialog),
+        COLOR_BLACK, COLOR_WHITE);
     vk_filedialog_set_button_colors(load_filedialog, COLOR_WHITE, COLOR_BLUE);
     vk_filedialog_set_button_attrs(load_filedialog, A_BOLD);
 
@@ -2033,7 +2046,8 @@ build_dialog(void)
 
     app_listbox = vk_listbox_create(INTERIOR_WIDTH - 2, lb_height);
     vk_listbox_set_wrap(app_listbox, FALSE);
-    vk_listbox_set_highlight(app_listbox, COLOR_WHITE, COLOR_RED);
+    vk_listbox_set_highlight(app_listbox, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(app_listbox, COLOR_BLACK, COLOR_WHITE);
     vk_widget_set_colors(VK_WIDGET(app_listbox), COLOR_BLACK, COLOR_CYAN);
 
     listbox_frame = vk_frame_create(INTERIOR_WIDTH, lb_height + 2);
@@ -2485,7 +2499,8 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
             int list_y;
 
             file_list = vk_filedialog_get_file_list(load_filedialog);
-            list_y = ly - input_h;
+            /* -1 extra for the sunken-relief frame's top border */
+            list_y = ly - input_h - 1;
 
             load_focus = LF_FILEDIALOG;
             update_load_focus();

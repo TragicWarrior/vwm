@@ -371,6 +371,10 @@ update_save_focus(scrshot_session_t *s)
         vk_widget_set_attrs(cancel, A_BOLD);
         vk_button_update(VK_BUTTON(cancel));
     }
+
+    /* toggle the listbox highlight to reflect focus state */
+    vk_listbox_set_focused(vk_filedialog_get_file_list(s->fd),
+        s->save_focus == SF_FILEDIALOG);
 }
 
 static vk_window_t*
@@ -418,7 +422,9 @@ build_save(scrshot_session_t *s)
 
     fd = vk_filedialog_create(W - 2, fd_h, VK_BORDER_SINGLE, false);
     vk_filedialog_set_colors(fd, COLOR_WHITE, COLOR_BLUE);
-    vk_filedialog_set_highlight(fd, COLOR_WHITE, COLOR_RED);
+    vk_filedialog_set_highlight(fd, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(vk_filedialog_get_file_list(fd),
+        COLOR_BLACK, COLOR_WHITE);
     vk_filedialog_set_button_colors(fd, COLOR_WHITE, COLOR_BLUE);
     vk_filedialog_set_button_attrs(fd, A_BOLD);
     vk_filedialog_set_wrap(fd, false);
@@ -836,7 +842,9 @@ handle_mouse(MEVENT *me)
         if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
         {
             int             scroll = vk_listbox_get_scroll_pos(fl);
-            int             clicked = scroll + (rel - 3);
+            /* rel - 3 skips the 3-row input strip; -1 more skips the
+               sunken-relief frame's top border */
+            int             clicked = scroll + (rel - 3 - 1);
             int             count = vk_listbox_get_item_count(fl);
             struct timespec now;
             bool            dbl = false;

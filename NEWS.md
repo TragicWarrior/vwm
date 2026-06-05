@@ -1,3 +1,39 @@
+2026-05-31
+
+System-tool listboxes (Manage Apps, Hotkeys, Settings, the Print File
+picker, the Save Screenshot picker, and the file_list inside every
+filedialog) now use a focus-aware selection highlight: BLACK on RED
+when the listbox has focus, BLACK on WHITE when focus has moved
+elsewhere (typically to an Okay or Cancel button via Tab).  Two new
+libviper APIs back this -- vk_listbox_set_unfocused() registers the
+unfocused-state pair, and vk_listbox_set_focused() toggles which pair
+is active.  Default at creation is focused, so widgets that don't
+need the dance behave as before.
+
+vk_filedialog's file listing area is now automatically wrapped in a
+sunken-relief frame for visual consistency with the rest of the
+picker tools (Manage Apps/Hotkeys/Settings, the CUPS printer list).
+All five filedialog consumers pick this up without code changes; it
+costs the visible listing 2 rows and 2 columns.  The mouse-click
+list-row calculation was adjusted accordingly (-1 extra for the new
+top border).
+
+vk_filedialog gained vk_filedialog_set_filter(fd, "pdf,md,txt") --
+an extension whitelist that restricts the file list to regular files
+whose extension matches one of a comma-separated list.  Comparison
+is case-insensitive, directories are always shown (so navigation
+still works), and passing NULL or "" clears the filter.  The Print
+File picker uses it to limit the view to .pdf, .md, and .txt.
+
+The Print File picker gained Tab cycling: Tab moves focus between
+the file browser, the Okay button, and the Cancel button.  Enter/
+Space activates whichever has focus.  Mirrors the existing pattern
+in Manage Apps and the Save Screenshot picker.
+
+The Manage Hotkeys Load Config dialog also gained Tab cycling
+(filedialog -> Okay -> Cancel) and double-click-to-navigate on the
+file list (matching the Save and Settings load dialogs).
+
 2026-05-30
 
 The four picker-style tools -- Manage Apps Menu, Manage Hotkeys,

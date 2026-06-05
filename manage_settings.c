@@ -699,7 +699,8 @@ modify_popup_open(int setting_idx)
 
         modify_listbox = vk_listbox_create(popup_w - 2, popup_h - 5);
         vk_listbox_set_wrap(modify_listbox, FALSE);
-        vk_listbox_set_highlight(modify_listbox, COLOR_WHITE, COLOR_RED);
+        vk_listbox_set_highlight(modify_listbox, COLOR_BLACK, COLOR_RED);
+        vk_listbox_set_unfocused(modify_listbox, COLOR_BLACK, COLOR_WHITE);
         vk_widget_set_colors(VK_WIDGET(modify_listbox),
             COLOR_WHITE, COLOR_BLUE);
 
@@ -858,6 +859,10 @@ update_button_highlights(void)
         vk_frame_set_border_colors(listbox_frame, COLOR_BLACK, COLOR_CYAN);
         vk_frame_set_border_attrs(listbox_frame, 0);
     }
+
+    vk_listbox_set_focused(settings_listbox,
+        model->focus_zone == FOCUS_LIST);
+    vk_listbox_update(settings_listbox);
 
     vk_frame_update(listbox_frame);
 }
@@ -1766,7 +1771,10 @@ load_popup_open(void)
     load_filedialog = vk_filedialog_create(interior_w, interior_h,
         VK_BORDER_SINGLE, false);
     vk_filedialog_set_colors(load_filedialog, COLOR_WHITE, COLOR_BLUE);
-    vk_filedialog_set_highlight(load_filedialog, COLOR_WHITE, COLOR_RED);
+    vk_filedialog_set_highlight(load_filedialog, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(
+        vk_filedialog_get_file_list(load_filedialog),
+        COLOR_BLACK, COLOR_WHITE);
     vk_filedialog_set_button_colors(load_filedialog,
         COLOR_WHITE, COLOR_BLUE);
     vk_filedialog_set_button_attrs(load_filedialog, A_BOLD);
@@ -2024,7 +2032,8 @@ build_dialog(void)
 
     settings_listbox = vk_listbox_create(INTERIOR_WIDTH - 2, lb_height);
     vk_listbox_set_wrap(settings_listbox, FALSE);
-    vk_listbox_set_highlight(settings_listbox, COLOR_WHITE, COLOR_RED);
+    vk_listbox_set_highlight(settings_listbox, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(settings_listbox, COLOR_BLACK, COLOR_WHITE);
     vk_widget_set_colors(VK_WIDGET(settings_listbox),
         COLOR_BLACK, COLOR_CYAN);
 
@@ -2542,7 +2551,8 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
 
         {
             vk_listbox_t *file_list;
-            int list_y = ly - input_h;
+            /* -1 extra for the sunken-relief frame's top border */
+            int list_y = ly - input_h - 1;
 
             file_list = vk_filedialog_get_file_list(load_filedialog);
 

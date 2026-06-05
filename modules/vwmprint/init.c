@@ -39,6 +39,15 @@ enum
     PR_COUNT
 };
 
+/* focus stops in the file-picker window */
+enum
+{
+    PK_FILEDIALOG = 0,
+    PK_OKAY,
+    PK_CANCEL,
+    PK_COUNT
+};
+
 typedef struct
 {
     int             state;
@@ -49,6 +58,7 @@ typedef struct
 
     /* pick state */
     vk_filedialog_t *fd;
+    int             pick_focus;
 
     /* chosen file (absolute path) */
     char            file_path[PATH_MAX];
@@ -87,6 +97,8 @@ static void         choose_file(print_session_t *s, const char *sel);
 static void         begin_printers(print_session_t *s);
 static void         do_print(print_session_t *s);
 static void         update_printer_focus(print_session_t *s);
+static void         update_pick_focus(print_session_t *s);
+static void         activate_selection(print_session_t *s);
 
 /* ── helpers ─────────────────────────────────────────────────── */
 
@@ -199,10 +211,13 @@ build_pick(print_session_t *s)
 
     fd = vk_filedialog_create(W - 2, H - 2, VK_BORDER_SINGLE, false);
     vk_filedialog_set_colors(fd, COLOR_WHITE, COLOR_BLUE);
-    vk_filedialog_set_highlight(fd, COLOR_WHITE, COLOR_RED);
+    vk_filedialog_set_highlight(fd, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(vk_filedialog_get_file_list(fd),
+        COLOR_BLACK, COLOR_WHITE);
     vk_filedialog_set_button_colors(fd, COLOR_WHITE, COLOR_BLUE);
     vk_filedialog_set_button_attrs(fd, A_BOLD);
     vk_filedialog_set_wrap(fd, false);
+    vk_filedialog_set_filter(fd, "pdf,md,txt");
     vk_widget_set_expand(VK_WIDGET(fd));
 
     vk_window_set_child(win, VK_WIDGET(fd));
@@ -217,6 +232,54 @@ build_pick(print_session_t *s)
     vk_filedialog_update(fd);
 
     return win;
+}
+
+/* ── file picker focus (Tab cycles: filedialog → Okay → Cancel) ── */
+
+static void
+update_pick_focus(print_session_t *s)
+{
+    vk_widget_t *bar_w;
+    vk_widget_t *ok = NULL;
+    vk_widget_t *cancel = NULL;
+
+    if(s->fd == NULL) return;
+
+    /*
+        the Okay/Cancel buttons live in the filedialog's button bar
+        (slot 2 of the filedialog box).  Reach them via the public box
+        getter so we don't have to pull in vk_filedialog.h.
+    */
+    bar_w = vk_box_get_widget(VK_BOX(s->fd), 2);
+    if(bar_w != NULL)
+    {
+        ok = vk_box_get_widget(VK_BOX(bar_w), 0);
+        cancel = vk_box_get_widget(VK_BOX(bar_w), 1);
+    }
+
+    if(ok != NULL)
+    {
+        vk_button_release(VK_BUTTON(ok));
+        vk_widget_set_colors(ok,
+            (s->pick_focus == PK_OKAY) ? COLOR_YELLOW : COLOR_WHITE,
+            COLOR_BLUE);
+        vk_widget_set_attrs(ok, A_BOLD);
+        vk_button_update(VK_BUTTON(ok));
+    }
+
+    if(cancel != NULL)
+    {
+        vk_button_release(VK_BUTTON(cancel));
+        vk_widget_set_colors(cancel,
+            (s->pick_focus == PK_CANCEL) ? COLOR_YELLOW : COLOR_WHITE,
+            COLOR_BLUE);
+        vk_widget_set_attrs(cancel, A_BOLD);
+        vk_button_update(VK_BUTTON(cancel));
+    }
+
+    /* toggle the listbox highlight to reflect focus state */
+    vk_listbox_set_focused(vk_filedialog_get_file_list(s->fd),
+        s->pick_focus == PK_FILEDIALOG);
 }
 
 /* ── printer list (system cyan theme, Print/Cancel buttons) ──── */
@@ -258,7 +321,12 @@ update_printer_focus(print_session_t *s)
         vk_frame_update(s->printer_frame);
     }
 
-    if(s->printer_list != NULL) vk_listbox_update(s->printer_list);
+    if(s->printer_list != NULL)
+    {
+        vk_listbox_set_focused(s->printer_list,
+            s->printer_focus == PR_LIST);
+        vk_listbox_update(s->printer_list);
+    }
 }
 
 static vk_window_t*
@@ -330,7 +398,8 @@ build_printers(print_session_t *s)
 
     lb = vk_listbox_create(W - 4, H - 7);
     vk_widget_set_colors(VK_WIDGET(lb), COLOR_BLACK, COLOR_CYAN);
-    vk_listbox_set_highlight(lb, COLOR_WHITE, COLOR_RED);
+    vk_listbox_set_highlight(lb, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(lb, COLOR_BLACK, COLOR_WHITE);
     vk_listbox_set_highlight_attrs(lb, A_BOLD);
     vk_listbox_set_wrap(lb, false);
 
@@ -768,7 +837,9 @@ handle_mouse(MEVENT *me)
         if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
         {
             int scroll = vk_listbox_get_scroll_pos(fl);
-            int clicked = scroll + (iy - 3);
+            /* iy - 3 skips the 3-row input strip; -1 more skips the
+               sunken-relief frame's top border */
+            int clicked = scroll + (iy - 3 - 1);
             int count = vk_listbox_get_item_count(fl);
 
             if(clicked < 0 || clicked >= count) return;
@@ -812,6 +883,30 @@ session_kmio(vk_object_t *object, int32_t keystroke)
 
     if(s->state == ST_PICK)
     {
+        /* Tab (and arrow keys) cycles focus: filedialog -> Okay -> Cancel */
+        if(keystroke == '\t')
+        {
+            s->pick_focus = (s->pick_focus + 1) % PK_COUNT;
+            update_pick_focus(s);
+            refresh_session(s);
+            return 0;
+        }
+
+        if(s->pick_focus == PK_OKAY)
+        {
+            if(keystroke == KEY_CRLF || keystroke == ' ')
+                activate_selection(s);
+            return 0;
+        }
+
+        if(s->pick_focus == PK_CANCEL)
+        {
+            if(keystroke == KEY_CRLF || keystroke == ' ')
+                close_session();
+            return 0;
+        }
+
+        /* PK_FILEDIALOG: forward to the dialog (existing behavior) */
         if(keystroke == KEY_CRLF)
         {
             activate_selection(s);
@@ -883,9 +978,13 @@ vwmprint_main(vwm_module_t *mod)
 
     s_session->state = ST_PICK;
     s_session->last_click_item = -1;
+    s_session->pick_focus = PK_FILEDIALOG;
 
     win = build_pick(s_session);
     s_session->window = win;
+
+    /* paint initial button colors so they read as inactive */
+    update_pick_focus(s_session);
 
     center_window(win);
 

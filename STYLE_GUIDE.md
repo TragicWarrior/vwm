@@ -13,8 +13,9 @@ Manage Settings, CUPS print picker, Calendar.
 | Window border        | WHITE      | CYAN       | A_BOLD |
 | Interior / vbox      | BLACK      | CYAN       |        |
 | Labels               | BLACK      | CYAN       |        |
-| Listbox text         | BLACK      | CYAN       |        |
-| Listbox highlight    | WHITE      | RED        |        |
+| Listbox text                  | BLACK      | CYAN       |        |
+| Listbox highlight (focused)   | BLACK      | RED        |        |
+| Listbox highlight (unfocused) | BLACK      | WHITE      |        |
 | Listbox frame        | (sunken 3D relief — see below) |
 | Scroller border      | BLACK      | CYAN       |        |
 | Dropdowns            | BLACK      | CYAN       | A_BOLD |
@@ -55,6 +56,45 @@ and `0` (unfocused) — the relief reads as bold-sunken vs normal-
 sunken rather than the older yellow-vs-black border-fg swap.  The
 `border_fg` toggle in legacy focus-update code is now a no-op but is
 harmless to leave in.
+
+### Picker listbox — focus-aware highlight
+
+System-tool listboxes carry **two** highlight pairs so the selected
+item visibly tracks focus.  Every standalone listbox in a system tool
+(Manage Apps, Hotkeys, Settings, the Print printer-list, and the
+filedialog's internal file_list — reach the last via
+`vk_filedialog_get_file_list()`) is set up this way:
+
+| State      | Foreground | Background |
+|------------|------------|------------|
+| focused    | BLACK      | RED        |
+| unfocused  | BLACK      | WHITE      |
+
+API (vk_listbox, libviper):
+
+- `vk_listbox_set_highlight(lb, fg, bg)` — focused-state pair.
+- `vk_listbox_set_unfocused(lb, fg, bg)` — unfocused-state pair.
+- `vk_listbox_set_focused(lb, bool)` — toggles which pair is active.
+
+Recipe at widget setup:
+
+```c
+vk_listbox_set_highlight(lb, COLOR_BLACK, COLOR_RED);
+vk_listbox_set_unfocused(lb, COLOR_BLACK, COLOR_WHITE);
+```
+
+Inside the tool's focus-update function (`update_dropdown_highlights`,
+`update_pick_focus`, etc.):
+
+```c
+vk_listbox_set_focused(lb, model->focus_zone == FOCUS_LIST);
+vk_listbox_update(lb);
+```
+
+The default at creation is focused (BLACK/RED), so legacy code that
+never calls `set_focused` is unaffected.  When `set_unfocused` is
+never called, `set_focused(false)` is a no-op — the active highlight
+stays put.
 
 Calendar-specific additions:
 
@@ -129,33 +169,85 @@ to fill the rest.
 
 | Element                | Foreground | Background | Attrs  |
 |------------------------|------------|------------|--------|
-| Enclosing border         | WHITE      | BLUE       | A_BOLD |
-| File list / path text    | WHITE      | BLUE       |        |
-| Selection highlight      | WHITE      | RED        |        |
-| Okay / Cancel (inactive) | WHITE      | BLUE       | A_BOLD |
-| Okay / Cancel (focused)  | YELLOW     | BLUE       | A_BOLD |
+| Enclosing border               | WHITE      | BLUE       | A_BOLD |
+| File list / path text          | WHITE      | BLUE       |        |
+| Selection highlight (focused)  | BLACK      | RED        |        |
+| Selection highlight (unfocused)| BLACK      | WHITE      |        |
+| Okay / Cancel (inactive)       | WHITE      | BLUE       | A_BOLD |
+| Okay / Cancel (focused)        | YELLOW     | BLUE       | A_BOLD |
 
 ```c
-fd = vk_filedialog_create(interior_w, interior_h, VK_FRAME_SINGLE, false);
+fd = vk_filedialog_create(interior_w, interior_h, VK_BORDER_SINGLE, false);
 vk_filedialog_set_colors(fd, COLOR_WHITE, COLOR_BLUE);
-vk_filedialog_set_highlight(fd, COLOR_WHITE, COLOR_RED);
+vk_filedialog_set_highlight(fd, COLOR_BLACK, COLOR_RED);    /* focused */
+vk_listbox_set_unfocused(vk_filedialog_get_file_list(fd),   /* unfocused */
+    COLOR_BLACK, COLOR_WHITE);
 vk_filedialog_set_button_colors(fd, COLOR_WHITE, COLOR_BLUE);
 vk_filedialog_set_button_attrs(fd, A_BOLD);
+vk_filedialog_set_filter(fd, "pdf,md,txt");   /* optional ext whitelist */
 ```
+
+`vk_filedialog_set_highlight()` sets the **focused** pair on the
+underlying listbox; for the unfocused pair reach the listbox via the
+getter and call `vk_listbox_set_unfocused()`.  The consumer's
+focus-update function then toggles via
+`vk_listbox_set_focused(vk_filedialog_get_file_list(fd), …)`.
+
+### Built-in sunken-relief frame around the file list
+
+`vk_filedialog_create` automatically wraps its file_list in a
+sunken-relief `vk_frame_t` (the same look as the other picker
+frames).  Consumers don't have to do anything — the frame is created
+inside the filedialog and its colors track `vk_filedialog_set_colors`.
+The frame costs the file list **2 rows** vertically and **2 columns**
+horizontally (1 each for the border).  Account for this when computing
+the popup's height.
+
+### Extension filter
+
+`vk_filedialog_set_filter(fd, "pdf,md,txt")` restricts the file list to
+regular files whose extension (substring after the last `.`) matches
+one of the comma-separated entries.  Comparison is case-insensitive
+and the entries carry no leading dot.  Directories are always shown
+regardless of the filter so the user can navigate.  Pass `NULL` or
+`""` to clear the filter and show everything.  Calling it on an
+already-open dialog refreshes the listing immediately.
 
 ### Internal layout (for mouse hit-testing)
 
 Relative to the filedialog's own area: the top 3 rows are the path input,
 the bottom 3 rows are the Okay/Cancel button bar, and everything between
-is the file list. Map a list click as `item = scroll_pos + (rel_row - 3)`
-where `rel_row` is the click row within the filedialog. In the button row,
-Okay is the left half (`x < interior_w / 2`), Cancel the right half. A
-click in the path strip can focus it by pushing `'/'` to the dialog.
+is the file list **surrounded by a 1-row sunken-relief frame border**.
+Map a list click as `item = scroll_pos + (rel_row - 3 - 1)` — three rows
+for the input strip plus one for the frame's top border.  In the button
+row, Okay is the left half (`x < interior_w / 2`), Cancel the right half.
+A click in the path strip can focus it by pushing `'/'` to the dialog.
 
-Forgetting the `- 3` adjustment for `list_y` makes file-list clicks land
-on the wrong row; omitting the button-row branch entirely makes Okay and
-Cancel unclickable (this is exactly the bug that hid in Settings' Load
-dialog before the mouse handler was completed).
+Forgetting the `- 1` adjustment for the frame border makes file-list
+clicks land one row higher than the cursor; omitting the button-row
+branch entirely makes Okay and Cancel unclickable.
+
+### Tab cycling
+
+Four of the five filedialog consumers (Manage Apps, Manage Hotkeys,
+Manage Settings — the last with Tab cycling pending — Print File,
+Save Screenshot) implement Tab cycling between the filedialog body,
+the Okay button, and the Cancel button.  Each tool defines its own
+focus enum (`LF_*`, `HL_*`, `PK_*`, `SF_*` respectively) plus an
+`update_*_focus()` helper that:
+
+1. Recolors Okay (`COLOR_YELLOW`/`COLOR_WHITE` on `COLOR_BLUE`,
+   A_BOLD) and Cancel similarly based on which is focused.
+2. Calls `vk_listbox_set_focused(file_list, focus == *_FILEDIALOG)`
+   so the file list highlight switches between BLACK/RED and
+   BLACK/WHITE.
+
+The keystroke handler then:
+- Tab `'\t'` cycles to the next stop and calls `update_*_focus()`.
+- Enter / Space when on Okay → invokes the load/save handler.
+- Enter / Space when on Cancel → closes the popup.
+- All other keys when on the filedialog → pushed via
+  `vk_object_push_keystroke(VK_OBJECT(fd), keystroke)`.
 
 ### Tab stops / button focus
 
