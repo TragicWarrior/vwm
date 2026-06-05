@@ -799,6 +799,11 @@ vwm_calendar_close(void)
         vk_screen_get_active_surface(vwm->screen), VK_WIDGET(popup));
 
     calendar = VK_CALENDAR(vk_window_get_child(popup));
+
+    /* detach the child while both are still valid: otherwise the window
+       dtor list_del()s a freed calendar node and corrupts the heap */
+    vk_window_set_child(popup, NULL);
+
     vk_calendar_destroy(calendar);
     vk_window_destroy(popup);
 

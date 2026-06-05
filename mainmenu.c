@@ -487,6 +487,11 @@ vwm_menubar_close_dropdown(void)
         vk_screen_get_active_surface(vwm->screen), VK_WIDGET(menu));
 
     listbox = VK_LISTBOX(vk_window_get_child(menu));
+
+    /* detach the child while both are still valid: otherwise the window
+       dtor list_del()s a freed listbox node and corrupts the heap */
+    vk_window_set_child(menu, NULL);
+
     vk_listbox_destroy(listbox);
     vk_window_destroy(menu);
 
