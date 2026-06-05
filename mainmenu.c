@@ -134,6 +134,7 @@ vwm_main_menu(void)
 
     vk_listbox_update(listbox);
     vk_listbox_get_metrics(listbox, &max_width, &max_height);
+    max_width += 3;
     if(max_width > scr_width) max_width = scr_width;
     if(max_height > scr_height) max_height = scr_height;
 
