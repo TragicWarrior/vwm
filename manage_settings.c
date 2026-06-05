@@ -3025,6 +3025,32 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
         {
             int item = (ry - 1) + vk_listbox_get_scroll_pos(settings_listbox);
 
+            if(bs & BUTTON4_PRESSED)
+            {
+                if(model->selected > 0)
+                {
+                    model->selected--;
+                    model->focus_zone = FOCUS_LIST;
+                    vk_listbox_set_curr(settings_listbox, model->selected);
+                    vk_listbox_update(settings_listbox);
+                    refresh_dialog();
+                }
+                return 0;
+            }
+
+            if(bs & BUTTON5_PRESSED)
+            {
+                if(model->selected < active_setting_count() - 1)
+                {
+                    model->selected++;
+                    model->focus_zone = FOCUS_LIST;
+                    vk_listbox_set_curr(settings_listbox, model->selected);
+                    vk_listbox_update(settings_listbox);
+                    refresh_dialog();
+                }
+                return 0;
+            }
+
             if(item >= 0 && item < active_setting_count() &&
                (bs & (BUTTON1_CLICKED | BUTTON1_PRESSED)))
             {

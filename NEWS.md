@@ -12,6 +12,10 @@ The internal vwm clipboard (Alt+Shift+V paste) is unchanged and
 populated regardless of which host transport is selected.
 Persisted to ~/.config/vwm/config.json under settings.clipboard.
 
+The Settings dialog's main listbox now scrolls with the mouse
+wheel.  The Modify-popup dropdown and the file picker already
+honored the wheel; the dialog's own listbox was the odd one out.
+
 2026-06-01
 
 Per-desktop wallpaper.  Each desktop now picks a repeating tile
