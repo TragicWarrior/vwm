@@ -169,6 +169,23 @@ vwm_settings_load_general(vwm_t *vwm)
     if(val >= 0)
         vwm->screensaver_timeout = val;
 
+    /* Host clipboard sync mode, stored under the display name
+       ("Never"/"OSC 52"/"xclip"/"Both").  Unknown or missing values
+       keep whatever vwm_init seeded. */
+    str = vwm_json_str(settings, "clipboard", NULL);
+    if(str != NULL)
+    {
+        int j;
+        for(j = 0; j < VWM_CLIPBOARD_COUNT; j++)
+        {
+            if(strcmp(str, vwm_clipboard_mode_names[j]) == 0)
+            {
+                vwm->clipboard_mode = (short)j;
+                break;
+            }
+        }
+    }
+
     /* per-desktop colors and wallpapers -- both stored as string arrays
        (color and pattern names).  Missing or malformed entries keep
        whatever vwm_init seeded.  Unknown names also keep the default. */
@@ -250,6 +267,13 @@ vwm_settings_save_general(vwm_t *vwm)
         vwm->screensaver_cmd);
     cJSON_AddNumberToObject(settings, "screensaver_timeout",
         vwm->screensaver_timeout);
+    {
+        int idx = vwm->clipboard_mode;
+        if(idx < 0 || idx >= VWM_CLIPBOARD_COUNT)
+            idx = VWM_CLIPBOARD_NEVER;
+        cJSON_AddStringToObject(settings, "clipboard",
+            vwm_clipboard_mode_names[idx]);
+    }
 
     /* persist the full VWM_MAX_DESKTOPS slot range so that shrinking
        num_desktops and then growing it again keeps the user's earlier

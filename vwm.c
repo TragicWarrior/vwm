@@ -233,6 +233,7 @@ vwm_init(void)
         strncpy(vwm->date_click_action, "calendar", NAME_MAX - 1);
         vwm->screensaver_cmd[0] = '\0';
         vwm->screensaver_timeout = 0;
+        vwm->clipboard_mode = VWM_CLIPBOARD_BOTH;
         {
             /* sensible defaults per desktop -- diverse colors so a
                fresh vwm still has the original per-surface identity */

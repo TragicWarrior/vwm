@@ -35,7 +35,7 @@
         rows [5+sc .. 5+2*sc-1]         : Desktop N Wallpaper
    where sc = vwm->surface_count.  Storage covers the max so the array
    size never grows; positions beyond active_setting_count are unused. */
-#define NUM_BASE_SETTINGS               5
+#define NUM_BASE_SETTINGS               6
 #define NUM_SETTINGS                    (NUM_BASE_SETTINGS + 2 * VWM_MAX_DESKTOPS)
 #define MAX_APP_OPTIONS                 64
 
@@ -44,6 +44,7 @@
 #define SETTING_NUM_DESKTOPS            2
 #define SETTING_SCREENSAVER_CMD         3
 #define SETTING_SCREENSAVER_IDLE        4
+#define SETTING_CLIPBOARD               5
 #define SETTING_DESKTOP_COLOR_BASE      NUM_BASE_SETTINGS
 
 #define SETTING_TYPE_DROPDOWN   0
@@ -73,11 +74,12 @@ static const struct
 }
 base_setting_defs[NUM_BASE_SETTINGS] =
 {
-    { "Task Indicator",     SETTING_TYPE_DROPDOWN },
-    { "Date Click",         SETTING_TYPE_DROPDOWN },
-    { "Desktops",           SETTING_TYPE_INPUT },
-    { "Screensaver Cmd",    SETTING_TYPE_INPUT },
-    { "Screensaver Idle",   SETTING_TYPE_INPUT },
+    { "Task Indicator",      SETTING_TYPE_DROPDOWN },
+    { "Date Click",          SETTING_TYPE_DROPDOWN },
+    { "Desktops",            SETTING_TYPE_INPUT },
+    { "Screensaver Cmd",     SETTING_TYPE_INPUT },
+    { "Screensaver Idle",    SETTING_TYPE_INPUT },
+    { "Copy to Clipboard",   SETTING_TYPE_DROPDOWN },
 };
 
 /* labels for the dynamic Desktop N Color / Desktop N Wallpaper rows */
@@ -279,6 +281,15 @@ model_load_from_vwm(vwm_t *vwm)
     snprintf(model->values[SETTING_SCREENSAVER_IDLE], NAME_MAX,
         "%d", vwm->screensaver_timeout);
 
+    {
+        int cidx = vwm->clipboard_mode;
+        if(cidx < 0 || cidx >= VWM_CLIPBOARD_COUNT)
+            cidx = VWM_CLIPBOARD_NEVER;
+        strncpy(model->values[SETTING_CLIPBOARD],
+            vwm_clipboard_mode_names[cidx], NAME_MAX - 1);
+        model->values[SETTING_CLIPBOARD][NAME_MAX - 1] = '\0';
+    }
+
     /* dynamic rows: Desktop N Color, then Desktop N Wallpaper.  Storage
        is dense, packed right after the base rows in surface_count-
        dependent positions.  Labels are built per row for both groups. */
@@ -353,6 +364,10 @@ model_load_from_config(const char *path)
         snprintf(model->values[SETTING_SCREENSAVER_IDLE], NAME_MAX, "%d",
             item->valueint);
 
+    str = vwm_json_str(settings, "clipboard", NULL);
+    if(str != NULL)
+        strncpy(model->values[SETTING_CLIPBOARD], str, NAME_MAX - 1);
+
     cJSON_Delete(root);
 }
 
@@ -375,6 +390,19 @@ commit_to_vwm(void)
 
     vwm->screensaver_timeout = atoi(model->values[SETTING_SCREENSAVER_IDLE]);
     if(vwm->screensaver_timeout < 0) vwm->screensaver_timeout = 0;
+
+    {
+        int j;
+        for(j = 0; j < VWM_CLIPBOARD_COUNT; j++)
+        {
+            if(strcmp(model->values[SETTING_CLIPBOARD],
+                vwm_clipboard_mode_names[j]) == 0)
+            {
+                vwm->clipboard_mode = (short)j;
+                break;
+            }
+        }
+    }
 
     /* commit each visible Desktop N Color and Desktop N Wallpaper row
        back into the per-surface arrays.  rows beyond the active
@@ -574,6 +602,12 @@ modify_popup_apply(void)
                     else
                         strncpy(model->values[modify_setting_idx],
                             model->app_titles[curr - 1], NAME_MAX - 1);
+                }
+                else if(modify_setting_idx == SETTING_CLIPBOARD)
+                {
+                    if(curr >= 0 && curr < VWM_CLIPBOARD_COUNT)
+                        strncpy(model->values[modify_setting_idx],
+                            vwm_clipboard_mode_names[curr], NAME_MAX - 1);
                 }
                 else if(curr < VWM_WALLPAPER_COUNT)
                 {
@@ -953,6 +987,17 @@ modify_popup_open(int setting_idx)
                 if(strcmp(model->values[setting_idx],
                     model->app_titles[i]) == 0)
                     sel_idx = i + 1;
+            }
+        }
+        else if(setting_idx == SETTING_CLIPBOARD)
+        {
+            for(i = 0; i < VWM_CLIPBOARD_COUNT; i++)
+            {
+                vk_listbox_add_item(modify_listbox,
+                    (char *)vwm_clipboard_mode_names[i], NULL, NULL);
+                if(strcmp(model->values[setting_idx],
+                    vwm_clipboard_mode_names[i]) == 0)
+                    sel_idx = i;
             }
         }
         else

@@ -40,8 +40,18 @@
 #define VWM_WALLPAPER_DOTS_2        5
 #define VWM_WALLPAPER_COUNT         6
 
+/* host clipboard sync mode (picked in Settings).  Controls whether a
+   SELECT-mode copy is also pushed to the host clipboard, and by what
+   transport. */
+#define VWM_CLIPBOARD_NEVER         0
+#define VWM_CLIPBOARD_OSC52         1
+#define VWM_CLIPBOARD_XCLIP         2
+#define VWM_CLIPBOARD_BOTH          3
+#define VWM_CLIPBOARD_COUNT         4
+
 extern const char *vwm_wallpaper_names[VWM_WALLPAPER_COUNT];
 extern const char *vwm_color_names[16];
+extern const char *vwm_clipboard_mode_names[VWM_CLIPBOARD_COUNT];
 
 enum
 {

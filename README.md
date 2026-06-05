@@ -8,6 +8,7 @@ libgpm (optional)
 libvterm 9.0+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for the screen-capture module; "make all")
 libcups2-dev     (for the print module; "make all")
+xclip (optional) - for "xclip" / "Both" Copy-to-Clipboard modes under X
 
 INSTALLATION
 ============

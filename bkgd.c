@@ -60,6 +60,15 @@ const char *vwm_wallpaper_names[VWM_WALLPAPER_COUNT] =
     "Dots 2",
 };
 
+/* host clipboard sync mode names (parallel to VWM_CLIPBOARD_* values) */
+const char *vwm_clipboard_mode_names[VWM_CLIPBOARD_COUNT] =
+{
+    "Never",
+    "OSC 52",
+    "xclip",
+    "Both",
+};
+
 /* ANSI color names exposed for Settings + JSON persistence */
 const char *vwm_color_names[16] =
 {

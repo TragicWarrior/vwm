@@ -69,6 +69,9 @@ struct _vwm_s
     /* per-surface wallpaper pattern (VWM_WALLPAPER_*) */
     short                   desktop_wallpaper[VWM_MAX_DESKTOPS];
 
+    /* VWM_CLIPBOARD_* -- how SELECT-mode copy reaches the host clipboard */
+    short                   clipboard_mode;
+
     uint32_t                state;
 
     int                     cursor_x;

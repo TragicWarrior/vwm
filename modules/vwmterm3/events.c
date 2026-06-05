@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
@@ -46,6 +47,90 @@ vwmterm_init_keycodes(void)
     key_sel_right = key_defined("\033[1;4C");
     key_sel_home  = key_defined("\033[1;4H");
     key_sel_end   = key_defined("\033[1;4F");
+}
+
+/*
+    OSC 52 base64-encodes the selection and asks the *outer* terminal
+    emulator to write it to the host clipboard.  Works through any
+    terminal that honors OSC 52 -- xterm (with allowWindowOps),
+    kitty, foot, alacritty, wezterm, iTerm2, and tmux/screen with
+    set-clipboard on.  On terminals that don't recognize the sequence
+    (including the bare Linux console) it is silently consumed by the
+    OSC parser, so emitting it is harmless.  No extra library or
+    process is needed -- the bytes go straight out stdout, which is
+    the same fd ncurses already drives.
+*/
+
+static const char b64_alphabet[] =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static void
+vwmterm_osc52_copy(const char *buf, size_t len)
+{
+    char            *enc;
+    size_t          enc_len;
+    size_t          i, j;
+    unsigned char   a, b, c;
+
+    if(buf == NULL || len == 0) return;
+
+    enc_len = 4 * ((len + 2) / 3);
+    enc = (char *)malloc(enc_len + 1);
+    if(enc == NULL) return;
+
+    j = 0;
+    for(i = 0; i + 3 <= len; i += 3)
+    {
+        a = (unsigned char)buf[i];
+        b = (unsigned char)buf[i + 1];
+        c = (unsigned char)buf[i + 2];
+        enc[j++] = b64_alphabet[a >> 2];
+        enc[j++] = b64_alphabet[((a & 0x03) << 4) | (b >> 4)];
+        enc[j++] = b64_alphabet[((b & 0x0f) << 2) | (c >> 6)];
+        enc[j++] = b64_alphabet[c & 0x3f];
+    }
+    if(i < len)
+    {
+        a = (unsigned char)buf[i];
+        b = (i + 1 < len) ? (unsigned char)buf[i + 1] : 0;
+        enc[j++] = b64_alphabet[a >> 2];
+        enc[j++] = b64_alphabet[((a & 0x03) << 4) | (b >> 4)];
+        enc[j++] = (i + 1 < len)
+            ? b64_alphabet[(b & 0x0f) << 2]
+            : '=';
+        enc[j++] = '=';
+    }
+    enc[j] = '\0';
+
+    fputs("\033]52;c;", stdout);
+    fputs(enc, stdout);
+    fputs("\033\\", stdout);
+    fflush(stdout);
+
+    free(enc);
+}
+
+/*
+    Pipe the selection through xclip(1) to claim the X CLIPBOARD
+    selection.  xclip reads stdin, claims ownership, then forks itself
+    into the background to service paste requests -- so the foreground
+    shell child exits at EOF and pclose() returns immediately without
+    reaping the long-lived xclip.  stderr is silenced so a missing
+    xclip binary ("sh: xclip: not found") doesn't smear the ncurses
+    screen; the failure is a silent no-op.
+*/
+static void
+vwmterm_xclip_copy(const char *buf, size_t len)
+{
+    FILE *fp;
+
+    if(buf == NULL || len == 0) return;
+
+    fp = popen("xclip -selection clipboard 2>/dev/null", "w");
+    if(fp == NULL) return;
+
+    fwrite(buf, 1, len, fp);
+    pclose(fp);
 }
 
 static void
@@ -181,6 +266,18 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
     if(clipboard != NULL) free(clipboard);
     clipboard = buf;
     clipboard_len = pos;
+
+    {
+        vwm_t   *vwm = vwm_get_instance();
+        int     mode = (vwm != NULL)
+            ? vwm->clipboard_mode
+            : VWM_CLIPBOARD_NEVER;
+
+        if(mode == VWM_CLIPBOARD_OSC52 || mode == VWM_CLIPBOARD_BOTH)
+            vwmterm_osc52_copy(clipboard, clipboard_len);
+        if(mode == VWM_CLIPBOARD_XCLIP || mode == VWM_CLIPBOARD_BOTH)
+            vwmterm_xclip_copy(clipboard, clipboard_len);
+    }
 
     for(int r = 0; r < rows; r++) free(cells[r]);
     free(cells);

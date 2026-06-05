@@ -1,3 +1,17 @@
+2026-06-02
+
+SELECT-mode copy now syncs to the host clipboard.  A new "Copy to
+Clipboard" row in Settings picks the transport: Never (internal
+paste only, the prior behavior), OSC 52 (an escape sequence the
+outer terminal emulator forwards to the system clipboard --
+honored by xterm with allowWindowOps, kitty, foot, alacritty,
+wezterm, iTerm2, and tmux/screen with set-clipboard on), xclip
+(forks xclip -selection clipboard; works under X whenever xclip
+is installed, silently no-ops otherwise), or Both (the default).
+The internal vwm clipboard (Alt+Shift+V paste) is unchanged and
+populated regardless of which host transport is selected.
+Persisted to ~/.config/vwm/config.json under settings.clipboard.
+
 2026-06-01
 
 Per-desktop wallpaper.  Each desktop now picks a repeating tile
