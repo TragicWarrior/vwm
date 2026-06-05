@@ -8,6 +8,8 @@
 #include "mainmenu.h"
 #include "manage_apps.h"
 #include "manage_hotkeys.h"
+#include "manage_settings.h"
+#include "modules.h"
 #include "panel.h"
 #include "winman.h"
 #include "events.h"
@@ -27,6 +29,7 @@ enum
     ZONE_CALENDAR,
     ZONE_MANAGE_APPS,
     ZONE_MANAGE_HOTKEYS,
+    ZONE_MANAGE_SETTINGS,
     ZONE_STATUS_BAR,
     ZONE_CLOSE_BTN,
     ZONE_RESIZE_CORNER,
@@ -250,6 +253,103 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
         }
     }
 
+    if(vwm->manage_settings_popup != NULL)
+    {
+        vk_widget_t *st_confirm =
+            vwm_manage_settings_get_confirm_popup();
+        if(st_confirm != NULL)
+        {
+            vk_widget_get_position(st_confirm, &wx, &wy);
+            vk_widget_get_metrics(st_confirm, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = st_confirm;
+                return ZONE_MANAGE_SETTINGS;
+            }
+        }
+
+        vk_widget_t *st_save_confirm =
+            vwm_manage_settings_get_save_confirm_popup();
+        if(st_save_confirm != NULL)
+        {
+            vk_widget_get_position(st_save_confirm, &wx, &wy);
+            vk_widget_get_metrics(st_save_confirm, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = st_save_confirm;
+                return ZONE_MANAGE_SETTINGS;
+            }
+        }
+
+        vk_widget_t *st_saved =
+            vwm_manage_settings_get_saved_popup();
+        if(st_saved != NULL)
+        {
+            vk_widget_get_position(st_saved, &wx, &wy);
+            vk_widget_get_metrics(st_saved, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = st_saved;
+                return ZONE_MANAGE_SETTINGS;
+            }
+        }
+
+        vk_widget_t *st_warning =
+            vwm_manage_settings_get_warning_popup();
+        if(st_warning != NULL)
+        {
+            vk_widget_get_position(st_warning, &wx, &wy);
+            vk_widget_get_metrics(st_warning, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = st_warning;
+                return ZONE_MANAGE_SETTINGS;
+            }
+        }
+
+        vk_widget_t *st_modify =
+            vwm_manage_settings_get_modify_popup();
+        if(st_modify != NULL)
+        {
+            vk_widget_get_position(st_modify, &wx, &wy);
+            vk_widget_get_metrics(st_modify, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = st_modify;
+                return ZONE_MANAGE_SETTINGS;
+            }
+        }
+
+        vk_widget_t *st_load = vwm_manage_settings_get_load_popup();
+        if(st_load != NULL)
+        {
+            vk_widget_get_position(st_load, &wx, &wy);
+            vk_widget_get_metrics(st_load, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = st_load;
+                return ZONE_MANAGE_SETTINGS;
+            }
+        }
+
+        vk_widget_get_position(VK_WIDGET(vwm->manage_settings_popup),
+            &wx, &wy);
+        vk_widget_get_metrics(VK_WIDGET(vwm->manage_settings_popup),
+            &ww, &wh);
+
+        if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+        {
+            *hit_out = VK_WIDGET(vwm->manage_settings_popup);
+            return ZONE_MANAGE_SETTINGS;
+        }
+    }
+
     if(vwm->calendar_popup != NULL)
     {
         vk_widget_get_position(VK_WIDGET(vwm->calendar_popup), &wx, &wy);
@@ -365,6 +465,9 @@ vwm_poll_input(void * const env)
             if(vwm_manage_apps_is_open())
                 vwm_manage_apps_handle_resize();
 
+            if(vwm_manage_settings_is_open())
+                vwm_manage_settings_handle_resize();
+
             vk_screen_refresh(vwm->screen);
             ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
@@ -407,6 +510,14 @@ vwm_poll_input(void * const env)
                (bs & BUTTON1_PRESSED))
             {
                 vwm_manage_hotkeys_close();
+                vk_screen_refresh(vwm->screen);
+            }
+
+            if(vwm->manage_settings_popup != NULL &&
+               zone != ZONE_MANAGE_SETTINGS &&
+               (bs & BUTTON1_PRESSED))
+            {
+                vwm_manage_settings_close();
                 vk_screen_refresh(vwm->screen);
             }
 
@@ -488,6 +599,7 @@ vwm_poll_input(void * const env)
                         {
                             VWM_PANEL *p = vwm_panel_get_data();
                             int ck_x, ck_y, ck_w, ck_h;
+                            int tk_x, tk_y, tk_w, tk_h;
 
                             vk_widget_get_position(
                                 VK_WIDGET(p->clock_label),
@@ -496,22 +608,55 @@ vwm_poll_input(void * const env)
                                 VK_WIDGET(p->clock_label),
                                 &ck_w, &ck_h);
 
+                            vk_widget_get_position(
+                                VK_WIDGET(p->task_label),
+                                &tk_x, &tk_y);
+                            vk_widget_get_metrics(
+                                VK_WIDGET(p->task_label),
+                                &tk_w, &tk_h);
+
                             if(mouse_event->x >= ck_x &&
                                mouse_event->x < ck_x + ck_w)
                             {
                                 if(bs & BUTTON1_PRESSED)
                                     menubar_ate_press = true;
 
-                                vwm_calendar_toggle();
+                                if(strcmp(vwm->date_click_action,
+                                    "calendar") == 0)
+                                {
+                                    vwm_calendar_toggle();
+                                }
+                                else
+                                {
+                                    vwm_module_t *mod =
+                                        vwm_module_find_by_title(
+                                            vwm->date_click_action);
+                                    if(mod != NULL)
+                                        vwm_menu_helper(NULL, mod);
+                                }
                             }
-                            else
+                            else if(mouse_event->x >= tk_x &&
+                                    mouse_event->x < tk_x + tk_w)
                             {
                                 if(bs & BUTTON1_PRESSED)
                                     menubar_ate_press = true;
 
-                                vwm_calendar_close();
-                                vwm_menubar_hotkey();
+                                if(strcmp(vwm->task_indicator_action,
+                                    "none") == 0)
+                                {
+                                    vwm_calendar_close();
+                                    vwm_menubar_hotkey();
+                                }
+                                else
+                                {
+                                    vwm_module_t *mod =
+                                        vwm_module_find_by_title(
+                                            vwm->task_indicator_action);
+                                    if(mod != NULL)
+                                        vwm_menu_helper(NULL, mod);
+                                }
                             }
+                            /* clicks elsewhere on the panel do nothing */
                         }
                     }
 
@@ -631,12 +776,29 @@ vwm_poll_input(void * const env)
                     break;
                 }
 
+                case ZONE_MANAGE_SETTINGS:
+                {
+                    vwm_manage_settings_mouse(mouse_event);
+                    break;
+                }
+
                 case ZONE_STATUS_BAR:
                     break;
 
                 case ZONE_SCREEN:
                     break;
             }
+
+            vk_screen_refresh(vwm->screen);
+            ctx_poll_input->did_work = 1;
+            pt_yield(ctx_poll_input);
+            continue;
+        }
+
+        if(vwm->manage_settings_popup != NULL)
+        {
+            vk_object_push_keystroke(
+                VK_OBJECT(vwm->manage_settings_popup), keystroke);
 
             vk_screen_refresh(vwm->screen);
             ctx_poll_input->did_work = 1;

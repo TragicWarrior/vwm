@@ -2,6 +2,7 @@
 #define _H_VWM_PRIVATE_
 
 #include <inttypes.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <signal.h>
 
@@ -48,6 +49,10 @@ struct _vwm_s
     vk_window_t             *calendar_popup;
     vk_window_t             *manage_apps_popup;
     vk_window_t             *manage_hotkeys_popup;
+    vk_window_t             *manage_settings_popup;
+
+    char                    task_indicator_action[NAME_MAX];
+    char                    date_click_action[NAME_MAX];
 
     uint32_t                state;
 

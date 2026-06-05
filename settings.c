@@ -69,6 +69,8 @@ vwm_settings_load(vwm_t *vwm)
 
     config_destroy(&vwm->config);
 
+    vwm_settings_load_general(vwm);
+
     return 0;
 }
 
@@ -143,4 +145,83 @@ vwm_settings_save(vwm_t *vwm)
     config_destroy(&config);
 
     return 0;
+}
+
+void
+vwm_settings_load_general(vwm_t *vwm)
+{
+    config_t    cfg;
+    const char  *str;
+    int         val;
+
+    if(vwm == NULL) return;
+    if(vwm->profile == NULL) return;
+    if(vwm->profile->rc_file == NULL) return;
+
+    config_init(&cfg);
+    if(config_read_file(&cfg, vwm->profile->rc_file) != CONFIG_TRUE)
+    {
+        config_destroy(&cfg);
+        return;
+    }
+
+    if(config_lookup_string(&cfg,
+        "settings.task_indicator_action", &str) == CONFIG_TRUE)
+    {
+        strncpy(vwm->task_indicator_action, str, NAME_MAX - 1);
+        vwm->task_indicator_action[NAME_MAX - 1] = '\0';
+    }
+
+    if(config_lookup_string(&cfg,
+        "settings.date_click_action", &str) == CONFIG_TRUE)
+    {
+        strncpy(vwm->date_click_action, str, NAME_MAX - 1);
+        vwm->date_click_action[NAME_MAX - 1] = '\0';
+    }
+
+    if(config_lookup_int(&cfg, "settings.num_desktops", &val) == CONFIG_TRUE)
+    {
+        if(val >= 2 && val <= 6)
+            vwm->surface_count = val;
+    }
+
+    config_destroy(&cfg);
+}
+
+void
+vwm_settings_save_general(vwm_t *vwm)
+{
+    config_t            config;
+    config_setting_t    *root;
+    config_setting_t    *settings_grp;
+    config_setting_t    *setting;
+
+    if(vwm == NULL) return;
+    if(vwm->profile == NULL) return;
+    if(vwm->profile->rc_file == NULL) return;
+
+    config_init(&config);
+    config_read_file(&config, vwm->profile->rc_file);
+
+    root = config_root_setting(&config);
+
+    if(config_lookup(&config, "settings") != NULL)
+        config_setting_remove(root, "settings");
+
+    settings_grp = config_setting_add(root, "settings", CONFIG_TYPE_GROUP);
+
+    setting = config_setting_add(settings_grp,
+        "task_indicator_action", CONFIG_TYPE_STRING);
+    config_setting_set_string(setting, vwm->task_indicator_action);
+
+    setting = config_setting_add(settings_grp,
+        "date_click_action", CONFIG_TYPE_STRING);
+    config_setting_set_string(setting, vwm->date_click_action);
+
+    setting = config_setting_add(settings_grp,
+        "num_desktops", CONFIG_TYPE_INT);
+    config_setting_set_int(setting, vwm->surface_count);
+
+    config_write_file(&config, vwm->profile->rc_file);
+    config_destroy(&config);
 }

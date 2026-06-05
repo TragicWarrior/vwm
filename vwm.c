@@ -189,6 +189,7 @@ int main(int argc,char **argv)
     vwm_modules_preload(vwm);
     vwm_menubar_init();
     vwm_settings_load(vwm);
+    vwm_apply_surface_count(vwm->surface_count);
     vwm_programs_load(vwm);
 
     vk_screen_refresh(vwm->screen);
@@ -221,7 +222,10 @@ vwm_init(void)
 
         vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
 
+        strncpy(vwm->task_indicator_action, "none", NAME_MAX - 1);
+        strncpy(vwm->date_click_action, "calendar", NAME_MAX - 1);
         vwm->surface_count = 3;
+
         vwm->decks = calloc(vwm->surface_count, sizeof(vk_deck_t *));
 
         vwm->decks[0] = vk_deck_create();
@@ -272,6 +276,60 @@ vwm_init(void)
     }
 
 	return vwm;
+}
+
+void
+vwm_apply_surface_count(int new_count)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     old_count = vwm->surface_count;
+    int     i;
+
+    if(new_count < 2) new_count = 2;
+    if(new_count > 6) new_count = 6;
+    if(new_count == old_count) return;
+
+    if(new_count > old_count)
+    {
+        vwm->decks = realloc(vwm->decks, new_count * sizeof(vk_deck_t *));
+
+        for(i = old_count; i < new_count; i++)
+        {
+            vk_screen_add_surface(vwm->screen);
+            vwm->decks[i] = vk_deck_create();
+            vk_deck_set_shadow(vwm->decks[i], true);
+            vk_screen_attach_widget(vwm->screen, i,
+                VK_WIDGET(vwm->decks[i]));
+        }
+
+        vwm->surface_count = new_count;
+        return;
+    }
+
+    int target = new_count - 1;
+
+    for(i = old_count - 1; i >= new_count; i--)
+    {
+        while(vk_deck_get_top(vwm->decks[i]) != NULL)
+        {
+            vk_widget_t *w = vk_deck_get_top(vwm->decks[i]);
+            vk_deck_remove_widget(vwm->decks[i], w);
+            vk_deck_add_widget(vwm->decks[target], w, VK_DECK_BOTTOM);
+        }
+
+        vk_screen_detach_widget(vwm->screen, i,
+            VK_WIDGET(vwm->decks[i]));
+        vk_deck_destroy(vwm->decks[i]);
+        vk_screen_del_surface(vwm->screen, i);
+    }
+
+    vwm->decks = realloc(vwm->decks, new_count * sizeof(vk_deck_t *));
+    vwm->surface_count = new_count;
+
+    if(vk_screen_get_active_surface(vwm->screen) >= new_count)
+        vk_screen_set_surface(vwm->screen, target);
+
+    vwm->deck = vwm->decks[vk_screen_get_active_surface(vwm->screen)];
 }
 
 static int

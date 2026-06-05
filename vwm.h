@@ -45,6 +45,8 @@ typedef struct _vwm_profile_s   vwm_profile_t;
 vwm_t*          vwm_init(void);
 #define			vwm_get_instance()	            (vwm_init())
 
+void            vwm_apply_surface_count(int new_count);
+
 /* panel facilities  */
 void            vwm_panel_init(vwm_t *vwm);
 uintmax_t       vwm_panel_message_add(char *msg, int timeout);

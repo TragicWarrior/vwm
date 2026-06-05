@@ -43,6 +43,8 @@ endif()
 
 find_package(CONFIG)
 
+find_package(Freetype REQUIRED)
+
 add_library(vwmterm SHARED
     modules/vwmterm3/events.c
     modules/vwmterm3/init.c
@@ -50,6 +52,15 @@ add_library(vwmterm SHARED
     modules/vwmterm3/pt_thread.c
     modules/vwmterm3/signals.c
     )
+
+add_library(vwmscrshot SHARED
+    modules/vwmscrshot/init.c
+    modules/vwmscrshot/capture.c
+    modules/vwmscrshot/render.c
+    modules/vwmscrshot/pngwrite.c
+    )
+target_include_directories(vwmscrshot PRIVATE ${FREETYPE_INCLUDE_DIRS})
+target_link_libraries(vwmscrshot ${FREETYPE_LIBRARIES})
 
 add_executable(vwm
     bkgd.c
@@ -65,6 +76,7 @@ add_executable(vwm
     programs.c
     manage_apps.c
     manage_hotkeys.c
+    manage_settings.c
     signals.c
     strings.c
     vwm.c
@@ -89,3 +101,4 @@ set(PKG_CONFIG_LIBS
 
 install (TARGETS vwm DESTINATION bin)
 install (TARGETS vwmterm DESTINATION lib/vwm/)
+install (TARGETS vwmscrshot DESTINATION lib/vwm/)
