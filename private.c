@@ -32,7 +32,7 @@
 #include "panel.h"
 
 void
-vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *data)
+vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
 {
     vwm_t       *vwm;
     vk_widget_t *top;
@@ -49,7 +49,7 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *data)
     short       dummy;
     int         row, col;
 
-    (void)data;
+    (void)anything;
 
     vwm = vwm_get_instance();
     top = vk_deck_get_top(vwm->deck);

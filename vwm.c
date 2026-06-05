@@ -62,7 +62,7 @@ static void
 vwm_cursor_overlay(vk_screen_t *screen, int surface_id, WINDOW *canvas);
 
 static int
-vwm_on_surface_change(vk_object_t *object, int event, void *data);
+vwm_on_surface_change(vk_object_t *object, int event, void *anything);
 
 vwm_sched_t             *sched = NULL;
 int                     shutdown = 0;
@@ -335,7 +335,7 @@ vwm_apply_surface_count(int new_count)
 }
 
 static int
-vwm_on_surface_change(vk_object_t *object, int event, void *data)
+vwm_on_surface_change(vk_object_t *object, int event, void *anything)
 {
     vwm_t       *vwm;
     VWM_PANEL   *panel;
@@ -344,7 +344,7 @@ vwm_on_surface_change(vk_object_t *object, int event, void *data)
 
     (void)object;
     (void)event;
-    (void)data;
+    (void)anything;
 
     vwm = vwm_get_instance();
     panel = vwm_panel_get_data();

@@ -83,13 +83,13 @@ static void
 open_dropdown(vwm_t *vwm, int idx);
 
 static int
-vwm_menubar_on_select(vk_object_t *object, int event, void *data)
+vwm_menubar_on_select(vk_object_t *object, int event, void *anything)
 {
     vwm_t   *vwm;
 
     (void)object;
     (void)event;
-    (void)data;
+    (void)anything;
 
     vwm = vwm_get_instance();
 
