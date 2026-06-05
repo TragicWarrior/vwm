@@ -1,3 +1,21 @@
+2026-05-28
+
+VWM now refuses to start if the terminal is smaller than 80x25.  A
+message is printed with the detected size; --ignore-tty-size bypasses
+the check.
+
+Manage Apps Menu and Manage Hotkeys dialogs now recenter on terminal
+resize.  A warning popup informs the user that shrinking the terminal
+further will close the dialog and discard unsaved changes.  If the
+terminal does become too small, the dialog closes automatically.
+Widget canvases are recreated after resize to prevent drawing
+corruption and stale mouse hit zones.
+
+Manage Apps Menu was shrunk by 2 rows to fit an 80x25 terminal.
+Mouse hit zones for dropdowns and buttons are now computed
+dynamically from the layout rather than hardcoded, preventing
+misalignment when dialog dimensions change.
+
 2026-05-27
 
 Added Manage Hotkeys dialog accessible from VWM menu.  All 13 hotkeys

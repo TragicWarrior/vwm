@@ -23,7 +23,7 @@
 "[Enter/Space] activate  [Esc] cancel"
 
 #define DIALOG_WIDTH        68
-#define DIALOG_HEIGHT       26
+#define DIALOG_HEIGHT       24
 #define INTERIOR_WIDTH      (DIALOG_WIDTH - 2)
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
@@ -158,6 +158,7 @@ static int                 list_last_click_item = -1;
 
 static vk_popup_t          *load_popup = NULL;
 static vk_filedialog_t     *load_filedialog = NULL;
+static vk_popup_t          *warning_popup = NULL;
 static struct timespec     load_last_click_time;
 static int                 load_last_click_item = -1;
 
@@ -1238,6 +1239,137 @@ on_cancel(void)
     vwm_manage_apps_close();
 }
 
+/* ── warning popup ─────────────────────────────────────────── */
+
+static void
+warning_popup_close(void)
+{
+    vwm_t *vwm;
+
+    if(warning_popup == NULL) return;
+
+    vwm = vwm_get_instance();
+
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(warning_popup));
+
+    vk_popup_destroy(warning_popup);
+    warning_popup = NULL;
+
+    refresh_dialog();
+}
+
+static int
+warning_popup_kmio(vk_object_t *object, int32_t keystroke)
+{
+    (void)object;
+
+    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
+    {
+        warning_popup_close();
+        return 0;
+    }
+
+    return 0;
+}
+
+static void
+warning_popup_show(void)
+{
+    vwm_t       *vwm;
+    vk_box_t    *client;
+    int         scr_w, scr_h;
+    int         popup_w = 52;
+    int         popup_h = 9;
+    int         pos_x, pos_y;
+
+    if(warning_popup != NULL) return;
+
+    vwm = vwm_get_instance();
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+
+    warning_popup = vk_popup_create(popup_w, popup_h,
+        VK_FRAME_SINGLE, "OK", NULL);
+    vk_popup_set_title(warning_popup, " Warning ");
+    vk_popup_set_border_colors(warning_popup, COLOR_RED, COLOR_WHITE);
+    vk_popup_set_border_attrs(warning_popup, A_NORMAL);
+    {
+        vk_box_t *bar = vk_popup_get_button_bar(warning_popup);
+        if(bar != NULL)
+        {
+            vk_widget_set_colors(VK_WIDGET(bar), COLOR_RED, COLOR_WHITE);
+            vk_widget_fill(VK_WIDGET(bar),
+                ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
+        }
+    }
+
+    client = vk_box_create(popup_w - 2, popup_h - 5,
+        VK_BOX_VERTICAL, 4);
+    vk_box_set_homogeneous(client, true);
+    vk_widget_set_colors(VK_WIDGET(client), COLOR_RED, COLOR_WHITE);
+
+    {
+        vk_filler_t *top_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_RED, COLOR_WHITE);
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+
+        vk_label_t *line1 = vk_label_create(popup_w - 2);
+        vk_label_set_justify(line1, VK_JUSTIFY_CENTER);
+        vk_label_set_text(line1,
+            "If the terminal becomes too small, this dialog");
+        vk_widget_set_colors(VK_WIDGET(line1), COLOR_RED, COLOR_WHITE);
+        vk_label_update(line1);
+        vk_box_set_widget(client, 1, VK_WIDGET(line1));
+
+        vk_label_t *line2 = vk_label_create(popup_w - 2);
+        vk_label_set_justify(line2, VK_JUSTIFY_CENTER);
+        vk_label_set_text(line2,
+            "will close and unsaved changes may be lost.");
+        vk_widget_set_colors(VK_WIDGET(line2), COLOR_RED, COLOR_WHITE);
+        vk_label_update(line2);
+        vk_box_set_widget(client, 2, VK_WIDGET(line2));
+
+        vk_filler_t *bot_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_RED, COLOR_WHITE);
+        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad));
+    }
+
+    vk_popup_set_client(warning_popup, VK_WIDGET(client));
+
+    {
+        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
+        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
+    }
+
+    vk_popup_set_colors(warning_popup, COLOR_RED, COLOR_WHITE);
+    vk_object_set_kmio(VK_OBJECT(warning_popup), warning_popup_kmio);
+
+    {
+        vk_button_t *ok_btn = vk_popup_get_button(warning_popup, 0);
+        vk_widget_set_colors(VK_WIDGET(ok_btn), COLOR_YELLOW, COLOR_WHITE);
+        vk_widget_set_attrs(VK_WIDGET(ok_btn), A_BOLD);
+        vk_button_update(ok_btn);
+    }
+
+    pos_x = (scr_w - popup_w) / 2;
+    pos_y = (scr_h - popup_h) / 2;
+    if(pos_x < 0) pos_x = 0;
+    if(pos_y < 0) pos_y = 0;
+
+    vk_widget_move(VK_WIDGET(warning_popup), pos_x, pos_y);
+
+    vk_screen_attach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(warning_popup));
+
+    vk_widget_fill(VK_WIDGET(client),
+        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
+    vk_box_update(client);
+    vk_popup_update(warning_popup);
+    vk_screen_refresh(vwm->screen);
+}
+
 /* ── keyboard handlers ──────────────────────────────────────── */
 
 static int
@@ -1327,6 +1459,9 @@ manage_apps_kmio(vk_object_t *object, int32_t keystroke)
     int     retval = -1;
 
     (void)object;
+
+    if(warning_popup != NULL)
+        return warning_popup_kmio(NULL, keystroke);
 
     if(load_popup != NULL)
         return load_popup_kmio(NULL, keystroke);
@@ -1453,6 +1588,10 @@ refresh_dialog(void)
 
     if(dialog_window == NULL) return;
 
+    vk_label_update(cat_label_widget);
+    vk_label_update(term_label_widget);
+    vk_label_update(vis_label_widget);
+    update_button_highlights();
     vk_listbox_update(app_listbox);
     vk_scroller_update(listbox_scroller);
     vk_frame_update(listbox_frame);
@@ -1499,7 +1638,7 @@ build_dialog(void)
     vk_box_set_homogeneous(main_vbox, false);
     vk_widget_set_colors(VK_WIDGET(main_vbox), COLOR_BLACK, COLOR_CYAN);
 
-    /* non-expand rows: 1+3+1+3+1+3+3 = 15, expand gets 24-15 = 9 */
+    /* non-expand rows: 1+3+1+3+1+3+3 = 15, expand gets 22-15-2 = 5 */
     lb_height = INTERIOR_HEIGHT - (1 + 3 + 1 + 3 + 1 + 3 + 3) - 2;
 
     app_listbox = vk_listbox_create(INTERIOR_WIDTH - 2, lb_height);
@@ -1700,6 +1839,9 @@ vwm_manage_apps_close(void)
 
     if(dialog_window == NULL) return;
 
+    if(warning_popup != NULL)
+        warning_popup_close();
+
     if(load_popup != NULL)
         load_popup_close();
 
@@ -1771,6 +1913,44 @@ vwm_manage_apps_get_load_popup(void)
     return VK_WIDGET(load_popup);
 }
 
+vk_widget_t *
+vwm_manage_apps_get_warning_popup(void)
+{
+    return VK_WIDGET(warning_popup);
+}
+
+void
+vwm_manage_apps_handle_resize(void)
+{
+    vwm_t   *vwm;
+    int     scr_w, scr_h;
+    int     pos_x, pos_y;
+
+    if(dialog_window == NULL) return;
+
+    vwm = vwm_get_instance();
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+
+    if(scr_w < DIALOG_WIDTH || scr_h < DIALOG_HEIGHT)
+    {
+        vwm_manage_apps_close();
+        return;
+    }
+
+    pos_x = (scr_w - DIALOG_WIDTH) / 2;
+    pos_y = (scr_h - DIALOG_HEIGHT) / 2;
+
+    vk_widget_recreate(VK_WIDGET(dialog_window));
+    vk_widget_move(VK_WIDGET(dialog_window), pos_x, pos_y);
+
+    if(warning_popup != NULL)
+        warning_popup_close();
+
+    warning_popup_show();
+
+    refresh_dialog();
+}
+
 int
 vwm_manage_apps_mouse(MEVENT *mouse_event)
 {
@@ -1782,6 +1962,14 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
     if(mouse_event == NULL) return -1;
 
     bs = mouse_event->bstate;
+
+    if(warning_popup != NULL)
+    {
+        if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+            warning_popup_close();
+
+        return 0;
+    }
 
     if(load_popup != NULL)
     {
@@ -2096,20 +2284,21 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         return 0;
 
     /*
-     * Row layout (INTERIOR_HEIGHT = 24):
-     *   listbox_frame:  rows 0-8   (9h, expand, interior 7h)
-     *   cat_label:      row 9      (1h)
-     *   cat_dropdown:   rows 10-12 (3h)
-     *   term_label:     row 13     (1h)
-     *   term_dropdown:  rows 14-16 (3h)
-     *   vis_label:      row 17     (1h)
-     *   vis_dropdown:   rows 18-20 (3h)
-     *   button_hbox:    rows 21-23 (3h)
+     * Row layout — derived from INTERIOR_HEIGHT and fixed widget sizes.
+     * Fixed rows: label(1)+dd(3)+label(1)+dd(3)+label(1)+dd(3)+btns(3)=15
+     * Expand (listbox_frame) gets INTERIOR_HEIGHT - 15.
      */
-
-    if(ry <= 8)
     {
-        if(ry >= 1 && ry <= 7)
+        int frame_h = INTERIOR_HEIGHT - 15;
+        int lb_end = frame_h - 1;
+        int cat_dd  = frame_h + 1;
+        int term_dd = cat_dd + 4;
+        int vis_dd  = term_dd + 4;
+        int btn_row = vis_dd + 3;
+
+    if(ry <= lb_end)
+    {
+        if(ry >= 1 && ry <= lb_end - 1)
         {
             int scroll_pos = vk_listbox_get_scroll_pos(app_listbox);
             int new_sel = scroll_pos + (ry - 1);
@@ -2157,7 +2346,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         return 0;
     }
 
-    if(ry >= 10 && ry <= 12)
+    if(ry >= cat_dd && ry <= cat_dd + 2)
     {
         model->focus_zone = FOCUS_CATEGORY;
         update_button_highlights();
@@ -2169,7 +2358,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         return 0;
     }
 
-    if(ry >= 14 && ry <= 16)
+    if(ry >= term_dd && ry <= term_dd + 2)
     {
         model->focus_zone = FOCUS_TERMINAL;
         update_button_highlights();
@@ -2181,7 +2370,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         return 0;
     }
 
-    if(ry >= 18 && ry <= 20)
+    if(ry >= vis_dd && ry <= vis_dd + 2)
     {
         model->focus_zone = FOCUS_VISIBILITY;
         update_button_highlights();
@@ -2193,7 +2382,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         return 0;
     }
 
-    if(ry >= 21 && ry <= 23)
+    if(ry >= btn_row && ry <= btn_row + 2)
     {
         int zone = -1;
 
@@ -2223,6 +2412,8 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
 
         return 0;
     }
+
+    }   /* end layout block */
 
     return 0;
 }

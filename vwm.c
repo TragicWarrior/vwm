@@ -30,6 +30,7 @@
 #include <signal.h>
 #include <time.h>
 
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/select.h>
 #include <sys/time.h>
@@ -104,6 +105,39 @@ int main(int argc,char **argv)
 
     vwm_argc = argc;
     vwm_argv = argv;
+
+    {
+        bool ignore_tty_size = false;
+        int i;
+
+        for(i = 1; i < argc; i++)
+        {
+            if(strcmp(argv[i], "--ignore-tty-size") == 0)
+            {
+                ignore_tty_size = true;
+                break;
+            }
+        }
+
+        if(!ignore_tty_size)
+        {
+            struct winsize ws;
+
+            if(ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == 0)
+            {
+                if(ws.ws_col < 80 || ws.ws_row < 25)
+                {
+                    fprintf(stderr,
+                        "vwm: terminal too small (%dx%d). "
+                        "Minimum size is 80x25.\n"
+                        "Use --ignore-tty-size to bypass "
+                        "this check.\n",
+                        ws.ws_col, ws.ws_row);
+                    return 1;
+                }
+            }
+        }
+    }
 
 	/*
         set the locale to the default settings (as configured by env).

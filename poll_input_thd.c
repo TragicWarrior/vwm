@@ -101,6 +101,20 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
             }
         }
 
+        vk_widget_t *apps_warning =
+            vwm_manage_apps_get_warning_popup();
+        if(apps_warning != NULL)
+        {
+            vk_widget_get_position(apps_warning, &wx, &wy);
+            vk_widget_get_metrics(apps_warning, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = apps_warning;
+                return ZONE_MANAGE_APPS;
+            }
+        }
+
         vk_widget_t *load_pop = vwm_manage_apps_get_load_popup();
         if(load_pop != NULL)
         {
@@ -165,6 +179,20 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
             if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
             {
                 *hit_out = hk_error;
+                return ZONE_MANAGE_HOTKEYS;
+            }
+        }
+
+        vk_widget_t *hk_warning =
+            vwm_manage_hotkeys_get_warning_popup();
+        if(hk_warning != NULL)
+        {
+            vk_widget_get_position(hk_warning, &wx, &wy);
+            vk_widget_get_metrics(hk_warning, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = hk_warning;
                 return ZONE_MANAGE_HOTKEYS;
             }
         }
@@ -299,15 +327,16 @@ vwm_poll_input(void * const env)
 
         if(keystroke == KEY_RESIZE)
         {
-            if(vwm_manage_hotkeys_is_open())
-                vwm_manage_hotkeys_close();
-
-            if(vwm_manage_apps_is_open())
-                vwm_manage_apps_close();
-
             vk_screen_resize(vwm->screen);
             vwm_panel_ON_TERM_RESIZED(vwm_panel_get_data());
             vwm_dropdown_ON_TERM_RESIZED();
+
+            if(vwm_manage_hotkeys_is_open())
+                vwm_manage_hotkeys_handle_resize();
+
+            if(vwm_manage_apps_is_open())
+                vwm_manage_apps_handle_resize();
+
             vk_screen_refresh(vwm->screen);
             ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
