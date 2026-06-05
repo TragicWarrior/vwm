@@ -112,6 +112,32 @@ vwm_module_get_zone(vwm_module_t *mod)
     return mod->zone;
 }
 
+void
+vwm_module_set_hidden(vwm_module_t *mod, bool hidden)
+{
+    if(mod == NULL) return;
+
+    mod->hidden = hidden;
+}
+
+bool
+vwm_module_is_hidden(vwm_module_t *mod)
+{
+    if(mod == NULL) return false;
+
+    return mod->hidden;
+}
+
+const char*
+vwm_module_type_string(int value)
+{
+    extern char *mod_desc[];
+
+    if(value < 0 || value >= VWM_MOD_TYPE_MAX) return NULL;
+
+    return mod_desc[value];
+}
+
 
 void
 vwm_module_set_title(vwm_module_t *mod, char *title)

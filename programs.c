@@ -119,6 +119,12 @@ vwm_programs_load(vwm_t *vwm)
                 args = strcatv(NULL, (char *)bin);
             }
 
+            {
+                int hidden_val = 0;
+                config_setting_lookup_bool(entry, "hidden", &hidden_val);
+                vwm_module_set_hidden(module, hidden_val != 0);
+            }
+
             vwm_module_configure(module, bin, args);
             vwm_module_set_zone(module, MODULE_ZONE_USER);
             vwm_module_add(module);

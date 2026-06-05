@@ -34,6 +34,7 @@ struct _vwm_s
     int                     menu_item_idx;
 
     vk_window_t             *calendar_popup;
+    vk_window_t             *manage_apps_popup;
 
     uint32_t                state;
 

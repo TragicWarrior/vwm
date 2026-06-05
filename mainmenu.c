@@ -31,6 +31,7 @@
 #include "private.h"
 #include "events.h"
 #include "panel.h"
+#include "manage_apps.h"
 
 static void
 vwm_menu_scroll_info(vk_widget_t *child,
@@ -177,6 +178,8 @@ create_file_dropdown(vwm_t *vwm)
     vk_listbox_add_item(listbox, "Switch desktop (Alt d)",
         vwm_switch_desktop, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
+    vk_listbox_add_item(listbox, "Manage Apps Menu",
+        vwm_manage_apps_open, NULL);
     vk_listbox_add_item(listbox, "Reload Apps Menu",
         vwm_reload_apps, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
@@ -232,6 +235,7 @@ create_apps_dropdown(vwm_t *vwm)
             if(vwm_module == NULL) break;
 
             if(vwm_module_get_zone(vwm_module) == MODULE_ZONE_CORE) continue;
+            if(vwm_module_is_hidden(vwm_module)) continue;
 
             category_found = TRUE;
 

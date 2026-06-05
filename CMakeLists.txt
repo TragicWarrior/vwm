@@ -63,6 +63,7 @@ add_executable(vwm
     sched.c
     settings.c
     programs.c
+    manage_apps.c
     signals.c
     strings.c
     vwm.c
