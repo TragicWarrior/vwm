@@ -1,5 +1,32 @@
 2026-05-28
 
+Added a Settings and Preferences dialog to the VWM menu.  It configures
+the panel task-indicator click action, the clock (date) click action,
+and the number of desktops (2-6), all persisted to vwmrc.  A change to
+the desktop count is applied when the dialog closes, so surfaces are
+never torn down while the dialog is still on screen.
+
+Added a Screen Capture tool (the vwmscrshot module) to the VWM menu,
+under "Switch desktop".  It asks whether to capture the whole screen
+or the top window, renders the ncurses cells to a PNG with FreeType
+(alpha-blended glyphs, ACS line/box characters, and bold, underline,
+reverse, and dim attributes), and saves through a file picker.
+
+The Manage Apps "Load Config" dialog now has Tab stops: focus cycles
+through the file browser, OK, and Cancel, with the focused button
+highlighted.
+
+Menubar dropdowns (VWM / Apps) are now bright white on cyan with a
+black highlight bar, replacing the previous dim white with a red
+highlight.  The Apps menu scrollbar is drawn in black.
+
+Clicking the panel now only triggers the task-indicator action when
+the click lands on the task counter itself, not anywhere on the panel.
+
+STYLE_GUIDE.md gained a File Dialogs section (theme, internal layout,
+tab stops, and the nested-composer render rule) and its dropdown-menu
+colors were updated.
+
 VWM now refuses to start if the terminal is smaller than 80x25.  A
 message is printed with the detected size; --ignore-tty-size bypasses
 the check.

@@ -83,12 +83,92 @@ vk_widget_fill(VK_WIDGET(client),
 vk_box_update(client);
 ```
 
+## File Dialogs (Load / Save)
+
+`vk_filedialog_t` is used inside a blue Input/Info popup or window (e.g.
+Manage Apps "Load Config", the screenshot "Save Screenshot" picker). It is
+a `vk_box` subclass that supplies its own OK/Cancel buttons — do **not**
+add popup buttons of your own. Give it the full interior; for a save-style
+dialog put a "Save as" `vk_input` above it and let the filedialog expand
+to fill the rest.
+
+### Theme (blue)
+
+| Element                | Foreground | Background | Attrs  |
+|------------------------|------------|------------|--------|
+| Enclosing border       | WHITE      | BLUE       | A_BOLD |
+| File list / path text  | WHITE      | BLUE       |        |
+| Selection highlight    | WHITE      | RED        |        |
+| OK / Cancel (inactive) | WHITE      | BLUE       | A_BOLD |
+| OK / Cancel (focused)  | YELLOW     | BLUE       | A_BOLD |
+
+```c
+fd = vk_filedialog_create(interior_w, interior_h, VK_FRAME_SINGLE, false);
+vk_filedialog_set_colors(fd, COLOR_WHITE, COLOR_BLUE);
+vk_filedialog_set_highlight(fd, COLOR_WHITE, COLOR_RED);
+vk_filedialog_set_button_colors(fd, COLOR_WHITE, COLOR_BLUE);
+vk_filedialog_set_button_attrs(fd, A_BOLD);
+```
+
+### Internal layout (for mouse hit-testing)
+
+Relative to the filedialog's own area: the top 3 rows are the path input,
+the bottom 3 rows are the OK/Cancel button bar, and everything between is
+the file list. Map a list click as `item = scroll_pos + (rel_row - 3)`
+where `rel_row` is the click row within the filedialog. In the button row,
+OK is the left half (`x < interior_w / 2`), Cancel the right half. A click
+in the path strip can focus it by pushing `'/'` to the dialog.
+
+### Tab stops / button focus
+
+The OK/Cancel buttons have no public accessor, but the filedialog is a
+`vk_box`, so reach them through the box getter (avoids pulling in
+`vk_filedialog.h`, which transitively fails to find `list.h`):
+
+```c
+vk_widget_t *bar    = vk_box_get_widget(VK_BOX(fd), 2);  /* slot 2 = bar */
+vk_widget_t *ok     = vk_box_get_widget(VK_BOX(bar), 0); /* slot 0 = OK   */
+vk_widget_t *cancel = vk_box_get_widget(VK_BOX(bar), 1); /* slot 1 = Cancel */
+```
+
+Cycle focus with Tab in visual (top-to-bottom) order — e.g. filename →
+browser → OK → Cancel, or just browser → OK → Cancel for a load dialog.
+Highlight the focused button and reset the rest:
+
+```c
+vk_button_release(VK_BUTTON(ok));
+vk_widget_set_colors(ok,
+    focus == OK ? COLOR_YELLOW : COLOR_WHITE, COLOR_BLUE);
+vk_widget_set_attrs(ok, A_BOLD);
+vk_button_update(VK_BUTTON(ok));
+```
+
+When the mouse interacts with the list or path, reset focus back to the
+browser so a subsequent Tab stays consistent.
+
+### Rendering
+
+The filedialog is a nested box, so it must be re-rendered on its own
+*before* the enclosing box/popup blits it (see *Client Area Pattern*).
+After any change — navigation, selection, or focus — call
+`vk_filedialog_update(fd)` first, or the dialog stays stale/blank and
+clicks appear to do nothing:
+
+```c
+vk_filedialog_update(fd);     /* re-render the nested filedialog */
+vk_box_update(client);        /* parent only copies fd's composer */
+vk_popup_update(popup);       /* (or vk_window_update) */
+vk_screen_refresh(vwm->screen);
+```
+
 ## Dropdown Menus (VWM / Apps menubar)
 
 | Element              | Foreground | Background | Attrs  |
 |----------------------|------------|------------|--------|
-| Listbox highlight    | WHITE      | RED        | A_BOLD |
-| Scroller border      | RED        | WHITE      | A_BOLD |
+| Window border        | WHITE      | CYAN       | A_BOLD |
+| Listbox text         | WHITE      | CYAN       | A_BOLD |
+| Listbox highlight    | WHITE      | BLACK      | A_BOLD |
+| Scroller border      | BLACK      | CYAN       |        |
 
 ## Client Area Pattern
 
