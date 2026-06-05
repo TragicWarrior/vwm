@@ -509,15 +509,29 @@ vwm_poll_input(void * const env)
 
             if(drag_mode != DRAG_NONE && drag_widget != NULL)
             {
-                if(bs & (BUTTON1_RELEASED | BUTTON1_CLICKED))
+                /* coalesce queued drag-move events down to the latest
+                   position: the window jumps to the current cursor in one
+                   move + one refresh instead of replaying a backlog of
+                   stale positions.  stop when a button release is reached
+                   (which ends the drag) or the queue is empty. */
+                while(!(mouse_event->bstate &
+                        (BUTTON1_RELEASED | BUTTON1_CLICKED)))
                 {
-                    apply_drag_position(mouse_event);
+                    MEVENT next;
+
+                    if(vk_kmio_mouse_drain(&next) != 0) break;
+                    *mouse_event = next;
+                }
+
+                vwm->cursor_x = mouse_event->x;
+                vwm->cursor_y = mouse_event->y;
+
+                apply_drag_position(mouse_event);
+
+                if(mouse_event->bstate & (BUTTON1_RELEASED | BUTTON1_CLICKED))
+                {
                     drag_mode = DRAG_NONE;
                     drag_widget = NULL;
-                }
-                else
-                {
-                    apply_drag_position(mouse_event);
                 }
 
                 vk_screen_refresh(vwm->screen);

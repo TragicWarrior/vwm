@@ -1,5 +1,14 @@
 2026-05-29
 
+Improved mouse responsiveness on the Linux console.  The scheduler now
+dispatches the HIGH (input) queue every step instead of throttling it as
+more vterms are opened, so input stays responsive regardless of how many
+terminals are running (previously it noticeably degraded once a second
+vterm was open).  Window drags also coalesce queued GPM move events down
+to the latest cursor position -- one move plus one repaint per cycle
+instead of replaying a backlog -- so a dragged window tracks the cursor
+even under heavy terminal output.
+
 Added a Print File tool (the vwmprint module) to the VWM menu, next to
 "Capture screenshot".  It opens a system dialog to pick a .txt, .md, or
 .pdf file, then choose an already-configured CUPS printer from a framed
