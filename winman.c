@@ -166,6 +166,7 @@ vwm_default_WINDOW_INCREASE_HEIGHT(vk_widget_t *widget)
 
     vk_widget_get_metrics(widget, &width, &height);
     vk_widget_resize(widget, width, height + 1);
+    vk_window_update(VK_WINDOW(widget));
     vk_screen_refresh(vwm_get_instance()->screen);
 }
 
@@ -179,6 +180,7 @@ vwm_default_WINDOW_DECREASE_HEIGHT(vk_widget_t *widget)
     vk_widget_get_metrics(widget, &width, &height);
     if(height <= 3) return;
     vk_widget_resize(widget, width, height - 1);
+    vk_window_update(VK_WINDOW(widget));
     vk_screen_refresh(vwm_get_instance()->screen);
 }
 
@@ -191,6 +193,7 @@ vwm_default_WINDOW_INCREASE_WIDTH(vk_widget_t *widget)
 
     vk_widget_get_metrics(widget, &width, &height);
     vk_widget_resize(widget, width + 1, height);
+    vk_window_update(VK_WINDOW(widget));
     vk_screen_refresh(vwm_get_instance()->screen);
 }
 
@@ -204,5 +207,6 @@ vwm_default_WINDOW_DECREASE_WIDTH(vk_widget_t *widget)
     vk_widget_get_metrics(widget, &width, &height);
     if(width <= 3) return;
     vk_widget_resize(widget, width - 1, height);
+    vk_window_update(VK_WINDOW(widget));
     vk_screen_refresh(vwm_get_instance()->screen);
 }

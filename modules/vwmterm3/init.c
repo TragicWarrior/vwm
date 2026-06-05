@@ -214,6 +214,8 @@ vwmterm_main(vwm_module_t *mod)
         vk_window_set_decorate(window, vwm_window_decorate, NULL);
 
         content = vk_widget_create(width, height);
+        vk_widget_set_state(content,
+            vk_widget_get_state(content) | VK_STATE_EXPAND);
     }
     else
     {
@@ -251,6 +253,8 @@ vwmterm_main(vwm_module_t *mod)
 
     vk_object_register_event(VK_OBJECT(window), VWM_EVENT_ON_CLOSE,
         vwmterm_ON_CLOSE, (void *)vwmterm_data);
+    vk_object_register_event(VK_OBJECT(window), VK_EVENT_ON_RESIZE,
+        vwmterm_ON_RESIZE, (void *)vterm);
 
     if(vwmterm_mod->fullscreen == FALSE)
     {

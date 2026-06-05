@@ -1,5 +1,12 @@
 2026-05-29
 
+Fixed border corruption when resizing a window with the WM-mode
+grow/shrink hotkeys.  The window canvas was resized but the frame was
+never re-rendered, so the old border stayed in the top-left and the
+newly exposed area was blank.  Windows are now repainted after each
+resize, and vwmterm terminals resize their content to match -- the
+content widget expands with the frame and the vterm is re-flowed.
+
 Configuration moved from libconfig to JSON.  Settings now live in
 $HOME/.config/vwm/config.json (created with sane defaults on first
 run) rather than ~/.vwm/vwmrc, organized into three sections:
