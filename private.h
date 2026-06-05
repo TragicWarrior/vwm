@@ -66,6 +66,9 @@ struct _vwm_s
        VWM_MAX_DESKTOPS entries -- only [0..surface_count-1] are live */
     short                   desktop_color[VWM_MAX_DESKTOPS];
 
+    /* per-surface wallpaper pattern (VWM_WALLPAPER_*) */
+    short                   desktop_wallpaper[VWM_MAX_DESKTOPS];
+
     uint32_t                state;
 
     int                     cursor_x;

@@ -242,7 +242,10 @@ vwm_init(void)
             };
             int   k;
             for(k = 0; k < VWM_MAX_DESKTOPS; k++)
+            {
                 vwm->desktop_color[k] = defaults[k];
+                vwm->desktop_wallpaper[k] = VWM_WALLPAPER_STIPLE;
+            }
         }
         vwm->surface_count = 3;
 

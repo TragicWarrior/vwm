@@ -1,5 +1,14 @@
 Version 4.0.0 (in progress)
 
+*  [Bryan Christ] Per-desktop wallpaper patterns in Settings (None,
+   Stiple, Small Bricks, Large Bricks, Dots 1, Dots 2).  Each desktop
+   gets its own "Desktop N Wallpaper" row alongside the color row.
+   Render dispatcher in bkgd.c; brick patterns fall back to Stiple at
+   render time on non-UTF-8 terminals.
+*  [Bryan Christ] Persist per-desktop colors and wallpapers to the
+   JSON config (settings.desktop_colors, settings.desktop_wallpapers)
+   so picks survive across restarts.  Sized to VWM_MAX_DESKTOPS so
+   shrinking then growing surface_count preserves earlier picks.
 *  [Bryan Christ] Port Edit App and Load Config popups to vk_popup_t.
 *  [Bryan Christ] Add Manage Apps Menu dialog with app list, dropdown
    controls, edit/load popups, and mouse support.

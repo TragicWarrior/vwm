@@ -169,6 +169,59 @@ vwm_settings_load_general(vwm_t *vwm)
     if(val >= 0)
         vwm->screensaver_timeout = val;
 
+    /* per-desktop colors and wallpapers -- both stored as string arrays
+       (color and pattern names).  Missing or malformed entries keep
+       whatever vwm_init seeded.  Unknown names also keep the default. */
+    {
+        cJSON *arr = cJSON_GetObjectItemCaseSensitive(settings,
+            "desktop_colors");
+        if(cJSON_IsArray(arr))
+        {
+            int n = cJSON_GetArraySize(arr);
+            int i;
+            if(n > VWM_MAX_DESKTOPS) n = VWM_MAX_DESKTOPS;
+            for(i = 0; i < n; i++)
+            {
+                cJSON *item = cJSON_GetArrayItem(arr, i);
+                int    j;
+                if(!cJSON_IsString(item)) continue;
+                for(j = 0; j < 16; j++)
+                {
+                    if(strcmp(item->valuestring, vwm_color_names[j]) == 0)
+                    {
+                        vwm->desktop_color[i] = (short)j;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    {
+        cJSON *arr = cJSON_GetObjectItemCaseSensitive(settings,
+            "desktop_wallpapers");
+        if(cJSON_IsArray(arr))
+        {
+            int n = cJSON_GetArraySize(arr);
+            int i;
+            if(n > VWM_MAX_DESKTOPS) n = VWM_MAX_DESKTOPS;
+            for(i = 0; i < n; i++)
+            {
+                cJSON *item = cJSON_GetArrayItem(arr, i);
+                int    j;
+                if(!cJSON_IsString(item)) continue;
+                for(j = 0; j < VWM_WALLPAPER_COUNT; j++)
+                {
+                    if(strcmp(item->valuestring,
+                        vwm_wallpaper_names[j]) == 0)
+                    {
+                        vwm->desktop_wallpaper[i] = (short)j;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     cJSON_Delete(root);
 }
 
@@ -197,6 +250,35 @@ vwm_settings_save_general(vwm_t *vwm)
         vwm->screensaver_cmd);
     cJSON_AddNumberToObject(settings, "screensaver_timeout",
         vwm->screensaver_timeout);
+
+    /* persist the full VWM_MAX_DESKTOPS slot range so that shrinking
+       num_desktops and then growing it again keeps the user's earlier
+       picks.  Defensive clamp on the stored index in case the field
+       was corrupted in memory. */
+    {
+        cJSON *arr = cJSON_AddArrayToObject(settings, "desktop_colors");
+        int i;
+        for(i = 0; i < VWM_MAX_DESKTOPS; i++)
+        {
+            int idx = vwm->desktop_color[i];
+            if(idx < 0 || idx > 15) idx = COLOR_BLUE;
+            cJSON_AddItemToArray(arr,
+                cJSON_CreateString(vwm_color_names[idx]));
+        }
+    }
+    {
+        cJSON *arr = cJSON_AddArrayToObject(settings,
+            "desktop_wallpapers");
+        int i;
+        for(i = 0; i < VWM_MAX_DESKTOPS; i++)
+        {
+            int idx = vwm->desktop_wallpaper[i];
+            if(idx < 0 || idx >= VWM_WALLPAPER_COUNT)
+                idx = VWM_WALLPAPER_STIPLE;
+            cJSON_AddItemToArray(arr,
+                cJSON_CreateString(vwm_wallpaper_names[idx]));
+        }
+    }
 
     vwm_config_store(vwm->profile->rc_file, root);
     cJSON_Delete(root);

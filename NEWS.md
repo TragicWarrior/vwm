@@ -1,5 +1,26 @@
 2026-06-01
 
+Per-desktop wallpaper.  Each desktop now picks a repeating tile
+pattern alongside its color.  Six patterns are exposed: None (solid
+fill), Stiple (the existing ACS_CKBOARD checkerboard), Small Bricks
+(2x2 tile of alternating BTEE / TTEE), Large Bricks (6x4 tile,
+3-wide bricks with horizontal connectors and selective vertical
+lines between facing pips), Dots 1 (period everywhere), and Dots 2
+(a 2x2 of period and space).  Settings grows one "Desktop N
+Wallpaper" row per active surface, paired with the existing color
+row.  vwm_bkgd_simple_normal dispatches by surface; if the terminal
+lacks UTF-8 support (locale check + TERM=linux), brick patterns
+fall back to Stiple at render time -- the saved config is left
+unchanged so revisiting a UTF-8 capable terminal restores the
+chosen pattern.
+
+Per-desktop colors AND wallpapers now persist to the JSON config
+under settings.desktop_colors and settings.desktop_wallpapers
+(string arrays, sized to VWM_MAX_DESKTOPS).  Missing or unknown
+entries hold whatever vwm_init seeded.
+
+(prior 2026-06-01 entry)
+
 Per-desktop colors.  Settings now exposes one "Desktop N Color" row
 per active surface (5 base rows + surface_count dynamic rows).
 Choosing a row opens a vk_color picker -- a 2x8 grid of 1x1 colored

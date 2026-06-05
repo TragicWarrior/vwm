@@ -31,6 +31,18 @@
 /* VWM-specific event types */
 #define VWM_EVENT_ON_CLOSE          100
 
+/* desktop wallpaper patterns (per-surface, picked in Settings) */
+#define VWM_WALLPAPER_NONE          0
+#define VWM_WALLPAPER_STIPLE        1
+#define VWM_WALLPAPER_SMALL_BRICKS  2
+#define VWM_WALLPAPER_LARGE_BRICKS  3
+#define VWM_WALLPAPER_DOTS_1        4
+#define VWM_WALLPAPER_DOTS_2        5
+#define VWM_WALLPAPER_COUNT         6
+
+extern const char *vwm_wallpaper_names[VWM_WALLPAPER_COUNT];
+extern const char *vwm_color_names[16];
+
 enum
 {
     VWM_MSG_SHUTDOWN    =   0x1,

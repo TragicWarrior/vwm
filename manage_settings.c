@@ -29,18 +29,22 @@
 #define INTERIOR_WIDTH      (DIALOG_WIDTH - 2)
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
-/* base settings = 5; desktop-color rows are dynamic and live beyond that */
-#define NUM_BASE_SETTINGS       5
-#define NUM_SETTINGS            (NUM_BASE_SETTINGS + VWM_MAX_DESKTOPS)
-#define MAX_APP_OPTIONS         64
+/* base settings = 5.  Desktop N Color and Desktop N Wallpaper rows
+   are dynamic, packed densely after the base rows in this order:
+        rows [5 .. 5+sc-1]              : Desktop N Color
+        rows [5+sc .. 5+2*sc-1]         : Desktop N Wallpaper
+   where sc = vwm->surface_count.  Storage covers the max so the array
+   size never grows; positions beyond active_setting_count are unused. */
+#define NUM_BASE_SETTINGS               5
+#define NUM_SETTINGS                    (NUM_BASE_SETTINGS + 2 * VWM_MAX_DESKTOPS)
+#define MAX_APP_OPTIONS                 64
 
-#define SETTING_TASK_ACTION         0
-#define SETTING_DATE_ACTION         1
-#define SETTING_NUM_DESKTOPS        2
-#define SETTING_SCREENSAVER_CMD     3
-#define SETTING_SCREENSAVER_IDLE    4
-#define SETTING_DESKTOP_COLOR_BASE  5
-/* Desktop N color (0-indexed) lives at SETTING_DESKTOP_COLOR_BASE + N */
+#define SETTING_TASK_ACTION             0
+#define SETTING_DATE_ACTION             1
+#define SETTING_NUM_DESKTOPS            2
+#define SETTING_SCREENSAVER_CMD         3
+#define SETTING_SCREENSAVER_IDLE        4
+#define SETTING_DESKTOP_COLOR_BASE      NUM_BASE_SETTINGS
 
 #define SETTING_TYPE_DROPDOWN   0
 #define SETTING_TYPE_INPUT      1
@@ -76,47 +80,65 @@ base_setting_defs[NUM_BASE_SETTINGS] =
     { "Screensaver Idle",   SETTING_TYPE_INPUT },
 };
 
-/* labels for the dynamic Desktop N Color rows are built per-row */
+/* labels for the dynamic Desktop N Color / Desktop N Wallpaper rows */
 static char desktop_color_labels[VWM_MAX_DESKTOPS][32];
+static char desktop_wallpaper_labels[VWM_MAX_DESKTOPS][32];
 
 static const char*
 get_setting_label(int idx)
 {
+    int sc;
+    int wp_base;
+
     if(idx < 0) return "";
     if(idx < NUM_BASE_SETTINGS) return base_setting_defs[idx].label;
+
     {
-        int n = idx - SETTING_DESKTOP_COLOR_BASE;
-        if(n < 0 || n >= VWM_MAX_DESKTOPS) return "";
-        return desktop_color_labels[n];
+        vwm_t *vwm = vwm_get_instance();
+        sc = vwm ? vwm->surface_count : 0;
     }
+    wp_base = SETTING_DESKTOP_COLOR_BASE + sc;
+
+    if(idx >= SETTING_DESKTOP_COLOR_BASE && idx < wp_base)
+        return desktop_color_labels[idx - SETTING_DESKTOP_COLOR_BASE];
+    if(idx >= wp_base && idx < wp_base + sc)
+        return desktop_wallpaper_labels[idx - wp_base];
+    return "";
 }
 
 static int
 get_setting_type(int idx)
 {
+    int sc;
+    int wp_base;
+
     if(idx < 0) return -1;
     if(idx < NUM_BASE_SETTINGS) return base_setting_defs[idx].type;
-    if(idx >= SETTING_DESKTOP_COLOR_BASE &&
-       idx <  SETTING_DESKTOP_COLOR_BASE + VWM_MAX_DESKTOPS)
+
+    {
+        vwm_t *vwm = vwm_get_instance();
+        sc = vwm ? vwm->surface_count : 0;
+    }
+    wp_base = SETTING_DESKTOP_COLOR_BASE + sc;
+
+    if(idx >= SETTING_DESKTOP_COLOR_BASE && idx < wp_base)
         return SETTING_TYPE_COLOR;
+    if(idx >= wp_base && idx < wp_base + sc)
+        return SETTING_TYPE_DROPDOWN;
     return -1;
 }
 
-/* count of settings currently visible: base + one per active surface */
+/* count of settings currently visible: base + one color + one
+   wallpaper per active surface */
 static int
 active_setting_count(void)
 {
     vwm_t *vwm = vwm_get_instance();
-    return NUM_BASE_SETTINGS + (vwm ? vwm->surface_count : 0);
+    return NUM_BASE_SETTINGS + (vwm ? 2 * vwm->surface_count : 0);
 }
 
-static const char *vwm_color_names[16] =
-{
-    "Black", "Red", "Green", "Yellow",
-    "Blue", "Magenta", "Cyan", "White",
-    "Br Black", "Br Red", "Br Green", "Br Yellow",
-    "Br Blue", "Br Magenta", "Br Cyan", "Br White"
-};
+/* color name table -- definition in bkgd.c (shared with settings.c
+   for JSON persistence), declaration in vwm.h */
 
 typedef struct
 {
@@ -257,24 +279,41 @@ model_load_from_vwm(vwm_t *vwm)
     snprintf(model->values[SETTING_SCREENSAVER_IDLE], NAME_MAX,
         "%d", vwm->screensaver_timeout);
 
-    /* dynamic Desktop N Color rows: build a label per row and copy
-       the current color name into the value slot.  rows past the
-       active surface_count stay zero-length and are not rendered. */
+    /* dynamic rows: Desktop N Color, then Desktop N Wallpaper.  Storage
+       is dense, packed right after the base rows in surface_count-
+       dependent positions.  Labels are built per row for both groups. */
     {
+        int wp_base = SETTING_DESKTOP_COLOR_BASE + vwm->surface_count;
         int i;
+
         for(i = 0; i < VWM_MAX_DESKTOPS; i++)
         {
-            int idx = vwm->desktop_color[i];
-            if(idx < 0 || idx > 15) idx = COLOR_BLUE;
+            int cidx = vwm->desktop_color[i];
+            int widx = vwm->desktop_wallpaper[i];
+
+            if(cidx < 0 || cidx > 15) cidx = COLOR_BLUE;
+            if(widx < 0 || widx >= VWM_WALLPAPER_COUNT)
+                widx = VWM_WALLPAPER_STIPLE;
 
             snprintf(desktop_color_labels[i],
                 sizeof(desktop_color_labels[i]),
                 "Desktop %d Color", i + 1);
 
-            strncpy(model->values[SETTING_DESKTOP_COLOR_BASE + i],
-                vwm_color_names[idx], NAME_MAX - 1);
-            model->values[SETTING_DESKTOP_COLOR_BASE + i][NAME_MAX - 1]
-                = '\0';
+            snprintf(desktop_wallpaper_labels[i],
+                sizeof(desktop_wallpaper_labels[i]),
+                "Desktop %d Wallpaper", i + 1);
+
+            if(i < vwm->surface_count)
+            {
+                strncpy(model->values[SETTING_DESKTOP_COLOR_BASE + i],
+                    vwm_color_names[cidx], NAME_MAX - 1);
+                model->values[SETTING_DESKTOP_COLOR_BASE + i][NAME_MAX - 1]
+                    = '\0';
+
+                strncpy(model->values[wp_base + i],
+                    vwm_wallpaper_names[widx], NAME_MAX - 1);
+                model->values[wp_base + i][NAME_MAX - 1] = '\0';
+            }
         }
     }
 }
@@ -337,10 +376,13 @@ commit_to_vwm(void)
     vwm->screensaver_timeout = atoi(model->values[SETTING_SCREENSAVER_IDLE]);
     if(vwm->screensaver_timeout < 0) vwm->screensaver_timeout = 0;
 
-    /* commit each visible Desktop N Color row back into the per-surface
-       color array.  rows beyond the active surface count are skipped. */
+    /* commit each visible Desktop N Color and Desktop N Wallpaper row
+       back into the per-surface arrays.  rows beyond the active
+       surface count are not in the model and so are skipped. */
     {
+        int wp_base = SETTING_DESKTOP_COLOR_BASE + vwm->surface_count;
         int d;
+
         for(d = 0; d < vwm->surface_count && d < VWM_MAX_DESKTOPS; d++)
         {
             int i;
@@ -354,10 +396,21 @@ commit_to_vwm(void)
                     break;
                 }
             }
+            for(i = 0; i < VWM_WALLPAPER_COUNT; i++)
+            {
+                if(strcmp(
+                    model->values[wp_base + d],
+                    vwm_wallpaper_names[i]) == 0)
+                {
+                    vwm->desktop_wallpaper[d] = (short)i;
+                    break;
+                }
+            }
         }
     }
 
-    /* repaint surfaces so the new desktop colors take effect right away */
+    /* repaint surfaces so the new desktop colors and wallpapers take
+       effect right away */
     vk_screen_refresh(vwm->screen);
 }
 
@@ -522,6 +575,13 @@ modify_popup_apply(void)
                         strncpy(model->values[modify_setting_idx],
                             model->app_titles[curr - 1], NAME_MAX - 1);
                 }
+                else if(curr < VWM_WALLPAPER_COUNT)
+                {
+                    /* Desktop N Wallpaper */
+                    strncpy(model->values[modify_setting_idx],
+                        vwm_wallpaper_names[curr], NAME_MAX - 1);
+                }
+                model->values[modify_setting_idx][NAME_MAX - 1] = '\0';
             }
         }
     }
@@ -893,6 +953,18 @@ modify_popup_open(int setting_idx)
                 if(strcmp(model->values[setting_idx],
                     model->app_titles[i]) == 0)
                     sel_idx = i + 1;
+            }
+        }
+        else
+        {
+            /* Desktop N Wallpaper: static list of pattern names */
+            for(i = 0; i < VWM_WALLPAPER_COUNT; i++)
+            {
+                vk_listbox_add_item(modify_listbox,
+                    vwm_wallpaper_names[i], NULL, NULL);
+                if(strcmp(model->values[setting_idx],
+                    vwm_wallpaper_names[i]) == 0)
+                    sel_idx = i;
             }
         }
 
