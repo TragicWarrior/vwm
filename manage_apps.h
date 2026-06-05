@@ -11,6 +11,8 @@ bool    vwm_manage_apps_is_open(void);
 int     vwm_manage_apps_mouse(MEVENT *mouse_event);
 void    vwm_manage_apps_handle_resize(void);
 vk_widget_t *vwm_manage_apps_get_warning_popup(void);
+vk_widget_t *vwm_manage_apps_get_saved_popup(void);
+vk_widget_t *vwm_manage_apps_get_confirm_popup(void);
 vk_widget_t *vwm_manage_apps_get_edit_popup(void);
 vk_widget_t *vwm_manage_apps_get_dropdown_popup(void);
 vk_widget_t *vwm_manage_apps_get_load_popup(void);

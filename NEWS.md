@@ -16,6 +16,23 @@ Mouse hit zones for dropdowns and buttons are now computed
 dynamically from the layout rather than hardcoded, preventing
 misalignment when dialog dimensions change.
 
+Manage Apps Menu Remove button now removes the selected entry from
+the listbox immediately.  The Add button opens the Edit popup with
+defaults and only inserts a new entry on Apply.  Save shows a
+confirmation popup ("Settings saved.") and keeps the dialog open.
+Close (renamed from Cancel) prompts to discard unsaved changes when
+modifications have been made.
+
+Dropdown menus (VWM / Apps) now account for the scrollbar column
+in width calculations, preventing clipped text.  Trailing separator
+after the last category in the Apps menu is removed so all items
+are reachable when scrolling.
+
+Added STYLE_GUIDE.md documenting the three UI color themes (cyan
+main dialogs, red warning/confirm popups, blue input/info popups)
+and VDK patterns for client area fill, resize workarounds, and
+widget recreation.
+
 2026-05-27
 
 Added Manage Hotkeys dialog accessible from VWM menu.  All 13 hotkeys

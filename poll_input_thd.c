@@ -101,6 +101,34 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
             }
         }
 
+        vk_widget_t *apps_confirm =
+            vwm_manage_apps_get_confirm_popup();
+        if(apps_confirm != NULL)
+        {
+            vk_widget_get_position(apps_confirm, &wx, &wy);
+            vk_widget_get_metrics(apps_confirm, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = apps_confirm;
+                return ZONE_MANAGE_APPS;
+            }
+        }
+
+        vk_widget_t *apps_saved =
+            vwm_manage_apps_get_saved_popup();
+        if(apps_saved != NULL)
+        {
+            vk_widget_get_position(apps_saved, &wx, &wy);
+            vk_widget_get_metrics(apps_saved, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = apps_saved;
+                return ZONE_MANAGE_APPS;
+            }
+        }
+
         vk_widget_t *apps_warning =
             vwm_manage_apps_get_warning_popup();
         if(apps_warning != NULL)

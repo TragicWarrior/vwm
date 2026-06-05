@@ -191,7 +191,7 @@ create_file_dropdown(vwm_t *vwm)
 
     vk_listbox_update(listbox);
     vk_listbox_get_metrics(listbox, &max_width, &max_height);
-    max_width += 3;
+    max_width += 4;
     if(max_width > scr_width) max_width = scr_width;
     if(max_height > scr_height) max_height = scr_height;
 
@@ -254,9 +254,16 @@ create_apps_dropdown(vwm_t *vwm)
             vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     }
 
+    /* remove trailing separator */
+    {
+        int last = vk_listbox_get_item_count(listbox) - 1;
+        if(last >= 0 && vk_listbox_item_is_separator(listbox, last))
+            vk_listbox_remove_item(listbox, last);
+    }
+
     vk_listbox_update(listbox);
     vk_listbox_get_metrics(listbox, &max_width, &max_height);
-    max_width += 3;
+    max_width += 4;
     if(max_width > scr_width) max_width = scr_width;
     if(max_height > scr_height) max_height = scr_height;
 

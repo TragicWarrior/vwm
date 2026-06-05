@@ -69,6 +69,7 @@ typedef struct
     int                 count;
     int                 selected;
     int                 focus_zone;
+    bool                dirty;
     char                file_path[PATH_MAX];
 } manage_app_model_t;
 
@@ -148,6 +149,7 @@ static vk_input_t      *edit_input_binary = NULL;
 static vk_input_t      *edit_input_params = NULL;
 static int             edit_focus = EDIT_FOCUS_TITLE;
 static int             edit_active_btn = EDIT_BTN_OK;
+static bool            edit_is_add_mode = false;
 static vk_dropdown_t   *active_dropdown = NULL;
 
 #define LOAD_WIDTH          50
@@ -159,6 +161,9 @@ static int                 list_last_click_item = -1;
 static vk_popup_t          *load_popup = NULL;
 static vk_filedialog_t     *load_filedialog = NULL;
 static vk_popup_t          *warning_popup = NULL;
+static vk_popup_t          *saved_popup = NULL;
+static vk_popup_t          *confirm_popup = NULL;
+static int                 confirm_active_btn = 0;
 static struct timespec     load_last_click_time;
 static int                 load_last_click_item = -1;
 
@@ -167,6 +172,9 @@ static void refresh_dialog(void);
 static void refresh_edit_popup(void);
 static void refresh_load_popup(void);
 static int  manage_apps_kmio(vk_object_t *object, int32_t keystroke);
+static void saved_popup_show(void);
+static void confirm_popup_show(void);
+static void confirm_popup_close(void);
 
 static void
 listbox_scroll_info(vk_widget_t *child,
@@ -388,6 +396,8 @@ commit_dropdowns_to_entry(int idx)
 
     vis_sel = vk_dropdown_get_curr(vis_dropdown);
     e->hidden = (vis_sel == 1);
+
+    model->dirty = true;
 }
 
 static void
@@ -584,6 +594,7 @@ edit_popup_close(void)
     edit_input_title = NULL;
     edit_input_binary = NULL;
     edit_input_params = NULL;
+    edit_is_add_mode = false;
 
     refresh_dialog();
 }
@@ -594,13 +605,30 @@ edit_popup_ok(void)
     manage_app_entry_t  *e;
     const char          *text;
 
-    if(model->selected < 0 || model->selected >= model->count)
+    if(edit_is_add_mode)
     {
-        edit_popup_close();
-        return;
-    }
+        if(model->count >= MAX_ENTRIES)
+        {
+            edit_popup_close();
+            return;
+        }
 
-    e = &model->entries[model->selected];
+        e = &model->entries[model->count];
+        memset(e, 0, sizeof(*e));
+        strncpy(e->requires, "vterm-color", NAME_MAX - 1);
+        e->type = VWM_MOD_TYPE_TOOL;
+        e->hidden = false;
+    }
+    else
+    {
+        if(model->selected < 0 || model->selected >= model->count)
+        {
+            edit_popup_close();
+            return;
+        }
+
+        e = &model->entries[model->selected];
+    }
 
     text = vk_input_get_text(edit_input_title);
     if(text != NULL)
@@ -623,6 +651,13 @@ edit_popup_ok(void)
         strncpy(e->params, text, MAX_PARAMS - 1);
     }
 
+    if(edit_is_add_mode)
+    {
+        model->count++;
+        model->selected = model->count - 1;
+    }
+
+    model->dirty = true;
     edit_popup_close();
     listbox_rebuild();
 
@@ -630,6 +665,7 @@ edit_popup_ok(void)
     {
         vk_listbox_set_curr(app_listbox, model->selected);
         vk_listbox_update(app_listbox);
+        populate_dropdowns_from_entry(model->selected);
     }
 
     refresh_dialog();
@@ -889,15 +925,28 @@ edit_popup_open(void)
     int                 pos_x, pos_y;
 
     if(edit_popup != NULL) return;
-    if(model->selected < 0 || model->selected >= model->count) return;
 
-    e = &model->entries[model->selected];
+    if(edit_is_add_mode)
+    {
+        static manage_app_entry_t add_defaults;
+        memset(&add_defaults, 0, sizeof(add_defaults));
+        strncpy(add_defaults.title, "New App", NAME_MAX - 1);
+        strncpy(add_defaults.bin, "/usr/bin/", PATH_MAX - 1);
+        add_defaults.type = VWM_MOD_TYPE_TOOL;
+        add_defaults.hidden = false;
+        e = &add_defaults;
+    }
+    else
+    {
+        if(model->selected < 0 || model->selected >= model->count) return;
+        e = &model->entries[model->selected];
+    }
     vwm = vwm_get_instance();
     getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
 
     edit_popup = vk_popup_create(EDIT_WIDTH, EDIT_HEIGHT,
         VK_FRAME_SINGLE, "Apply", "Cancel", NULL);
-    vk_popup_set_title(edit_popup, " Edit App ");
+    vk_popup_set_title(edit_popup, edit_is_add_mode ? " Add App " : " Edit App ");
     vk_popup_set_border_colors(edit_popup, COLOR_WHITE, COLOR_BLUE);
     vk_popup_set_border_attrs(edit_popup, A_BOLD);
     vk_popup_set_colors(edit_popup, COLOR_WHITE, COLOR_BLUE);
@@ -1025,6 +1074,7 @@ load_popup_ok(void)
 
     model_load_from_config(model->file_path);
     model->selected = 0;
+    model->dirty = false;
 
     listbox_rebuild();
 
@@ -1155,25 +1205,10 @@ load_popup_open(void)
 static void
 on_add(void)
 {
-    manage_app_entry_t *e;
-
     if(model->count >= MAX_ENTRIES) return;
 
-    e = &model->entries[model->count];
-    memset(e, 0, sizeof(*e));
-    strncpy(e->title, "New App", NAME_MAX - 1);
-    strncpy(e->bin, "/bin/bash", PATH_MAX - 1);
-    strncpy(e->requires, "vterm-color", NAME_MAX - 1);
-    e->type = VWM_MOD_TYPE_TOOL;
-    e->hidden = false;
-
-    model->count++;
-    model->selected = model->count - 1;
-
-    listbox_rebuild();
-    vk_listbox_set_curr(app_listbox, model->selected);
-    vk_listbox_update(app_listbox);
-    populate_dropdowns_from_entry(model->selected);
+    edit_is_add_mode = true;
+    edit_popup_open();
 }
 
 static void
@@ -1188,6 +1223,7 @@ on_remove(void)
         model->entries[i] = model->entries[i + 1];
 
     model->count--;
+    model->dirty = true;
 
     if(model->selected >= model->count && model->count > 0)
         model->selected = model->count - 1;
@@ -1200,6 +1236,8 @@ on_remove(void)
         vk_listbox_update(app_listbox);
         populate_dropdowns_from_entry(model->selected);
     }
+
+    refresh_dialog();
 }
 
 static void
@@ -1214,17 +1252,13 @@ on_edit(void)
 static void
 on_save(void)
 {
-    vwm_t *vwm;
-
     commit_dropdowns_to_entry(model->selected);
     model_save_to_config(model->file_path);
+    model->dirty = false;
 
     vwm_programs_reload();
 
-    vwm = vwm_get_instance();
-    vk_screen_refresh(vwm->screen);
-
-    vwm_manage_apps_close();
+    saved_popup_show();
 }
 
 static void
@@ -1236,6 +1270,12 @@ on_load(void)
 static void
 on_cancel(void)
 {
+    if(model->dirty)
+    {
+        confirm_popup_show();
+        return;
+    }
+
     vwm_manage_apps_close();
 }
 
@@ -1370,6 +1410,306 @@ warning_popup_show(void)
     vk_screen_refresh(vwm->screen);
 }
 
+/* ── saved popup ───────────────────────────────────────────── */
+
+static void
+saved_popup_close(void)
+{
+    vwm_t *vwm;
+
+    if(saved_popup == NULL) return;
+
+    vwm = vwm_get_instance();
+
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(saved_popup));
+
+    vk_popup_destroy(saved_popup);
+    saved_popup = NULL;
+
+    refresh_dialog();
+}
+
+static int
+saved_popup_kmio(vk_object_t *object, int32_t keystroke)
+{
+    (void)object;
+
+    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
+    {
+        saved_popup_close();
+        return 0;
+    }
+
+    return 0;
+}
+
+static void
+saved_popup_show(void)
+{
+    vwm_t       *vwm;
+    vk_box_t    *client;
+    int         scr_w, scr_h;
+    int         popup_w = 30;
+    int         popup_h = 7;
+    int         pos_x, pos_y;
+
+    if(saved_popup != NULL) return;
+
+    vwm = vwm_get_instance();
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+
+    saved_popup = vk_popup_create(popup_w, popup_h,
+        VK_FRAME_SINGLE, "OK", NULL);
+    vk_popup_set_border_colors(saved_popup, COLOR_WHITE, COLOR_BLUE);
+    vk_popup_set_border_attrs(saved_popup, A_BOLD);
+    vk_popup_set_colors(saved_popup, COLOR_WHITE, COLOR_BLUE);
+    vk_popup_set_button_colors(saved_popup, COLOR_WHITE, COLOR_BLUE);
+    vk_popup_set_button_attrs(saved_popup, A_BOLD);
+
+    client = vk_box_create(popup_w - 2, popup_h - 5,
+        VK_BOX_VERTICAL, 1);
+    vk_box_set_homogeneous(client, true);
+    vk_widget_set_colors(VK_WIDGET(client), COLOR_WHITE, COLOR_BLUE);
+
+    {
+        vk_label_t *label = vk_label_create(popup_w - 2);
+        vk_label_set_justify(label, VK_JUSTIFY_CENTER);
+        vk_label_set_text(label, "Settings saved.");
+        vk_widget_set_colors(VK_WIDGET(label), COLOR_WHITE, COLOR_BLUE);
+        vk_label_update(label);
+        vk_box_set_widget(client, 0, VK_WIDGET(label));
+    }
+
+    vk_popup_set_client(saved_popup, VK_WIDGET(client));
+
+    {
+        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
+        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
+    }
+
+    vk_object_set_kmio(VK_OBJECT(saved_popup), saved_popup_kmio);
+
+    {
+        vk_button_t *ok_btn = vk_popup_get_button(saved_popup, 0);
+        vk_widget_set_colors(VK_WIDGET(ok_btn), COLOR_YELLOW, COLOR_BLUE);
+        vk_widget_set_attrs(VK_WIDGET(ok_btn), A_BOLD);
+        vk_button_update(ok_btn);
+    }
+
+    pos_x = (scr_w - popup_w) / 2;
+    pos_y = (scr_h - popup_h) / 2;
+    if(pos_x < 0) pos_x = 0;
+    if(pos_y < 0) pos_y = 0;
+
+    vk_widget_move(VK_WIDGET(saved_popup), pos_x, pos_y);
+
+    vk_screen_attach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(saved_popup));
+
+    vk_widget_fill(VK_WIDGET(client),
+        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
+    vk_box_update(client);
+    vk_popup_update(saved_popup);
+    vk_screen_refresh(vwm->screen);
+}
+
+/* ── confirm-discard popup ─────────────────────────────────── */
+
+static void
+confirm_popup_close(void)
+{
+    vwm_t *vwm;
+
+    if(confirm_popup == NULL) return;
+
+    vwm = vwm_get_instance();
+
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(confirm_popup));
+
+    vk_popup_destroy(confirm_popup);
+    confirm_popup = NULL;
+
+    refresh_dialog();
+}
+
+static int
+confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
+{
+    (void)object;
+
+    if(keystroke == 27)
+    {
+        confirm_popup_close();
+        return 0;
+    }
+
+    if(keystroke == '\t' || keystroke == KEY_RIGHT || keystroke == KEY_LEFT)
+    {
+        int count = vk_popup_get_button_count(confirm_popup);
+        confirm_active_btn = (confirm_active_btn + 1) % count;
+
+        for(int i = 0; i < count; i++)
+        {
+            vk_button_t *btn = vk_popup_get_button(confirm_popup, i);
+            vk_button_release(btn);
+
+            if(i == confirm_active_btn)
+            {
+                vk_widget_set_colors(VK_WIDGET(btn),
+                    COLOR_YELLOW, COLOR_WHITE);
+                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
+            }
+            else
+            {
+                vk_widget_set_colors(VK_WIDGET(btn),
+                    COLOR_BLACK, COLOR_WHITE);
+                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
+            }
+
+            vk_button_update(btn);
+        }
+
+        vk_popup_update(confirm_popup);
+
+        vwm_t *vwm = vwm_get_instance();
+        vk_screen_refresh(vwm->screen);
+        return 0;
+    }
+
+    if(keystroke == KEY_CRLF || keystroke == ' ')
+    {
+        if(confirm_active_btn == 0)
+        {
+            confirm_popup_close();
+            vwm_manage_apps_close();
+        }
+        else
+        {
+            confirm_popup_close();
+        }
+
+        return 0;
+    }
+
+    return 0;
+}
+
+static void
+confirm_popup_show(void)
+{
+    vwm_t       *vwm;
+    vk_box_t    *client;
+    int         scr_w, scr_h;
+    int         popup_w = 40;
+    int         popup_h = 9;
+    int         pos_x, pos_y;
+
+    if(confirm_popup != NULL) return;
+
+    vwm = vwm_get_instance();
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+
+    confirm_popup = vk_popup_create(popup_w, popup_h,
+        VK_FRAME_SINGLE, "Discard", "Cancel", NULL);
+    vk_popup_set_title(confirm_popup, " Confirm ");
+    vk_popup_set_border_colors(confirm_popup, COLOR_RED, COLOR_WHITE);
+    vk_popup_set_border_attrs(confirm_popup, A_NORMAL);
+    vk_popup_set_colors(confirm_popup, COLOR_RED, COLOR_WHITE);
+    {
+        vk_box_t *bar = vk_popup_get_button_bar(confirm_popup);
+        if(bar != NULL)
+        {
+            vk_widget_set_colors(VK_WIDGET(bar), COLOR_RED, COLOR_WHITE);
+            vk_widget_fill(VK_WIDGET(bar),
+                ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
+        }
+    }
+
+    client = vk_box_create(popup_w - 2, popup_h - 5,
+        VK_BOX_VERTICAL, 4);
+    vk_box_set_homogeneous(client, true);
+    vk_widget_set_colors(VK_WIDGET(client), COLOR_RED, COLOR_WHITE);
+
+    {
+        vk_filler_t *top_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_RED, COLOR_WHITE);
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+
+        vk_label_t *line1 = vk_label_create(popup_w - 2);
+        vk_label_set_justify(line1, VK_JUSTIFY_CENTER);
+        vk_label_set_text(line1, "You have unsaved changes.");
+        vk_widget_set_colors(VK_WIDGET(line1), COLOR_RED, COLOR_WHITE);
+        vk_label_update(line1);
+        vk_box_set_widget(client, 1, VK_WIDGET(line1));
+
+        vk_label_t *line2 = vk_label_create(popup_w - 2);
+        vk_label_set_justify(line2, VK_JUSTIFY_CENTER);
+        vk_label_set_text(line2, "Discard changes and close?");
+        vk_widget_set_colors(VK_WIDGET(line2), COLOR_RED, COLOR_WHITE);
+        vk_label_update(line2);
+        vk_box_set_widget(client, 2, VK_WIDGET(line2));
+
+        vk_filler_t *bot_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_RED, COLOR_WHITE);
+        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad));
+    }
+
+    vk_popup_set_client(confirm_popup, VK_WIDGET(client));
+
+    {
+        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
+        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
+    }
+
+    vk_object_set_kmio(VK_OBJECT(confirm_popup), confirm_popup_kmio);
+
+    confirm_active_btn = 0;
+
+    {
+        int count = vk_popup_get_button_count(confirm_popup);
+        for(int i = 0; i < count; i++)
+        {
+            vk_button_t *btn = vk_popup_get_button(confirm_popup, i);
+
+            if(i == confirm_active_btn)
+            {
+                vk_widget_set_colors(VK_WIDGET(btn),
+                    COLOR_YELLOW, COLOR_WHITE);
+            }
+            else
+            {
+                vk_widget_set_colors(VK_WIDGET(btn),
+                    COLOR_BLACK, COLOR_WHITE);
+            }
+
+            vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
+            vk_button_update(btn);
+        }
+    }
+
+    pos_x = (scr_w - popup_w) / 2;
+    pos_y = (scr_h - popup_h) / 2;
+    if(pos_x < 0) pos_x = 0;
+    if(pos_y < 0) pos_y = 0;
+
+    vk_widget_move(VK_WIDGET(confirm_popup), pos_x, pos_y);
+
+    vk_screen_attach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(confirm_popup));
+
+    vk_widget_fill(VK_WIDGET(client),
+        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
+    vk_box_update(client);
+    vk_popup_update(confirm_popup);
+    vk_screen_refresh(vwm->screen);
+}
+
 /* ── keyboard handlers ──────────────────────────────────────── */
 
 static int
@@ -1459,6 +1799,12 @@ manage_apps_kmio(vk_object_t *object, int32_t keystroke)
     int     retval = -1;
 
     (void)object;
+
+    if(confirm_popup != NULL)
+        return confirm_popup_kmio(NULL, keystroke);
+
+    if(saved_popup != NULL)
+        return saved_popup_kmio(NULL, keystroke);
 
     if(warning_popup != NULL)
         return warning_popup_kmio(NULL, keystroke);
@@ -1731,7 +2077,7 @@ build_dialog(void)
     buttons[BTN_EDIT] = vk_button_create("Edit");
     buttons[BTN_SAVE] = vk_button_create("Save");
     buttons[BTN_LOAD] = vk_button_create("Load");
-    buttons[BTN_CANCEL] = vk_button_create("Cancel");
+    buttons[BTN_CANCEL] = vk_button_create("Close");
 
     {
         int i;
@@ -1839,6 +2185,12 @@ vwm_manage_apps_close(void)
 
     if(dialog_window == NULL) return;
 
+    if(confirm_popup != NULL)
+        confirm_popup_close();
+
+    if(saved_popup != NULL)
+        saved_popup_close();
+
     if(warning_popup != NULL)
         warning_popup_close();
 
@@ -1919,6 +2271,18 @@ vwm_manage_apps_get_warning_popup(void)
     return VK_WIDGET(warning_popup);
 }
 
+vk_widget_t *
+vwm_manage_apps_get_saved_popup(void)
+{
+    return VK_WIDGET(saved_popup);
+}
+
+vk_widget_t *
+vwm_manage_apps_get_confirm_popup(void)
+{
+    return VK_WIDGET(confirm_popup);
+}
+
 void
 vwm_manage_apps_handle_resize(void)
 {
@@ -1939,6 +2303,12 @@ vwm_manage_apps_handle_resize(void)
 
     pos_x = (scr_w - DIALOG_WIDTH) / 2;
     pos_y = (scr_h - DIALOG_HEIGHT) / 2;
+
+    if(confirm_popup != NULL)
+        confirm_popup_close();
+
+    if(saved_popup != NULL)
+        saved_popup_close();
 
     vk_widget_recreate(VK_WIDGET(dialog_window));
     vk_widget_move(VK_WIDGET(dialog_window), pos_x, pos_y);
@@ -1962,6 +2332,48 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
     if(mouse_event == NULL) return -1;
 
     bs = mouse_event->bstate;
+
+    if(confirm_popup != NULL)
+    {
+        if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+        {
+            int cp_x, cp_y, cp_w, cp_h;
+            int cx, cy;
+
+            vk_widget_get_position(VK_WIDGET(confirm_popup),
+                &cp_x, &cp_y);
+            vk_widget_get_metrics(VK_WIDGET(confirm_popup),
+                &cp_w, &cp_h);
+
+            cx = mouse_event->x - cp_x - 1;
+            cy = mouse_event->y - cp_y - 1;
+
+            if(cy >= cp_h - 4 && cy < cp_h - 2
+                && cx >= 0 && cx < cp_w - 2)
+            {
+                int mid = (cp_w - 2) / 2;
+                if(cx < mid)
+                {
+                    confirm_popup_close();
+                    vwm_manage_apps_close();
+                }
+                else
+                {
+                    confirm_popup_close();
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    if(saved_popup != NULL)
+    {
+        if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+            saved_popup_close();
+
+        return 0;
+    }
 
     if(warning_popup != NULL)
     {
