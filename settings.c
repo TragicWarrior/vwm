@@ -185,6 +185,20 @@ vwm_settings_load_general(vwm_t *vwm)
             vwm->surface_count = val;
     }
 
+    if(config_lookup_string(&cfg,
+        "settings.screensaver_command", &str) == CONFIG_TRUE)
+    {
+        strncpy(vwm->screensaver_cmd, str, NAME_MAX - 1);
+        vwm->screensaver_cmd[NAME_MAX - 1] = '\0';
+    }
+
+    if(config_lookup_int(&cfg,
+        "settings.screensaver_timeout", &val) == CONFIG_TRUE)
+    {
+        if(val >= 0)
+            vwm->screensaver_timeout = val;
+    }
+
     config_destroy(&cfg);
 }
 
@@ -221,6 +235,14 @@ vwm_settings_save_general(vwm_t *vwm)
     setting = config_setting_add(settings_grp,
         "num_desktops", CONFIG_TYPE_INT);
     config_setting_set_int(setting, vwm->surface_count);
+
+    setting = config_setting_add(settings_grp,
+        "screensaver_command", CONFIG_TYPE_STRING);
+    config_setting_set_string(setting, vwm->screensaver_cmd);
+
+    setting = config_setting_add(settings_grp,
+        "screensaver_timeout", CONFIG_TYPE_INT);
+    config_setting_set_int(setting, vwm->screensaver_timeout);
 
     config_write_file(&config, vwm->profile->rc_file);
     config_destroy(&config);

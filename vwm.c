@@ -224,6 +224,8 @@ vwm_init(void)
 
         strncpy(vwm->task_indicator_action, "none", NAME_MAX - 1);
         strncpy(vwm->date_click_action, "calendar", NAME_MAX - 1);
+        vwm->screensaver_cmd[0] = '\0';
+        vwm->screensaver_timeout = 0;
         vwm->surface_count = 3;
 
         vwm->decks = calloc(vwm->surface_count, sizeof(vk_deck_t *));

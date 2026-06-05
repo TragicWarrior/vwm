@@ -1,3 +1,26 @@
+2026-05-29
+
+Added a screen saver.  When the idle timeout set in the Settings
+dialog elapses with no keyboard or mouse activity, VWM launches a
+configured program (for example vlock) in a full-screen terminal
+layered above the desktop and panel.  While it runs, every hotkey and
+mouse action is withheld from the window manager and delivered only to
+that program; normal operation resumes when the program exits.  The
+command accepts arguments, the idle timeout is given in minutes (0
+disables the screen saver), and the countdown is suspended while a
+menu or dialog is open.  The Settings dialog gained fields for the
+screen-saver command and idle timeout.
+
+Fixed heap corruption when closing a menubar dropdown or the calendar
+popup.  The child widget was destroyed before the window that owned
+it, so the window destructor unlinked an already-freed list node.
+Both call sites now detach the child before destroying either widget.
+
+Fixed a crash when the screen saver's terminal closed.  Its window is
+attached to the surface rather than a deck, so removing it ran a
+list_del on a never-linked node; VDK now initializes every widget's
+list node at construction, making the operation safe.
+
 2026-05-28
 
 Added a Settings and Preferences dialog to the VWM menu.  It configures

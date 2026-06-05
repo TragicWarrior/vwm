@@ -28,12 +28,14 @@
 #define INTERIOR_WIDTH      (DIALOG_WIDTH - 2)
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
-#define NUM_SETTINGS        3
+#define NUM_SETTINGS        5
 #define MAX_APP_OPTIONS     64
 
 #define SETTING_TASK_ACTION     0
 #define SETTING_DATE_ACTION     1
 #define SETTING_NUM_DESKTOPS    2
+#define SETTING_SCREENSAVER_CMD 3
+#define SETTING_SCREENSAVER_IDLE 4
 
 #define SETTING_TYPE_DROPDOWN   0
 #define SETTING_TYPE_INPUT      1
@@ -64,6 +66,8 @@ setting_defs[NUM_SETTINGS] =
     { "Task Indicator",     SETTING_TYPE_DROPDOWN },
     { "Date Click",         SETTING_TYPE_DROPDOWN },
     { "Desktops",           SETTING_TYPE_INPUT },
+    { "Screensaver Cmd",    SETTING_TYPE_INPUT },
+    { "Screensaver Idle",   SETTING_TYPE_INPUT },
 };
 
 typedef struct
@@ -193,6 +197,10 @@ model_load_from_vwm(vwm_t *vwm)
         vwm->date_click_action, NAME_MAX - 1);
     snprintf(model->values[SETTING_NUM_DESKTOPS], NAME_MAX,
         "%d", vwm->surface_count);
+    strncpy(model->values[SETTING_SCREENSAVER_CMD],
+        vwm->screensaver_cmd, NAME_MAX - 1);
+    snprintf(model->values[SETTING_SCREENSAVER_IDLE], NAME_MAX,
+        "%d", vwm->screensaver_timeout);
 }
 
 static void
@@ -220,6 +228,14 @@ model_load_from_config(const char *path)
     if(config_lookup_int(&cfg, "settings.num_desktops", &val) == CONFIG_TRUE)
         snprintf(model->values[SETTING_NUM_DESKTOPS], NAME_MAX, "%d", val);
 
+    if(config_lookup_string(&cfg,
+        "settings.screensaver_command", &str) == CONFIG_TRUE)
+        strncpy(model->values[SETTING_SCREENSAVER_CMD], str, NAME_MAX - 1);
+
+    if(config_lookup_int(&cfg,
+        "settings.screensaver_timeout", &val) == CONFIG_TRUE)
+        snprintf(model->values[SETTING_SCREENSAVER_IDLE], NAME_MAX, "%d", val);
+
     config_destroy(&cfg);
 }
 
@@ -235,6 +251,13 @@ commit_to_vwm(void)
     strncpy(vwm->date_click_action,
         model->values[SETTING_DATE_ACTION], NAME_MAX - 1);
     vwm->date_click_action[NAME_MAX - 1] = '\0';
+
+    strncpy(vwm->screensaver_cmd,
+        model->values[SETTING_SCREENSAVER_CMD], NAME_MAX - 1);
+    vwm->screensaver_cmd[NAME_MAX - 1] = '\0';
+
+    vwm->screensaver_timeout = atoi(model->values[SETTING_SCREENSAVER_IDLE]);
+    if(vwm->screensaver_timeout < 0) vwm->screensaver_timeout = 0;
 }
 
 /* ── listbox rendering ────────────────────────────────────── */
@@ -405,7 +428,7 @@ modify_popup_apply(void)
         if(modify_input != NULL)
         {
             const char *text = vk_input_get_text(modify_input);
-            if(text != NULL && text[0] != '\0')
+            if(text != NULL)
             {
                 strncpy(model->values[modify_setting_idx],
                     text, NAME_MAX - 1);
@@ -591,12 +614,19 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
                 return 0;
             }
 
-            if(isdigit(keystroke))
             {
-                vk_input_insert_char(modify_input, keystroke);
-                vk_input_update(modify_input);
-                refresh_modify_popup();
-                return 0;
+                int numeric = (modify_setting_idx == SETTING_NUM_DESKTOPS ||
+                    modify_setting_idx == SETTING_SCREENSAVER_IDLE);
+                int accept = numeric ? (isdigit(keystroke) != 0)
+                    : (keystroke >= 32 && keystroke <= 126);
+
+                if(accept)
+                {
+                    vk_input_insert_char(modify_input, keystroke);
+                    vk_input_update(modify_input);
+                    refresh_modify_popup();
+                    return 0;
+                }
             }
         }
 
@@ -726,7 +756,16 @@ modify_popup_open(int setting_idx)
             COLOR_WHITE, COLOR_BLUE);
 
         lbl = vk_label_create(popup_w - 2);
-        vk_label_set_text(lbl, "  Number of Desktops (2-6):");
+        {
+            const char *prompt = "  Value:";
+            if(setting_idx == SETTING_NUM_DESKTOPS)
+                prompt = "  Number of Desktops (2-6):";
+            else if(setting_idx == SETTING_SCREENSAVER_CMD)
+                prompt = "  Screensaver command:";
+            else if(setting_idx == SETTING_SCREENSAVER_IDLE)
+                prompt = "  Idle minutes (0 = off):";
+            vk_label_set_text(lbl, prompt);
+        }
         vk_widget_set_colors(VK_WIDGET(lbl), COLOR_WHITE, COLOR_BLUE);
         vk_label_update(lbl);
         vk_box_set_widget(modify_client, 0, VK_WIDGET(lbl));
@@ -736,7 +775,7 @@ modify_popup_open(int setting_idx)
         vk_widget_set_colors(VK_WIDGET(modify_input),
             COLOR_CYAN, COLOR_BLUE);
         vk_input_set_text(modify_input,
-            model->values[SETTING_NUM_DESKTOPS]);
+            model->values[setting_idx]);
         vk_input_show_cursor(modify_input, true);
         vk_input_update(modify_input);
         vk_box_set_widget(modify_client, 1, VK_WIDGET(modify_input));

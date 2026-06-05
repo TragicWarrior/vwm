@@ -6,6 +6,7 @@
 #include "clock.h"
 #include "private.h"
 #include "panel.h"
+#include "screensaver.h"
 
 pt_t
 vwm_clock_driver(void * const env)
@@ -29,6 +30,7 @@ vwm_clock_driver(void * const env)
 
         clock_tick = 0;
         vwm_panel_ON_CLOCK_TICK(vwm_panel_get_data());
+        vwm_screensaver_tick();
         vk_screen_refresh(vwm->screen);
         ctx_timer->did_work = 1;
         pt_yield(ctx_timer);

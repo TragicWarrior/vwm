@@ -73,6 +73,7 @@ add_executable(vwm
     profile.c
     sched.c
     settings.c
+    screensaver.c
     programs.c
     manage_apps.c
     manage_hotkeys.c

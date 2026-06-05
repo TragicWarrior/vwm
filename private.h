@@ -54,6 +54,9 @@ struct _vwm_s
     char                    task_indicator_action[NAME_MAX];
     char                    date_click_action[NAME_MAX];
 
+    char                    screensaver_cmd[NAME_MAX];
+    int                     screensaver_timeout;        /* idle minutes; 0=off */
+
     uint32_t                state;
 
     int                     cursor_x;

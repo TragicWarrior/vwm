@@ -13,6 +13,7 @@
 #include "panel.h"
 #include "winman.h"
 #include "events.h"
+#include "screensaver.h"
 
 enum
 {
@@ -452,6 +453,18 @@ vwm_poll_input(void * const env)
             pt_yield(ctx_poll_input);
             continue;
         }
+
+        /* while the screensaver is up, all input is locked to it */
+        if(vwm_screensaver_is_active())
+        {
+            vwm_screensaver_input(keystroke, mouse_event);
+            vk_screen_refresh(vwm->screen);
+            ctx_poll_input->did_work = 1;
+            pt_yield(ctx_poll_input);
+            continue;
+        }
+
+        vwm_screensaver_note_activity();
 
         if(keystroke == KEY_RESIZE)
         {
