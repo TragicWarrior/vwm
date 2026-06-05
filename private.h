@@ -31,6 +31,8 @@ struct _vwm_s
     vk_menubar_t            *menubar;
     int                     menu_item_idx;
 
+    vk_window_t             *calendar_popup;
+
     uint32_t                state;
 
     int                     cursor_x;

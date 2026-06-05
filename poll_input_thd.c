@@ -22,6 +22,8 @@ enum
     ZONE_SCREEN = 0,
     ZONE_PANEL,
     ZONE_MENU,
+    ZONE_CALENDAR,
+    ZONE_STATUS_BAR,
     ZONE_CLOSE_BTN,
     ZONE_RESIZE_CORNER,
     ZONE_FRAME,
@@ -72,6 +74,25 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
     *hit_out = NULL;
 
     if(my == 0) return ZONE_PANEL;
+
+    {
+        int scr_h, scr_w;
+        getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+        (void)scr_w;
+        if(my == scr_h - 1) return ZONE_STATUS_BAR;
+    }
+
+    if(vwm->calendar_popup != NULL)
+    {
+        vk_widget_get_position(VK_WIDGET(vwm->calendar_popup), &wx, &wy);
+        vk_widget_get_metrics(VK_WIDGET(vwm->calendar_popup), &ww, &wh);
+
+        if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+        {
+            *hit_out = VK_WIDGET(vwm->calendar_popup);
+            return ZONE_CALENDAR;
+        }
+    }
 
     if(vwm->menu != NULL)
     {
@@ -215,6 +236,14 @@ vwm_poll_input(void * const env)
                 vk_screen_refresh(vwm->screen);
             }
 
+            if(vwm->calendar_popup != NULL && zone != ZONE_CALENDAR &&
+               zone != ZONE_STATUS_BAR && zone != ZONE_PANEL &&
+               (bs & BUTTON1_PRESSED))
+            {
+                vwm_calendar_close();
+                vk_screen_refresh(vwm->screen);
+            }
+
             switch(zone)
             {
                 case ZONE_PANEL:
@@ -245,6 +274,8 @@ vwm_poll_input(void * const env)
                                 if(bs & BUTTON1_PRESSED)
                                     menubar_ate_press = true;
 
+                                vwm_calendar_close();
+
                                 vk_menubar_set_curr(vwm->menubar, hit_idx);
                                 vk_menubar_set_focused(vwm->menubar, true);
                                 vk_menubar_update(vwm->menubar);
@@ -264,10 +295,32 @@ vwm_poll_input(void * const env)
                         }
                         else
                         {
-                            if(bs & BUTTON1_PRESSED)
-                                menubar_ate_press = true;
+                            VWM_PANEL *p = vwm_panel_get_data();
+                            int ck_x, ck_y, ck_w, ck_h;
 
-                            vwm_menubar_hotkey();
+                            vk_widget_get_position(
+                                VK_WIDGET(p->clock_label),
+                                &ck_x, &ck_y);
+                            vk_widget_get_metrics(
+                                VK_WIDGET(p->clock_label),
+                                &ck_w, &ck_h);
+
+                            if(mouse_event->x >= ck_x &&
+                               mouse_event->x < ck_x + ck_w)
+                            {
+                                if(bs & BUTTON1_PRESSED)
+                                    menubar_ate_press = true;
+
+                                vwm_calendar_toggle();
+                            }
+                            else
+                            {
+                                if(bs & BUTTON1_PRESSED)
+                                    menubar_ate_press = true;
+
+                                vwm_calendar_close();
+                                vwm_menubar_hotkey();
+                            }
                         }
                     }
 
@@ -330,6 +383,54 @@ vwm_poll_input(void * const env)
                     break;
                 }
 
+                case ZONE_CALENDAR:
+                {
+                    vk_calendar_t *cal = VK_CALENDAR(
+                        vk_window_get_child(vwm->calendar_popup));
+                    int cal_x, cal_y, cal_w, cal_h;
+                    int rx, ry;
+
+                    vk_widget_get_position(VK_WIDGET(vwm->calendar_popup),
+                        &cal_x, &cal_y);
+                    vk_widget_get_metrics(VK_WIDGET(vwm->calendar_popup),
+                        &cal_w, &cal_h);
+                    rx = mouse_event->x - cal_x;
+                    ry = mouse_event->y - cal_y;
+
+                    if(bs & BUTTON4_PRESSED)
+                    {
+                        vk_calendar_prev_month(cal);
+                        vk_calendar_update(cal);
+                        vk_window_update(vwm->calendar_popup);
+                    }
+                    else if(bs & BUTTON5_PRESSED)
+                    {
+                        vk_calendar_next_month(cal);
+                        vk_calendar_update(cal);
+                        vk_window_update(vwm->calendar_popup);
+                    }
+                    else if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+                    {
+                        if(ry == 1 && rx == 1)
+                        {
+                            vk_calendar_prev_month(cal);
+                            vk_calendar_update(cal);
+                            vk_window_update(vwm->calendar_popup);
+                        }
+                        else if(ry == 1 && rx == cal_w - 2)
+                        {
+                            vk_calendar_next_month(cal);
+                            vk_calendar_update(cal);
+                            vk_window_update(vwm->calendar_popup);
+                        }
+                    }
+
+                    break;
+                }
+
+                case ZONE_STATUS_BAR:
+                    break;
+
                 case ZONE_SCREEN:
                     break;
             }
@@ -338,6 +439,30 @@ vwm_poll_input(void * const env)
             ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
             continue;
+        }
+
+        if(vwm->calendar_popup != NULL)
+        {
+            retval = vk_object_push_keystroke(
+                VK_OBJECT(vk_window_get_child(vwm->calendar_popup)),
+                keystroke);
+
+            if(retval == 0)
+            {
+                vk_screen_refresh(vwm->screen);
+                ctx_poll_input->did_work = 1;
+                pt_yield(ctx_poll_input);
+                continue;
+            }
+
+            if(keystroke == 27 || keystroke == vwm->hotkey_menu)
+            {
+                vwm_calendar_close();
+                vk_screen_refresh(vwm->screen);
+                ctx_poll_input->did_work = 1;
+                pt_yield(ctx_poll_input);
+                continue;
+            }
         }
 
         retval = vwm_menubar_ON_KEYSTROKE(keystroke);

@@ -144,7 +144,8 @@ create_file_dropdown(vwm_t *vwm)
     scr_height = (scr_height * 3) / 4;
 
     listbox = vk_listbox_create(8, 10);
-    vk_listbox_set_highlight(listbox, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_RED);
+    vk_listbox_set_highlight_attrs(listbox, A_BOLD);
     vk_listbox_set_wrap(listbox, TRUE);
     vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
 
@@ -187,8 +188,9 @@ create_apps_dropdown(vwm_t *vwm)
     scr_height = (scr_height * 3) / 4;
 
     listbox = vk_listbox_create(8, 10);
-    vk_listbox_set_highlight(listbox, COLOR_BLACK, COLOR_RED);
-    vk_listbox_set_wrap(listbox, TRUE);
+    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_RED);
+    vk_listbox_set_highlight_attrs(listbox, A_BOLD);
+    vk_listbox_set_wrap(listbox, FALSE);
     vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
 
     for(i = 0; i < VWM_MOD_TYPE_MAX; i++)

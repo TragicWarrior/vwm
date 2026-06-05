@@ -1,3 +1,16 @@
+2026-05-26
+
+Added calendar popup triggered by clicking the clock in the panel.
+The calendar shows an XFCE4-style month view with navigation via
+arrow keys, mouse wheel, or clicking the < > arrows.  Escape or
+clicking outside dismisses it.
+
+Dropdown menu highlight now uses bright white on red for better
+contrast.
+
+Panel clock and task counter now populate immediately on startup
+instead of flashing black for one second.
+
 2026-05-25
 
 Added permanent status bar at the bottom of the screen with a scrolling

@@ -70,4 +70,7 @@ void    vwm_panel_update_clock(VWM_PANEL *panel);
 void    vwm_panel_display(VWM_PANEL *panel);
 void    vwm_panel_set_status(const char *text);
 
+void    vwm_calendar_toggle(void);
+void    vwm_calendar_close(void);
+
 #endif
