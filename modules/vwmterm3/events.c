@@ -234,6 +234,98 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
         vwmterm_data = (vwmterm_data_t *)viper_window_get_userptr(vwnd);
         vterm = vwmterm_data->vterm;
 
+        // Button1 press: cancel active selection or record potential drag start
+        if(me->bstate & BUTTON1_PRESSED)
+        {
+            if(vwmterm_data->frozen == 1)
+            {
+                vwmterm_exit_selection(vwmterm_data);
+                return KMIO_HANDLED;
+            }
+
+            int frame_y, frame_x;
+            int row, col;
+
+            getbegyx(WINDOW_FRAME(vwnd), frame_y, frame_x);
+            row = me->y - frame_y - 1;
+            col = me->x - frame_x - 1;
+
+            vterm_wnd_size(vterm, &width, &height);
+
+            if(row >= 0 && row < height && col >= 0 && col < width)
+            {
+                vwmterm_data->frozen = 3;
+                vwmterm_data->sel_anchor_row = row;
+                vwmterm_data->sel_anchor_col = col;
+                vwmterm_data->sel_end_row = row;
+                vwmterm_data->sel_end_col = col;
+                return KMIO_HANDLED;
+            }
+        }
+
+        // drag: start or continue mouse selection
+        if((me->bstate & REPORT_MOUSE_POSITION) &&
+           (vwmterm_data->frozen == 3 || vwmterm_data->frozen == 2))
+        {
+            int frame_y, frame_x;
+            int row, col;
+
+            if(vwmterm_data->frozen == 3)
+            {
+                vwmterm_data->frozen = 2;
+                viper_window_set_title(vwmterm_data->vwnd,
+                    " SELECT (Enter=Copy, Esc=Cancel) ");
+            }
+
+            getbegyx(WINDOW_FRAME(vwnd), frame_y, frame_x);
+            row = me->y - frame_y - 1;
+            col = me->x - frame_x - 1;
+
+            vterm_wnd_size(vterm, &width, &height);
+            if(row < 0) row = 0;
+            if(row >= height) row = height - 1;
+            if(col < 0) col = 0;
+            if(col >= width) col = width - 1;
+
+            vwmterm_data->sel_end_row = row;
+            vwmterm_data->sel_end_col = col;
+
+            vwmterm_render_selection(vwmterm_data);
+            return KMIO_HANDLED;
+        }
+
+        // button release or click: finalize drag selection or cancel single click
+        if((me->bstate & (BUTTON1_RELEASED | BUTTON1_CLICKED)) &&
+           (vwmterm_data->frozen == 3 || vwmterm_data->frozen == 2))
+        {
+            if(vwmterm_data->frozen == 3)
+            {
+                vwmterm_data->frozen = 0;
+            }
+            else if(vwmterm_data->sel_anchor_row == vwmterm_data->sel_end_row &&
+                    vwmterm_data->sel_anchor_col == vwmterm_data->sel_end_col)
+            {
+                vwmterm_exit_selection(vwmterm_data);
+            }
+            else
+            {
+                vwmterm_data->frozen = 1;
+            }
+
+            return KMIO_HANDLED;
+        }
+
+        // middle click: paste
+        if(me->bstate & BUTTON2_PRESSED)
+        {
+            if(clipboard != NULL && clipboard_len > 0)
+            {
+                for(size_t i = 0; i < clipboard_len; i++)
+                    vterm_write_pipe(vterm, (uint32_t)clipboard[i]);
+            }
+            return KMIO_HANDLED;
+        }
+
         if(me->bstate & BUTTON4_PRESSED)
         {
             vterm_wnd_size(vterm, &width, &height);
@@ -281,7 +373,7 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
             return KMIO_HANDLED;
         }
 
-        return 1;
+        return KMIO_HANDLED;
     }
 
     vwmterm_data = (vwmterm_data_t *)viper_window_get_userptr(vwnd);
