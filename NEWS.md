@@ -1,5 +1,15 @@
 2026-05-29
 
+Added a Print File tool (the vwmprint module) to the VWM menu, next to
+"Capture screenshot".  It opens a system dialog to pick a .txt, .md, or
+.pdf file, then choose an already-configured CUPS printer from a framed
+list with Print/Cancel buttons, and prints it via libcups.  Like the
+other system tools (Manage Apps/Hotkeys/Settings, the screensaver) it is
+an unmanaged surface overlay rather than a deck-managed window: a new
+vwm->tool_window hook lets a loadable module grab input modally without
+being placed on the desktop deck.  Built by "make" / "make vwmprint"
+(needs libcups2-dev); not part of "make core".
+
 Added a "Lock screen" item to the VWM menu (above "Capture
 screenshot") that starts the configured screensaver immediately,
 without waiting for the idle timeout.  It does nothing if no

@@ -181,6 +181,19 @@ vwm_lock_screen(vk_widget_t *widget, void *anything)
     return 0;
 }
 
+static int
+vwm_print_file(vk_widget_t *widget, void *anything)
+{
+    vwm_module_t    *mod;
+
+    (void)anything;
+
+    mod = vwm_module_find_by_name("print-file");
+    if(mod == NULL) return 0;
+
+    return vwm_menu_helper(widget, mod);
+}
+
 static vk_window_t*
 create_file_dropdown(vwm_t *vwm)
 {
@@ -210,6 +223,8 @@ create_file_dropdown(vwm_t *vwm)
         vwm_lock_screen, NULL);
     vk_listbox_add_item(listbox, "Capture screenshot",
         vwm_capture_screenshot, NULL);
+    vk_listbox_add_item(listbox, "Print file",
+        vwm_print_file, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Manage Apps Menu",
         vwm_manage_apps_open, NULL);
