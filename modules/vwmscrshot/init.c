@@ -56,8 +56,9 @@ typedef struct
 {
     int             state;
     int             target;
+    int             surface;        /* surface the overlay is attached to  */
 
-    vk_window_t     *window;        /* the single decked window           */
+    vk_window_t     *window;        /* the single surface-overlay window   */
     vk_box_t        *client_box;    /* current window child box           */
 
     /* prompt state (a decked popup message box) */
@@ -501,7 +502,9 @@ destroy_own_window(vk_window_t *win)
     if(win == NULL) return;
 
     s_module_close = 1;
-    vk_deck_remove_widget(vwm->deck, VK_WIDGET(win));
+    if(s_session != NULL)
+        vk_screen_detach_widget(vwm->screen, s_session->surface,
+            VK_WIDGET(win));
     vk_widget_destroy(VK_WIDGET(win));
     s_module_close = 0;
 }
@@ -519,6 +522,7 @@ scrshot_on_close(vk_object_t *object, int event, void *anything)
 
     if(s_session != NULL)
     {
+        vwm_get_instance()->tool_window = NULL;
         s_session->window = NULL;
         free(s_session);
         s_session = NULL;
@@ -543,7 +547,8 @@ swap_window(vk_window_t *new_win)
     if(new_win == NULL) return;
 
     center_window(new_win);
-    vk_deck_add_widget(vwm->deck, VK_WIDGET(new_win), VK_DECK_TOP);
+    vk_screen_attach_widget(vwm->screen, s->surface, VK_WIDGET(new_win));
+    vwm->tool_window = new_win;
     vk_window_update(new_win);
     vk_screen_refresh(vwm->screen);
 }
@@ -564,6 +569,8 @@ close_session(void)
         destroy_own_window(s->window);
         s->window = NULL;
     }
+
+    vwm->tool_window = NULL;
 
     free(s);
     s_session = NULL;
@@ -1014,6 +1021,7 @@ session_kmio(vk_object_t *object, int32_t keystroke)
 static vk_window_t*
 vwmscrshot_main(vwm_module_t *mod)
 {
+    vwm_t       *vwm = vwm_get_instance();
     vk_window_t *win;
 
     (void)mod;
@@ -1032,9 +1040,16 @@ vwmscrshot_main(vwm_module_t *mod)
 
     center_window(win);
 
+    /* a system tool is a surface overlay, not a deck-managed window */
+    s_session->surface = vk_screen_get_active_surface(vwm->screen);
+    vk_screen_attach_widget(vwm->screen, s_session->surface, VK_WIDGET(win));
+    vwm->tool_window = win;
+
     vwm_panel_set_status(" [Tab] move  [Enter] choose  [Esc] cancel");
 
-    return win;
+    refresh_session(s_session);
+
+    return NULL;
 }
 
 static int
