@@ -83,7 +83,7 @@ vwm_mod_init(const char *modpath)
     vwm_module_set_name(VWM_MODULE(mod), "vterm-color");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (color)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
-    mod->flags = VTERM_FLAG_RXVT;
+    mod->flags = VTERM_FLAG_XTERM;
 
 	vwm_module_add(VWM_MODULE(mod));
 
