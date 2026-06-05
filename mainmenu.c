@@ -421,22 +421,6 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
         return 0;
     }
 
-    if(mouse_event->bstate & BUTTON4_PRESSED)
-    {
-        vk_listbox_set_prev(listbox);
-        vk_listbox_update(listbox);
-        vk_window_update(menu);
-        return 0;
-    }
-
-    if(mouse_event->bstate & BUTTON5_PRESSED)
-    {
-        vk_listbox_set_next(listbox);
-        vk_listbox_update(listbox);
-        vk_window_update(menu);
-        return 0;
-    }
-
     if(mouse_event->bstate & (BUTTON1_CLICKED | BUTTON1_RELEASED))
     {
         if(row >= 0 && row < vk_listbox_get_item_count(listbox)

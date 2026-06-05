@@ -2725,38 +2725,6 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
     if(rx < 0 || rx >= INTERIOR_WIDTH) return 0;
     if(ry < 0 || ry >= INTERIOR_HEIGHT) return 0;
 
-    if(bs & BUTTON4_PRESSED)
-    {
-        if(model->count > 0)
-        {
-            commit_dropdowns_to_entry(model->selected);
-            vk_listbox_set_prev(app_listbox);
-            vk_listbox_update(app_listbox);
-            model->selected = vk_listbox_get_curr(app_listbox);
-            populate_dropdowns_from_entry(model->selected);
-            model->focus_zone = FOCUS_APP_LIST;
-            update_button_highlights();
-            refresh_dialog();
-        }
-        return 0;
-    }
-
-    if(bs & BUTTON5_PRESSED)
-    {
-        if(model->count > 0)
-        {
-            commit_dropdowns_to_entry(model->selected);
-            vk_listbox_set_next(app_listbox);
-            vk_listbox_update(app_listbox);
-            model->selected = vk_listbox_get_curr(app_listbox);
-            populate_dropdowns_from_entry(model->selected);
-            model->focus_zone = FOCUS_APP_LIST;
-            update_button_highlights();
-            refresh_dialog();
-        }
-        return 0;
-    }
-
     if(!(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED)))
         return 0;
 
