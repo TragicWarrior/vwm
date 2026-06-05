@@ -9,6 +9,7 @@
 #include "manage_apps.h"
 #include "manage_hotkeys.h"
 #include "manage_settings.h"
+#include "manage_windows.h"
 #include "modules.h"
 #include "panel.h"
 #include "winman.h"
@@ -497,6 +498,9 @@ vwm_poll_input(void * const env)
 
             if(vwm_manage_settings_is_open())
                 vwm_manage_settings_handle_resize();
+
+            if(vwm_manage_windows_is_open())
+                vwm_manage_windows_handle_resize();
 
             vk_screen_refresh(vwm->screen);
             ctx_poll_input->did_work = 1;

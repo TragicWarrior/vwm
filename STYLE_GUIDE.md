@@ -313,6 +313,30 @@ vk_popup_update(popup);
 vk_screen_refresh(vwm->screen);
 ```
 
+## Label Color Pattern
+
+`vk_label_set_text` writes the text into the label's canvas at the
+**current** color, which is whatever default a freshly-created
+`vk_label_t` came up with — usually black on black against a popup's
+red/white theme.  Calling `vk_widget_set_colors` afterwards updates
+the widget's stored colors but does **not** repaint what's already in
+the canvas.
+
+Always finish a label setup with `vk_label_update`:
+
+```c
+label = vk_label_create(width);
+vk_label_set_justify(label, VK_JUSTIFY_CENTER);   /* if applicable */
+vk_label_set_text(label, msg);
+vk_widget_set_colors(VK_WIDGET(label), fg, bg);
+vk_label_update(label);                           /* required */
+```
+
+Symptom when this is forgotten: label text renders as the default
+(typically invisible, e.g. black on black inside a red Warning popup).
+Surrounding fills and box/popup updates won't fix it — only
+`vk_label_update` repaints the label's own canvas with the new colors.
+
 ## VDK Resize Bug Workaround
 
 `_vk_widget_resize` has an off-by-one that drops the rightmost column

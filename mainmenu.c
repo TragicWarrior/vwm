@@ -34,6 +34,7 @@
 #include "manage_apps.h"
 #include "manage_hotkeys.h"
 #include "manage_settings.h"
+#include "manage_windows.h"
 #include "screensaver.h"
 
 static void
@@ -228,10 +229,10 @@ create_file_dropdown(vwm_t *vwm)
 
     vk_listbox_add_item(listbox, "Manage windows (Alt w)",
         vwm_toggle_winman, NULL);
+    vk_listbox_add_item(listbox, "Manage desktop",
+        vwm_manage_windows_open, NULL);
     vk_listbox_add_item(listbox, "Switch desktop (Alt d)",
         vwm_switch_desktop, NULL);
-    vk_listbox_add_item(listbox, "Teleport",
-        vwm_teleport, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Lock screen",
         vwm_lock_screen, NULL);
@@ -239,6 +240,8 @@ create_file_dropdown(vwm_t *vwm)
         vwm_capture_screenshot, NULL);
     vk_listbox_add_item(listbox, "Print file",
         vwm_print_file, NULL);
+    vk_listbox_add_item(listbox, "Teleport",
+        vwm_teleport, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Manage Apps Menu",
         vwm_manage_apps_open, NULL);

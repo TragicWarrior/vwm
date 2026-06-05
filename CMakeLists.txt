@@ -87,6 +87,7 @@ add_executable(vwm
     manage_apps.c
     manage_hotkeys.c
     manage_settings.c
+    manage_windows.c
     signals.c
     strings.c
     vwm.c
