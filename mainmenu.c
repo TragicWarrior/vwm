@@ -33,6 +33,7 @@
 #include "panel.h"
 #include "manage_apps.h"
 #include "manage_hotkeys.h"
+#include "manage_settings.h"
 
 static void
 vwm_menu_scroll_info(vk_widget_t *child,
@@ -155,6 +156,19 @@ vwm_apps_menu_activate(vk_widget_t *widget, void *anything)
     return 0;
 }
 
+static int
+vwm_capture_screenshot(vk_widget_t *widget, void *anything)
+{
+    vwm_module_t    *mod;
+
+    (void)anything;
+
+    mod = vwm_module_find_by_name("screen-capture");
+    if(mod == NULL) return 0;
+
+    return vwm_menu_helper(widget, mod);
+}
+
 static vk_window_t*
 create_file_dropdown(vwm_t *vwm)
 {
@@ -169,7 +183,9 @@ create_file_dropdown(vwm_t *vwm)
     scr_height = (scr_height * 3) / 4;
 
     listbox = vk_listbox_create(8, 10);
-    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_RED);
+    vk_widget_set_colors(VK_WIDGET(listbox), COLOR_WHITE, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(listbox), A_BOLD);
+    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_BLACK);
     vk_listbox_set_highlight_attrs(listbox, A_BOLD);
     vk_listbox_set_wrap(listbox, TRUE);
     vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
@@ -178,6 +194,8 @@ create_file_dropdown(vwm_t *vwm)
         vwm_toggle_winman, NULL);
     vk_listbox_add_item(listbox, "Switch desktop (Alt d)",
         vwm_switch_desktop, NULL);
+    vk_listbox_add_item(listbox, "Capture screenshot",
+        vwm_capture_screenshot, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Manage Apps Menu",
         vwm_manage_apps_open, NULL);
@@ -186,6 +204,8 @@ create_file_dropdown(vwm_t *vwm)
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Manage Hotkeys",
         vwm_manage_hotkeys_open, NULL);
+    vk_listbox_add_item(listbox, "Settings",
+        vwm_manage_settings_open, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Exit", vwm_exit, NULL);
 
@@ -200,6 +220,8 @@ create_file_dropdown(vwm_t *vwm)
     window = vk_window_create(max_width + 2, max_height + 2);
     vk_window_set_title(window, " VWM ");
     vk_window_set_border_style(window, VK_FRAME_SINGLE);
+    vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
+    vk_window_set_border_attrs(window, A_BOLD);
     vk_window_set_child(window, VK_WIDGET(listbox));
 
     return window;
@@ -223,7 +245,9 @@ create_apps_dropdown(vwm_t *vwm)
     scr_height = (scr_height * 3) / 4;
 
     listbox = vk_listbox_create(8, 10);
-    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_RED);
+    vk_widget_set_colors(VK_WIDGET(listbox), COLOR_WHITE, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(listbox), A_BOLD);
+    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_BLACK);
     vk_listbox_set_highlight_attrs(listbox, A_BOLD);
     vk_listbox_set_wrap(listbox, FALSE);
     vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
@@ -272,12 +296,14 @@ create_apps_dropdown(vwm_t *vwm)
     window = vk_window_create(max_width + 2, max_height + 2);
     vk_window_set_title(window, " Apps ");
     vk_window_set_border_style(window, VK_FRAME_SINGLE);
+    vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
+    vk_window_set_border_attrs(window, A_BOLD);
     vk_window_set_child(window, VK_WIDGET(listbox));
 
     {
         vk_scroller_t *scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
         vk_scroller_set_border_style(scroller, VK_FRAME_SINGLE);
-        vk_scroller_set_border_colors(scroller, COLOR_RED, COLOR_WHITE);
+        vk_scroller_set_border_colors(scroller, COLOR_BLACK, COLOR_CYAN);
         vk_widget_set_attrs(VK_WIDGET(scroller), A_BOLD);
         vk_scroller_set_scroll_source(scroller, VK_WIDGET(listbox));
         vk_scroller_set_scroll_info(scroller, vwm_menu_scroll_info);
