@@ -1,5 +1,35 @@
 2026-06-02
 
+New Manage Desktop system tool, reachable from the VWM menu just
+under "Manage windows".  Lists every window on the active deck and
+exposes three actions:
+
+  - Close Window: destroys the selected window after a red Yes/No
+    confirmation (defaults to "No").
+  - Move Window: opens a blue picker with "Home coordinates" (move
+    to 1,1) plus a "Desktop N" entry for each desktop when more than
+    one is configured.  Moving between desktops re-parents the
+    window via vk_deck_remove_widget + vk_deck_add_widget.
+  - Cancel: dismiss.
+
+Empty deck shows "None" and the actions become no-ops.  Behaves as
+an unmanaged tool window (vwm->tool_window pattern), so all
+keystrokes including KEY_MOUSE route through it while open;
+KEY_RESIZE recreates the dialog so it re-centers.  Backed by new
+libviper APIs vk_deck_count and vk_deck_get_widget.
+
+Menu reorg: Teleport moved into the
+Lock/Screenshot/Print/Teleport section -- it's a desktop-state
+operation, not a window-management one.
+
+STYLE_GUIDE picks up a new "Label Color Pattern" section
+documenting the create -> justify -> set_text -> set_colors ->
+vk_label_update sequence.  Skipping the final vk_label_update
+leaves the label rendered in its initial canvas colors (typically
+black on black against a red Warning popup).
+
+(prior 2026-06-02 entry)
+
 SELECT-mode copy now syncs to the host clipboard.  A new "Copy to
 Clipboard" row in Settings picks the transport: Never (internal
 paste only, the prior behavior), OSC 52 (an escape sequence the
