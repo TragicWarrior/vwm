@@ -212,6 +212,18 @@ vwm_init(void)
         INIT_LIST_HEAD(&vwm->module_list);
 
         vwm->hotkey_menu = VWM_HOTKEY_MENU;
+        vwm->hotkey_wm = VWM_HOTKEY_WM;
+        vwm->hotkey_close = 17;
+        vwm->hotkey_cycle = KEY_TAB;
+        vwm->hotkey_move_up = KEY_UP;
+        vwm->hotkey_move_down = KEY_DOWN;
+        vwm->hotkey_move_left = KEY_LEFT;
+        vwm->hotkey_move_right = KEY_RIGHT;
+        vwm->hotkey_grow_h = '+';
+        vwm->hotkey_shrink_h = '-';
+        vwm->hotkey_grow_w = '>';
+        vwm->hotkey_shrink_w = '<';
+        vwm->hotkey_desktop = (27 | (100 << 8));
         {
             const char *term = getenv("TERM");
             if(term != NULL && strcmp(term, "linux") == 0)

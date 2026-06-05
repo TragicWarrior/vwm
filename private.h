@@ -22,6 +22,18 @@ struct _vwm_s
     vwm_profile_t           *profile;
 
     int32_t                 hotkey_menu;
+    int32_t                 hotkey_wm;
+    int32_t                 hotkey_close;
+    int32_t                 hotkey_cycle;
+    int32_t                 hotkey_move_up;
+    int32_t                 hotkey_move_down;
+    int32_t                 hotkey_move_left;
+    int32_t                 hotkey_move_right;
+    int32_t                 hotkey_grow_h;
+    int32_t                 hotkey_shrink_h;
+    int32_t                 hotkey_grow_w;
+    int32_t                 hotkey_shrink_w;
+    int32_t                 hotkey_desktop;
 
     struct list_head        module_list;
 
@@ -35,6 +47,7 @@ struct _vwm_s
 
     vk_window_t             *calendar_popup;
     vk_window_t             *manage_apps_popup;
+    vk_window_t             *manage_hotkeys_popup;
 
     uint32_t                state;
 

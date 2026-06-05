@@ -32,6 +32,7 @@
 #include "events.h"
 #include "panel.h"
 #include "manage_apps.h"
+#include "manage_hotkeys.h"
 
 static void
 vwm_menu_scroll_info(vk_widget_t *child,
@@ -182,6 +183,9 @@ create_file_dropdown(vwm_t *vwm)
         vwm_manage_apps_open, NULL);
     vk_listbox_add_item(listbox, "Reload Apps Menu",
         vwm_reload_apps, NULL);
+    vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
+    vk_listbox_add_item(listbox, "Manage Hotkeys",
+        vwm_manage_hotkeys_open, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Exit", vwm_exit, NULL);
 

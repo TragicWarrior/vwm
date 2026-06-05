@@ -1,5 +1,20 @@
 2026-05-27
 
+Added Manage Hotkeys dialog accessible from VWM menu.  All 13 hotkeys
+are displayed in a scrollable list grouped by category (Menu
+Accelerators, Window Management, Navigation).  Hotkeys can be
+reassigned by selecting one and pressing Test to capture a new key,
+or Reset to restore the factory default.  Duplicate key detection
+prevents saving conflicting bindings.  A Load button opens a file
+chooser for importing hotkeys from an alternate config file.  Cancel
+prompts to confirm if there are unsaved changes.
+
+Hotkeys are now stored in the vwmrc config and persist across sessions.
+The hardcoded key bindings in the window manager have been replaced
+with configurable values loaded from the config file at startup.
+Ctrl+arrow keys remain as hardcoded secondary bindings for resize
+actions.
+
 Ported the Edit App and Load Config popups in Manage Apps to use the
 new vk_popup_t composite widget from VDK.  The popup handles window
 creation, button bar layout, and interior structure internally.  Edit

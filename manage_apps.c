@@ -14,7 +14,13 @@
 #include "profile.h"
 #include "private.h"
 #include "strings.h"
+#include "panel.h"
+#include "winman.h"
 #include "manage_apps.h"
+
+#define MANAGE_APPS_HELP \
+"[Tab] cycle controls  [Up/Dn] navigate list  " \
+"[Enter/Space] activate  [Esc] cancel"
 
 #define DIALOG_WIDTH        68
 #define DIALOG_HEIGHT       26
@@ -1682,6 +1688,8 @@ vwm_manage_apps_open(vk_widget_t *widget, void *anything)
 
     build_dialog();
 
+    vwm_panel_set_status(MANAGE_APPS_HELP);
+
     return 0;
 }
 
@@ -1726,6 +1734,14 @@ vwm_manage_apps_close(void)
 
     free(model);
     model = NULL;
+
+    {
+        vk_widget_t *top = vk_deck_get_top(vwm->deck);
+        if(top != NULL)
+            vwm_panel_set_status(VWM_WINDOW_HELP);
+        else
+            vwm_panel_set_status("Press Alt ~ for Menu");
+    }
 
     vk_screen_refresh(vwm->screen);
 }

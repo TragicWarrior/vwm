@@ -315,7 +315,7 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
         return KMIO_HANDLED;
     }
 
-    if(keystroke == VWM_HOTKEY_WM)
+    if(keystroke == vwm->hotkey_wm)
     {
         vwm->state ^= VWM_STATE_ACTIVE;
 
@@ -331,46 +331,63 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
     {
         vk_widget_t *top = vk_deck_get_top(vwm->deck);
 
-        switch(keystroke)
+        if(keystroke == vwm->hotkey_close)
         {
-            case 17:
-                vwm_default_WINDOW_CLOSE(top);
-                return KMIO_HANDLED;
-            case KEY_TAB:
-                vwm_default_WINDOW_CYCLE();
-                return KMIO_HANDLED;
-            case KEY_UP:
-                vwm_default_WINDOW_MOVE_UP(top);
-                return KMIO_HANDLED;
-            case KEY_DOWN:
-                vwm_default_WINDOW_MOVE_DOWN(top);
-                return KMIO_HANDLED;
-            case KEY_LEFT:
-                vwm_default_WINDOW_MOVE_LEFT(top);
-                return KMIO_HANDLED;
-            case KEY_RIGHT:
-                vwm_default_WINDOW_MOVE_RIGHT(top);
-                return KMIO_HANDLED;
-
-            case KEY_PLUS:
-            case KEY_CTRL_DOWN:
-                vwm_default_WINDOW_INCREASE_HEIGHT(top);
-                return KMIO_HANDLED;
-            case KEY_MINUS:
-            case KEY_CTRL_UP:
-                vwm_default_WINDOW_DECREASE_HEIGHT(top);
-                return KMIO_HANDLED;
-            case KEY_GREATER_THAN:
-            case KEY_CTRL_RIGHT:
-                vwm_default_WINDOW_INCREASE_WIDTH(top);
-                return KMIO_HANDLED;
-            case KEY_LESS_THAN:
-            case KEY_CTRL_LEFT:
-                vwm_default_WINDOW_DECREASE_WIDTH(top);
-                return KMIO_HANDLED;
-
-            default:
-                return keystroke;
+            vwm_default_WINDOW_CLOSE(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_cycle)
+        {
+            vwm_default_WINDOW_CYCLE();
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_move_up)
+        {
+            vwm_default_WINDOW_MOVE_UP(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_move_down)
+        {
+            vwm_default_WINDOW_MOVE_DOWN(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_move_left)
+        {
+            vwm_default_WINDOW_MOVE_LEFT(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_move_right)
+        {
+            vwm_default_WINDOW_MOVE_RIGHT(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_grow_h
+            || keystroke == KEY_CTRL_DOWN)
+        {
+            vwm_default_WINDOW_INCREASE_HEIGHT(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_shrink_h
+            || keystroke == KEY_CTRL_UP)
+        {
+            vwm_default_WINDOW_DECREASE_HEIGHT(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_grow_w
+            || keystroke == KEY_CTRL_RIGHT)
+        {
+            vwm_default_WINDOW_INCREASE_WIDTH(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_shrink_w
+            || keystroke == KEY_CTRL_LEFT)
+        {
+            vwm_default_WINDOW_DECREASE_WIDTH(top);
+            return KMIO_HANDLED;
+        }
+        else
+        {
+            return keystroke;
         }
     }
 
@@ -380,7 +397,7 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
         return KMIO_HANDLED;
     }
 
-    if(keystroke == VWM_HOTKEY_DESKTOP)
+    if(keystroke == vwm->hotkey_desktop)
     {
         vwm_desktop_prompt_show();
         vk_screen_refresh(vwm->screen);

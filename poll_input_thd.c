@@ -7,6 +7,7 @@
 #include "private.h"
 #include "mainmenu.h"
 #include "manage_apps.h"
+#include "manage_hotkeys.h"
 #include "panel.h"
 #include "winman.h"
 #include "events.h"
@@ -25,6 +26,7 @@ enum
     ZONE_MENU,
     ZONE_CALENDAR,
     ZONE_MANAGE_APPS,
+    ZONE_MANAGE_HOTKEYS,
     ZONE_STATUS_BAR,
     ZONE_CLOSE_BTN,
     ZONE_RESIZE_CORNER,
@@ -137,6 +139,61 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
         }
     }
 
+    if(vwm->manage_hotkeys_popup != NULL)
+    {
+        vk_widget_t *hk_confirm =
+            vwm_manage_hotkeys_get_confirm_popup();
+        if(hk_confirm != NULL)
+        {
+            vk_widget_get_position(hk_confirm, &wx, &wy);
+            vk_widget_get_metrics(hk_confirm, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = hk_confirm;
+                return ZONE_MANAGE_HOTKEYS;
+            }
+        }
+
+        vk_widget_t *hk_error =
+            vwm_manage_hotkeys_get_error_popup();
+        if(hk_error != NULL)
+        {
+            vk_widget_get_position(hk_error, &wx, &wy);
+            vk_widget_get_metrics(hk_error, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = hk_error;
+                return ZONE_MANAGE_HOTKEYS;
+            }
+        }
+
+        vk_widget_t *hk_load = vwm_manage_hotkeys_get_load_popup();
+        if(hk_load != NULL)
+        {
+            vk_widget_get_position(hk_load, &wx, &wy);
+            vk_widget_get_metrics(hk_load, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = hk_load;
+                return ZONE_MANAGE_HOTKEYS;
+            }
+        }
+
+        vk_widget_get_position(VK_WIDGET(vwm->manage_hotkeys_popup),
+            &wx, &wy);
+        vk_widget_get_metrics(VK_WIDGET(vwm->manage_hotkeys_popup),
+            &ww, &wh);
+
+        if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+        {
+            *hit_out = VK_WIDGET(vwm->manage_hotkeys_popup);
+            return ZONE_MANAGE_HOTKEYS;
+        }
+    }
+
     if(vwm->calendar_popup != NULL)
     {
         vk_widget_get_position(VK_WIDGET(vwm->calendar_popup), &wx, &wy);
@@ -242,6 +299,9 @@ vwm_poll_input(void * const env)
 
         if(keystroke == KEY_RESIZE)
         {
+            if(vwm_manage_hotkeys_is_open())
+                vwm_manage_hotkeys_close();
+
             if(vwm_manage_apps_is_open())
                 vwm_manage_apps_close();
 
@@ -284,6 +344,14 @@ vwm_poll_input(void * const env)
 
             zone = classify_mouse(vwm, mouse_event->x,
                 mouse_event->y, &hit);
+
+            if(vwm->manage_hotkeys_popup != NULL &&
+               zone != ZONE_MANAGE_HOTKEYS &&
+               (bs & BUTTON1_PRESSED))
+            {
+                vwm_manage_hotkeys_close();
+                vk_screen_refresh(vwm->screen);
+            }
 
             if(vwm->manage_apps_popup != NULL &&
                zone != ZONE_MANAGE_APPS &&
@@ -500,12 +568,29 @@ vwm_poll_input(void * const env)
                     break;
                 }
 
+                case ZONE_MANAGE_HOTKEYS:
+                {
+                    vwm_manage_hotkeys_mouse(mouse_event);
+                    break;
+                }
+
                 case ZONE_STATUS_BAR:
                     break;
 
                 case ZONE_SCREEN:
                     break;
             }
+
+            vk_screen_refresh(vwm->screen);
+            ctx_poll_input->did_work = 1;
+            pt_yield(ctx_poll_input);
+            continue;
+        }
+
+        if(vwm->manage_hotkeys_popup != NULL)
+        {
+            vk_object_push_keystroke(
+                VK_OBJECT(vwm->manage_hotkeys_popup), keystroke);
 
             vk_screen_refresh(vwm->screen);
             ctx_poll_input->did_work = 1;

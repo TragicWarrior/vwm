@@ -2,8 +2,26 @@ hotkeys:
 {
     menu:
     {
-        // key = "00006d1b";  // alt-m
-        msg = "Press [alt m] for Main Menu";
+        // key = "0000601b";  // alt-`
+        msg = "Press [alt `] for Main Menu";
+    }
+    window_management:
+    {
+        // wm:         { key = "0000771b"; }  // alt-w
+        // close:      { key = "00000011"; }  // ctrl-q
+        // cycle:      { key = "00000009"; }  // tab
+        // move_up:    { key = "00000103"; }  // up arrow
+        // move_down:  { key = "00000102"; }  // down arrow
+        // move_left:  { key = "00000104"; }  // left arrow
+        // move_right: { key = "00000105"; }  // right arrow
+        // grow_h:     { key = "0000002b"; }  // +
+        // shrink_h:   { key = "0000002d"; }  // -
+        // grow_w:     { key = "0000003e"; }  // >
+        // shrink_w:   { key = "0000003c"; }  // <
+    }
+    navigation:
+    {
+        // desktop:    { key = "0000641b"; }  // alt-d
     }
 }
 
