@@ -19,25 +19,31 @@
 
 #include <inttypes.h>
 
+#include "vwm.h"
+#include "private.h"
 #include "bkgd.h"
 
 void
 vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
 {
+    vwm_t       *vwm;
     short       color;
+    short       bg;
     int         width, height;
     int         i;
 
     (void)screen;
 
+    vwm = vwm_get_instance();
+
     getmaxyx(canvas, height, width);
 
-    if(surface_id == 0)
-        color = vdk_color_pair(COLOR_BLACK, COLOR_BLUE);
-    else if(surface_id == 1)
-        color = vdk_color_pair(COLOR_RED, COLOR_BLACK);
-    else
-        color = vdk_color_pair(COLOR_CYAN, COLOR_BLACK);
+    /* per-surface desktop color picked by the user in Settings; render
+       the checkboard pattern with black FG over that color as BG */
+    bg = COLOR_BLUE;
+    if(vwm != NULL && surface_id >= 0 && surface_id < VWM_MAX_DESKTOPS)
+        bg = vwm->desktop_color[surface_id];
+    color = vdk_color_pair(COLOR_BLACK, bg);
 
     wattron(canvas, COLOR_PAIR(color) | A_ALTCHARSET);
     wmove(canvas, 0, 0);

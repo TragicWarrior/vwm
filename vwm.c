@@ -233,6 +233,17 @@ vwm_init(void)
         strncpy(vwm->date_click_action, "calendar", NAME_MAX - 1);
         vwm->screensaver_cmd[0] = '\0';
         vwm->screensaver_timeout = 0;
+        {
+            /* sensible defaults per desktop -- diverse colors so a
+               fresh vwm still has the original per-surface identity */
+            short defaults[VWM_MAX_DESKTOPS] = {
+                COLOR_BLUE, COLOR_RED, COLOR_CYAN,
+                COLOR_GREEN, COLOR_MAGENTA, COLOR_YELLOW
+            };
+            int   k;
+            for(k = 0; k < VWM_MAX_DESKTOPS; k++)
+                vwm->desktop_color[k] = defaults[k];
+        }
         vwm->surface_count = 3;
 
         vwm->decks = calloc(vwm->surface_count, sizeof(vk_deck_t *));

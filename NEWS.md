@@ -1,3 +1,33 @@
+2026-06-01
+
+Per-desktop colors.  Settings now exposes one "Desktop N Color" row
+per active surface (5 base rows + surface_count dynamic rows).
+Choosing a row opens a vk_color picker -- a 2x8 grid of 1x1 colored
+cells with single-line dividers, embedded in a 30x10 popup that's
+centered horizontally inside the modify popup's client area.  Arrow
+keys clamp inside the picker, Tab advances cell-by-cell (cell 15
+hands off to Apply, Cancel wraps back to cell 0), Enter applies, Esc
+cancels, mouse clicks land on the nearest cell.  On Save, each row's
+color writes to vwm->desktop_color[surface_id] and the screen
+refreshes.  vwm_bkgd_simple_normal picks each surface's background
+from that array; fresh installs get sensible defaults (Blue, Red,
+Cyan, Green, Magenta, Yellow).
+
+Three new VDK widgets back this:
+
+  - vk_grid_t -- 2D layout container.  Sister to vk_box.  Per-row
+    and per-col natural sizing + expand bits.  Each cell can hold a
+    slot widget (vk_box-style composition) OR be a paint area the
+    consumer renders into directly.
+
+  - vk_table_t -- vk_grid + divider rendering.  Single/double/ASCII
+    line styles; the gap channel vk_grid reserves becomes the
+    divider track.
+
+  - vk_color_t -- 16-cell ANSI color picker.  vk_table subclass.
+    cols * rows must equal 16; the focused cell's surrounding
+    dividers re-render in a configurable highlight color.
+
 2026-05-31
 
 System-tool listboxes (Manage Apps, Hotkeys, Settings, the Print File

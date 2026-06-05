@@ -29,17 +29,22 @@
 #define INTERIOR_WIDTH      (DIALOG_WIDTH - 2)
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
-#define NUM_SETTINGS        5
-#define MAX_APP_OPTIONS     64
+/* base settings = 5; desktop-color rows are dynamic and live beyond that */
+#define NUM_BASE_SETTINGS       5
+#define NUM_SETTINGS            (NUM_BASE_SETTINGS + VWM_MAX_DESKTOPS)
+#define MAX_APP_OPTIONS         64
 
-#define SETTING_TASK_ACTION     0
-#define SETTING_DATE_ACTION     1
-#define SETTING_NUM_DESKTOPS    2
-#define SETTING_SCREENSAVER_CMD 3
-#define SETTING_SCREENSAVER_IDLE 4
+#define SETTING_TASK_ACTION         0
+#define SETTING_DATE_ACTION         1
+#define SETTING_NUM_DESKTOPS        2
+#define SETTING_SCREENSAVER_CMD     3
+#define SETTING_SCREENSAVER_IDLE    4
+#define SETTING_DESKTOP_COLOR_BASE  5
+/* Desktop N color (0-indexed) lives at SETTING_DESKTOP_COLOR_BASE + N */
 
 #define SETTING_TYPE_DROPDOWN   0
 #define SETTING_TYPE_INPUT      1
+#define SETTING_TYPE_COLOR      2
 
 enum
 {
@@ -62,13 +67,55 @@ static const struct
     const char  *label;
     int         type;
 }
-setting_defs[NUM_SETTINGS] =
+base_setting_defs[NUM_BASE_SETTINGS] =
 {
     { "Task Indicator",     SETTING_TYPE_DROPDOWN },
     { "Date Click",         SETTING_TYPE_DROPDOWN },
     { "Desktops",           SETTING_TYPE_INPUT },
     { "Screensaver Cmd",    SETTING_TYPE_INPUT },
     { "Screensaver Idle",   SETTING_TYPE_INPUT },
+};
+
+/* labels for the dynamic Desktop N Color rows are built per-row */
+static char desktop_color_labels[VWM_MAX_DESKTOPS][32];
+
+static const char*
+get_setting_label(int idx)
+{
+    if(idx < 0) return "";
+    if(idx < NUM_BASE_SETTINGS) return base_setting_defs[idx].label;
+    {
+        int n = idx - SETTING_DESKTOP_COLOR_BASE;
+        if(n < 0 || n >= VWM_MAX_DESKTOPS) return "";
+        return desktop_color_labels[n];
+    }
+}
+
+static int
+get_setting_type(int idx)
+{
+    if(idx < 0) return -1;
+    if(idx < NUM_BASE_SETTINGS) return base_setting_defs[idx].type;
+    if(idx >= SETTING_DESKTOP_COLOR_BASE &&
+       idx <  SETTING_DESKTOP_COLOR_BASE + VWM_MAX_DESKTOPS)
+        return SETTING_TYPE_COLOR;
+    return -1;
+}
+
+/* count of settings currently visible: base + one per active surface */
+static int
+active_setting_count(void)
+{
+    vwm_t *vwm = vwm_get_instance();
+    return NUM_BASE_SETTINGS + (vwm ? vwm->surface_count : 0);
+}
+
+static const char *vwm_color_names[16] =
+{
+    "Black", "Red", "Green", "Yellow",
+    "Blue", "Magenta", "Cyan", "White",
+    "Br Black", "Br Red", "Br Green", "Br Yellow",
+    "Br Blue", "Br Magenta", "Br Cyan", "Br White"
 };
 
 typedef struct
@@ -101,7 +148,14 @@ static vk_button_t          *buttons[NUM_BUTTONS];
 static vk_popup_t          *modify_popup = NULL;
 static vk_listbox_t        *modify_listbox = NULL;
 static vk_input_t          *modify_input = NULL;
+static vk_color_t          *modify_color = NULL;
 static vk_box_t            *modify_client = NULL;
+
+/* 2x8 picker with 1x1 cells and gap=1 -> 17 wide x 5 tall.
+   popup interior = popup_w - 2 wide and popup_h - 5 tall, so we
+   size the popup so the interior height exactly fits the picker. */
+#define MODIFY_COLOR_WIDTH      30
+#define MODIFY_COLOR_HEIGHT     10
 static int                 modify_setting_idx = -1;
 static int                 modify_active_btn = 0;
 static int                 modify_focus = 0;
@@ -202,6 +256,27 @@ model_load_from_vwm(vwm_t *vwm)
         vwm->screensaver_cmd, NAME_MAX - 1);
     snprintf(model->values[SETTING_SCREENSAVER_IDLE], NAME_MAX,
         "%d", vwm->screensaver_timeout);
+
+    /* dynamic Desktop N Color rows: build a label per row and copy
+       the current color name into the value slot.  rows past the
+       active surface_count stay zero-length and are not rendered. */
+    {
+        int i;
+        for(i = 0; i < VWM_MAX_DESKTOPS; i++)
+        {
+            int idx = vwm->desktop_color[i];
+            if(idx < 0 || idx > 15) idx = COLOR_BLUE;
+
+            snprintf(desktop_color_labels[i],
+                sizeof(desktop_color_labels[i]),
+                "Desktop %d Color", i + 1);
+
+            strncpy(model->values[SETTING_DESKTOP_COLOR_BASE + i],
+                vwm_color_names[idx], NAME_MAX - 1);
+            model->values[SETTING_DESKTOP_COLOR_BASE + i][NAME_MAX - 1]
+                = '\0';
+        }
+    }
 }
 
 static void
@@ -261,6 +336,29 @@ commit_to_vwm(void)
 
     vwm->screensaver_timeout = atoi(model->values[SETTING_SCREENSAVER_IDLE]);
     if(vwm->screensaver_timeout < 0) vwm->screensaver_timeout = 0;
+
+    /* commit each visible Desktop N Color row back into the per-surface
+       color array.  rows beyond the active surface count are skipped. */
+    {
+        int d;
+        for(d = 0; d < vwm->surface_count && d < VWM_MAX_DESKTOPS; d++)
+        {
+            int i;
+            for(i = 0; i < 16; i++)
+            {
+                if(strcmp(
+                    model->values[SETTING_DESKTOP_COLOR_BASE + d],
+                    vwm_color_names[i]) == 0)
+                {
+                    vwm->desktop_color[d] = (short)i;
+                    break;
+                }
+            }
+        }
+    }
+
+    /* repaint surfaces so the new desktop colors take effect right away */
+    vk_screen_refresh(vwm->screen);
 }
 
 /* ── listbox rendering ────────────────────────────────────── */
@@ -275,11 +373,11 @@ rebuild_listbox(void)
     for(i = count - 1; i >= 0; i--)
         vk_listbox_remove_item(settings_listbox, i);
 
-    for(i = 0; i < NUM_SETTINGS; i++)
+    for(i = 0; i < active_setting_count(); i++)
     {
         char display[NAME_MAX + 128];
         char dots[64];
-        int label_len = strlen(setting_defs[i].label);
+        int label_len = strlen(get_setting_label(i));
         int value_len = strlen(model->values[i]);
         int item_w = INTERIOR_WIDTH - 4;
         int dot_count = item_w - label_len - value_len - 5;
@@ -291,7 +389,7 @@ rebuild_listbox(void)
         dots[dot_count] = '\0';
 
         snprintf(display, sizeof(display), "%s %s [%s]",
-            setting_defs[i].label, dots, model->values[i]);
+            get_setting_label(i), dots, model->values[i]);
 
         vk_listbox_add_item(settings_listbox, display, NULL, NULL);
     }
@@ -383,6 +481,7 @@ modify_popup_close(void)
     modify_popup = NULL;
     modify_listbox = NULL;
     modify_input = NULL;
+    modify_color = NULL;
     modify_client = NULL;
     modify_setting_idx = -1;
 
@@ -396,7 +495,7 @@ modify_popup_apply(void)
 
     if(modify_setting_idx < 0 || modify_setting_idx >= NUM_SETTINGS) return;
 
-    if(setting_defs[modify_setting_idx].type == SETTING_TYPE_DROPDOWN)
+    if(get_setting_type(modify_setting_idx) == SETTING_TYPE_DROPDOWN)
     {
         if(modify_listbox != NULL)
         {
@@ -426,7 +525,7 @@ modify_popup_apply(void)
             }
         }
     }
-    else if(setting_defs[modify_setting_idx].type == SETTING_TYPE_INPUT)
+    else if(get_setting_type(modify_setting_idx) == SETTING_TYPE_INPUT)
     {
         if(modify_input != NULL)
         {
@@ -435,6 +534,19 @@ modify_popup_apply(void)
             {
                 strncpy(model->values[modify_setting_idx],
                     text, NAME_MAX - 1);
+                model->values[modify_setting_idx][NAME_MAX - 1] = '\0';
+            }
+        }
+    }
+    else if(get_setting_type(modify_setting_idx) == SETTING_TYPE_COLOR)
+    {
+        if(modify_color != NULL)
+        {
+            short idx = vk_color_get_selected(modify_color);
+            if(idx >= 0 && idx <= 15)
+            {
+                strncpy(model->values[modify_setting_idx],
+                    vwm_color_names[idx], NAME_MAX - 1);
                 model->values[modify_setting_idx][NAME_MAX - 1] = '\0';
             }
         }
@@ -532,6 +644,44 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
 
     if(keystroke == '\t')
     {
+        /* COLOR popup: each cell is a tab stop.  Tab advances cell
+           within the picker; on the last cell, Tab handoffs to the
+           buttons; Tab from the last button wraps back to cell 0. */
+        if(get_setting_type(modify_setting_idx) == SETTING_TYPE_COLOR
+            && modify_color != NULL)
+        {
+            if(modify_focus == 0)
+            {
+                short cur = vk_color_get_selected(modify_color);
+                if(cur < 15)
+                {
+                    vk_color_set_selected(modify_color, cur + 1);
+                    vk_color_update(modify_color);
+                    refresh_modify_popup();
+                    return 0;
+                }
+                modify_focus = 1;
+                modify_active_btn = 0;
+            }
+            else
+            {
+                if(modify_active_btn == 0)
+                {
+                    modify_active_btn = 1;
+                }
+                else
+                {
+                    modify_focus = 0;
+                    vk_color_set_selected(modify_color, 0);
+                    vk_color_update(modify_color);
+                }
+            }
+
+            update_modify_button_highlights();
+            refresh_modify_popup();
+            return 0;
+        }
+
         if(modify_focus == 1 && modify_active_btn == 0)
         {
             modify_active_btn = 1;
@@ -551,7 +701,7 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
 
     if(modify_focus == 0)
     {
-        if(setting_defs[modify_setting_idx].type == SETTING_TYPE_DROPDOWN
+        if(get_setting_type(modify_setting_idx) == SETTING_TYPE_DROPDOWN
             && modify_listbox != NULL)
         {
             if(keystroke == KEY_UP)
@@ -576,7 +726,21 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
                 return 0;
             }
         }
-        else if(setting_defs[modify_setting_idx].type == SETTING_TYPE_INPUT
+        else if(get_setting_type(modify_setting_idx) == SETTING_TYPE_COLOR
+            && modify_color != NULL)
+        {
+            if(keystroke == KEY_CRLF || keystroke == ' ')
+            {
+                modify_popup_apply();
+                return 0;
+            }
+            /* arrow keys + Tab move the highlight inside the picker */
+            vk_object_push_keystroke(VK_OBJECT(modify_color), keystroke);
+            vk_color_update(modify_color);
+            refresh_modify_popup();
+            return 0;
+        }
+        else if(get_setting_type(modify_setting_idx) == SETTING_TYPE_INPUT
             && modify_input != NULL)
         {
             if(keystroke == KEY_CRLF)
@@ -679,9 +843,9 @@ modify_popup_open(int setting_idx)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     snprintf(title, sizeof(title), " Modify: %s ",
-        setting_defs[setting_idx].label);
+        get_setting_label(setting_idx));
 
-    if(setting_defs[setting_idx].type == SETTING_TYPE_DROPDOWN)
+    if(get_setting_type(setting_idx) == SETTING_TYPE_DROPDOWN)
     {
         int i, sel_idx = 0;
 
@@ -737,7 +901,7 @@ modify_popup_open(int setting_idx)
 
         vk_popup_set_client(modify_popup, VK_WIDGET(modify_listbox));
     }
-    else if(setting_defs[setting_idx].type == SETTING_TYPE_INPUT)
+    else if(get_setting_type(setting_idx) == SETTING_TYPE_INPUT)
     {
         vk_label_t  *lbl;
 
@@ -783,6 +947,66 @@ modify_popup_open(int setting_idx)
         vk_input_show_cursor(modify_input, true);
         vk_input_update(modify_input);
         vk_box_set_widget(modify_client, 1, VK_WIDGET(modify_input));
+
+        vk_popup_set_client(modify_popup, VK_WIDGET(modify_client));
+    }
+    else if(get_setting_type(setting_idx) == SETTING_TYPE_COLOR)
+    {
+        int     curr_idx = 0;
+        int     i;
+
+        popup_w = MODIFY_COLOR_WIDTH;
+        popup_h = MODIFY_COLOR_HEIGHT;
+
+        modify_popup = vk_popup_create(popup_w, popup_h,
+            VK_BORDER_SINGLE, "Apply", "Cancel", NULL);
+        vk_popup_set_title(modify_popup, title);
+        vk_popup_set_border_colors(modify_popup, COLOR_WHITE, COLOR_BLUE);
+        vk_popup_set_border_attrs(modify_popup, A_BOLD);
+        vk_popup_set_colors(modify_popup, COLOR_WHITE, COLOR_BLUE);
+        vk_popup_set_button_colors(modify_popup, COLOR_WHITE, COLOR_BLUE);
+        vk_popup_set_button_attrs(modify_popup, A_BOLD);
+
+        /* 2 rows x 8 cols, 1x1 cells, gap=1 ->
+              w = 8*1 + (8+1)*1 = 17
+              h = 2*1 + (2+1)*1 = 5
+           horizontal centering inside the wider client area is done
+           via a 3-slot vk_box with expanding fillers on either side. */
+        modify_color = vk_color_create(17, 5, 8, 2, VK_BORDER_SINGLE);
+        vk_widget_set_colors(VK_WIDGET(modify_color),
+            COLOR_WHITE, COLOR_BLUE);
+        vk_color_set_focus_colors(modify_color, COLOR_YELLOW, COLOR_BLUE);
+        vk_color_set_focus_attrs(modify_color, A_BOLD);
+
+        for(i = 0; i < 16; i++)
+        {
+            if(strcmp(model->values[setting_idx],
+                vwm_color_names[i]) == 0)
+            {
+                curr_idx = i;
+                break;
+            }
+        }
+        vk_color_set_selected(modify_color, (short)curr_idx);
+        vk_color_update(modify_color);
+
+        /* horizontal centering wrapper: filler | picker | filler */
+        modify_client = vk_box_create(popup_w - 2, popup_h - 5,
+            VK_BOX_HORIZONTAL, 3);
+        vk_box_set_homogeneous(modify_client, false);
+        vk_widget_set_colors(VK_WIDGET(modify_client),
+            COLOR_WHITE, COLOR_BLUE);
+        {
+            vk_filler_t *l = vk_filler_create();
+            vk_filler_t *r = vk_filler_create();
+            vk_widget_set_colors(VK_WIDGET(l), COLOR_WHITE, COLOR_BLUE);
+            vk_widget_set_colors(VK_WIDGET(r), COLOR_WHITE, COLOR_BLUE);
+            vk_widget_set_expand(VK_WIDGET(l));
+            vk_widget_set_expand(VK_WIDGET(r));
+            vk_box_set_widget(modify_client, 0, VK_WIDGET(l));
+            vk_box_set_widget(modify_client, 1, VK_WIDGET(modify_color));
+            vk_box_set_widget(modify_client, 2, VK_WIDGET(r));
+        }
 
         vk_popup_set_client(modify_popup, VK_WIDGET(modify_client));
     }
@@ -1949,7 +2173,7 @@ manage_settings_kmio(vk_object_t *object, int32_t keystroke)
 
         if(keystroke == KEY_DOWN)
         {
-            if(model->selected < NUM_SETTINGS - 1)
+            if(model->selected < active_setting_count() - 1)
             {
                 model->selected++;
                 vk_listbox_set_curr(settings_listbox, model->selected);
@@ -1961,14 +2185,14 @@ manage_settings_kmio(vk_object_t *object, int32_t keystroke)
 
         if(keystroke == KEY_LEFT)
         {
-            if(setting_defs[model->selected].type == SETTING_TYPE_DROPDOWN)
+            if(get_setting_type(model->selected) == SETTING_TYPE_DROPDOWN)
                 cycle_value(model->selected, -1);
             return 0;
         }
 
         if(keystroke == KEY_RIGHT)
         {
-            if(setting_defs[model->selected].type == SETTING_TYPE_DROPDOWN)
+            if(get_setting_type(model->selected) == SETTING_TYPE_DROPDOWN)
                 cycle_value(model->selected, 1);
             return 0;
         }
@@ -2449,7 +2673,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
             return 0;
         }
 
-        if(setting_defs[modify_setting_idx].type == SETTING_TYPE_DROPDOWN
+        if(get_setting_type(modify_setting_idx) == SETTING_TYPE_DROPDOWN
             && modify_listbox != NULL)
         {
             if(bs & BUTTON4_PRESSED)
@@ -2479,7 +2703,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
                 else
                     modify_popup_close();
             }
-            else if(setting_defs[modify_setting_idx].type
+            else if(get_setting_type(modify_setting_idx)
                 == SETTING_TYPE_DROPDOWN && modify_listbox != NULL)
             {
                 int scroll = vk_listbox_get_scroll_pos(modify_listbox);
@@ -2490,6 +2714,35 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
                 {
                     vk_listbox_set_curr(modify_listbox, clicked);
                     vk_listbox_update(modify_listbox);
+                    refresh_modify_popup();
+                }
+            }
+            else if(get_setting_type(modify_setting_idx)
+                == SETTING_TYPE_COLOR && modify_color != NULL)
+            {
+                /* picker is centered in the client area; left filler
+                   takes (client_w - picker_w) / 2.  cells are 1 char
+                   wide with 1-char dividers, so local x in [0..16]
+                   maps to col = local_x / 2 (clamped). */
+                int client_w  = mp_w - 2;
+                int picker_w  = 17;
+                int picker_h  = 5;
+                int filler_lw = (client_w - picker_w) / 2;
+                int lx = mx_r - filler_lw;
+                int ly = my_r;
+
+                if(lx >= 0 && lx < picker_w &&
+                   ly >= 0 && ly < picker_h)
+                {
+                    int col = lx / 2;
+                    int row = ly / 2;
+                    if(col < 0) col = 0;
+                    if(col > 7) col = 7;
+                    if(row < 0) row = 0;
+                    if(row > 1) row = 1;
+                    vk_color_set_selected(modify_color,
+                        (short)(row * 8 + col));
+                    vk_color_update(modify_color);
                     refresh_modify_popup();
                 }
             }
@@ -2652,7 +2905,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
         {
             int item = (ry - 1) + vk_listbox_get_scroll_pos(settings_listbox);
 
-            if(item >= 0 && item < NUM_SETTINGS &&
+            if(item >= 0 && item < active_setting_count() &&
                (bs & (BUTTON1_CLICKED | BUTTON1_PRESSED)))
             {
                 struct timespec now;

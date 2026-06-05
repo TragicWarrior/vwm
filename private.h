@@ -16,6 +16,9 @@
 #include "profile.h"
 #include "vwm.h"
 
+/* matches the 2..6 desktop-count range enforced by the Settings dialog */
+#define VWM_MAX_DESKTOPS    6
+
 struct _vwm_s
 {
     vwm_profile_t           *profile;
@@ -58,6 +61,10 @@ struct _vwm_s
 
     char                    screensaver_cmd[NAME_MAX];
     int                     screensaver_timeout;        /* idle minutes; 0=off */
+
+    /* per-surface ANSI color (0..15).  index by surface id; up to
+       VWM_MAX_DESKTOPS entries -- only [0..surface_count-1] are live */
+    short                   desktop_color[VWM_MAX_DESKTOPS];
 
     uint32_t                state;
 
