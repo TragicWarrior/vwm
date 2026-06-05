@@ -43,6 +43,13 @@ vwm_mod_init(const char *modpath);
 static vwnd_t*
 vwmterm_main(vwm_module_t *mod);
 
+static short
+vwmterm_pair_selector(vterm_t *vterm, short fg, short bg)
+{
+    (void)vterm;
+    return viper_color_pair(fg, bg);
+}
+
 // constructor
 int
 vwm_mod_init(const char *modpath)
@@ -136,6 +143,18 @@ vwm_mod_init(const char *modpath)
 
 	vwm_module_add(VWM_MODULE(mod));
 
+    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
+
+    VWM_MODULE(mod)->main = vwmterm_main;
+    VWM_MODULE(mod)->clone = vwmterm_module_clone;
+    VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    vwm_module_set_name(VWM_MODULE(mod), "vterm-truecolor");
+    vwm_module_set_title(VWM_MODULE(mod), "VTerm (truecolor)");
+    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
+    mod->flags = VTERM_FLAG_TRUECOLOR;
+
+	vwm_module_add(VWM_MODULE(mod));
+
 	return 0;
 }
 
@@ -177,6 +196,7 @@ vwmterm_main(vwm_module_t *mod)
     vterm = vterm_alloc();
     vterm_set_exec(vterm, vwmterm_mod->bin_path, vwmterm_mod->exec_args);
     vterm_init(vterm, width, height, vwmterm_mod->flags);
+    vterm_set_pair_selector(vterm, vwmterm_pair_selector);
     vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
 
     // setup SIGIO responsiveness
