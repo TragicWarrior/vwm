@@ -253,8 +253,16 @@ vwmterm_main(vwm_module_t *mod)
 
     vk_object_register_event(VK_OBJECT(window), VWM_EVENT_ON_CLOSE,
         vwmterm_ON_CLOSE, (void *)vwmterm_data);
+    /*
+        Register ON_RESIZE with vwmterm_data, not the raw vterm pointer.
+        Capturing vterm here makes the handler's payload dangle as soon
+        as vterm_destroy runs in ON_CLOSE -- the very UAF that crashed
+        the active-buffer realloc.  Routing through vwmterm_data lets
+        the handler read vwmterm_data->vterm fresh and bail when it is
+        NULL (set by ON_CLOSE after destroy).
+    */
     vk_object_register_event(VK_OBJECT(window), VK_EVENT_ON_RESIZE,
-        vwmterm_ON_RESIZE, (void *)vterm);
+        vwmterm_ON_RESIZE, (void *)vwmterm_data);
 
     if(vwmterm_mod->fullscreen == FALSE)
     {

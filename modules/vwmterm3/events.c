@@ -15,6 +15,7 @@
 #include "../../vwm.h"
 #include "../../private.h"
 #include "../../panel.h"
+#include "../../poll_input_thd.h"
 #include "../../winman.h"
 
 #define KEY_ENTER_CR    13
@@ -589,6 +590,7 @@ vwmterm_ON_SCREEN_RESIZED(vk_object_t *object, int event, void *anything)
 int
 vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything)
 {
+    vwmterm_data_t  *vwmterm_data;
 	vterm_t         *vterm;
     vk_widget_t     *content;
     unsigned int    width;
@@ -596,7 +598,17 @@ vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything)
 
     (void)event;
 
-	vterm = (vterm_t*)anything;
+    /*
+        anything is the vwmterm_data registered at init.c.  Route through
+        it (not the raw vterm pointer) so that if vterm has been destroyed
+        but a stale event slipped past vwm_cancel_drag_for_widget, we see
+        vwmterm_data->vterm == NULL and bail safely.
+    */
+    vwmterm_data = (vwmterm_data_t *)anything;
+    if(vwmterm_data == NULL) return 0;
+
+    vterm = vwmterm_data->vterm;
+    if(vterm == NULL) return 0;
 
     content = vk_window_get_child(VK_WINDOW(object));
     getmaxyx(vk_widget_get_canvas(content), height, width);
@@ -625,6 +637,14 @@ vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything)
 
         kill(child_pid, SIGKILL);
         waitpid(child_pid, NULL, 0);
+
+        /*
+            Invalidate any in-flight drag targeting this window before
+            we free the vterm.  Otherwise the dangling pointer baked
+            into the ON_RESIZE handler at registration would drive a
+            UAF inside vterm_buffer_realloc on the next mouse event.
+        */
+        vwm_cancel_drag_for_widget(VK_WIDGET(vwmterm_data->window));
 
         vterm_destroy(vwmterm_data->vterm);
         vwmterm_data->vterm = NULL;

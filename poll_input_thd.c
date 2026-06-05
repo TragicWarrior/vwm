@@ -48,6 +48,23 @@ static int      drag_orig_wh;
 static vk_widget_t *drag_widget = NULL;
 static bool     menubar_ate_press = false;
 
+/*
+    Cancel any active drag if its target widget matches.  Called from
+    vwmterm_ON_CLOSE before vterm_destroy: without this, a queued mouse
+    event would drive vk_widget_resize on a window whose vterm was
+    just freed, and the dangling vterm pointer captured by the
+    ON_RESIZE handler would fault inside vterm_buffer_realloc.
+*/
+void
+vwm_cancel_drag_for_widget(vk_widget_t *widget)
+{
+    if(drag_widget == widget)
+    {
+        drag_widget = NULL;
+        drag_mode = DRAG_NONE;
+    }
+}
+
 static void
 apply_drag_position(MEVENT *mouse_event)
 {
