@@ -1,5 +1,10 @@
 2026-05-29
 
+Added a "Lock screen" item to the VWM menu (above "Capture
+screenshot") that starts the configured screensaver immediately,
+without waiting for the idle timeout.  It does nothing if no
+screensaver command is configured.
+
 Fixed border corruption when resizing a window with the WM-mode
 grow/shrink hotkeys.  The window canvas was resized but the frame was
 never re-rendered, so the old border stayed in the top-left and the

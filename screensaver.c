@@ -146,6 +146,17 @@ screensaver_start(void)
 }
 
 void
+vwm_screensaver_activate(void)
+{
+    vwm_t   *vwm = vwm_get_instance();
+
+    if(s_active) return;
+    if(vwm->screensaver_cmd[0] == '\0') return;
+
+    screensaver_start();
+}
+
+void
 vwm_screensaver_tick(void)
 {
     vwm_t   *vwm = vwm_get_instance();

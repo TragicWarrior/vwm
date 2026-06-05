@@ -34,6 +34,7 @@
 #include "manage_apps.h"
 #include "manage_hotkeys.h"
 #include "manage_settings.h"
+#include "screensaver.h"
 
 static void
 vwm_menu_scroll_info(vk_widget_t *child,
@@ -169,6 +170,17 @@ vwm_capture_screenshot(vk_widget_t *widget, void *anything)
     return vwm_menu_helper(widget, mod);
 }
 
+static int
+vwm_lock_screen(vk_widget_t *widget, void *anything)
+{
+    (void)widget;
+    (void)anything;
+
+    vwm_screensaver_activate();
+
+    return 0;
+}
+
 static vk_window_t*
 create_file_dropdown(vwm_t *vwm)
 {
@@ -194,6 +206,8 @@ create_file_dropdown(vwm_t *vwm)
         vwm_toggle_winman, NULL);
     vk_listbox_add_item(listbox, "Switch desktop (Alt d)",
         vwm_switch_desktop, NULL);
+    vk_listbox_add_item(listbox, "Lock screen",
+        vwm_lock_screen, NULL);
     vk_listbox_add_item(listbox, "Capture screenshot",
         vwm_capture_screenshot, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);

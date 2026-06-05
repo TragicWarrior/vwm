@@ -13,6 +13,9 @@ void    vwm_screensaver_note_activity(void);
    configured timeout */
 void    vwm_screensaver_tick(void);
 
+/* start the saver immediately if a command is configured (manual lock) */
+void    vwm_screensaver_activate(void);
+
 /* true while the screensaver is running (input is locked to it) */
 bool    vwm_screensaver_is_active(void);
 
