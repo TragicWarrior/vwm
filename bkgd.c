@@ -312,3 +312,43 @@ vwm_bkgd_simple_winman(vk_screen_t *screen, int surface_id, WINDOW *canvas)
         waddch(canvas, '.');
     wattroff(canvas, COLOR_PAIR(color));
 }
+
+/*
+    Persist a wbkgdset value on the given surface so transient erases
+    (between werase() and the next wallpaper/widget composite) show the
+    desktop's color instead of black.  Uses just COLOR_PAIR with no
+    attribute bits so the ncurses bkgd-OR doesn't bleed bold/reverse
+    into any cell written to the surface.  libviper reapplies after
+    teleport automatically (vk_screen_set_surface_bkgd persists the
+    value).
+*/
+void
+vwm_apply_desktop_bkgd(int surface_id)
+{
+    vwm_t   *vwm;
+    short   bg;
+    short   pair;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL || vwm->screen == NULL) return;
+    if(surface_id < 0 || surface_id >= vwm->surface_count) return;
+
+    bg   = vwm->desktop_color[surface_id];
+    pair = vdk_color_pair(COLOR_BLACK, bg);
+
+    vk_screen_set_surface_bkgd(vwm->screen, surface_id,
+        ' ' | COLOR_PAIR(pair));
+}
+
+void
+vwm_apply_desktop_bkgd_all(void)
+{
+    vwm_t   *vwm;
+    int     i;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL) return;
+
+    for(i = 0; i < vwm->surface_count; i++)
+        vwm_apply_desktop_bkgd(i);
+}

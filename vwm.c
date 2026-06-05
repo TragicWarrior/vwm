@@ -196,6 +196,8 @@ int main(int argc,char **argv)
     vwm_menubar_init();
     vwm_settings_load(vwm);
     vwm_apply_surface_count(vwm->surface_count);
+    /* settings + surfaces are now both live; seed each desktop's bkgd */
+    vwm_apply_desktop_bkgd_all();
     vwm_programs_load(vwm);
 
     vk_screen_refresh(vwm->screen);
@@ -330,6 +332,11 @@ vwm_apply_surface_count(int new_count)
         }
 
         vwm->surface_count = new_count;
+
+        /* push bkgd onto the freshly-created surfaces */
+        for(i = old_count; i < new_count; i++)
+            vwm_apply_desktop_bkgd(i);
+
         return;
     }
 

@@ -1,3 +1,29 @@
+2026-06-03
+
+Reduced desktop flicker during heavy vwmterm scrolling (e.g. running
+myman).  Each desktop's color is now seated on its surface canvas via
+wbkgdset and the same value is pushed down onto stdscr.  stdscr is
+what ncurses turns into the byte stream the outer terminal renders,
+so when wrefresh emits hardware-scroll / insert-delete-line
+optimizations for a heavy redraw, any cells the terminal momentarily
+exposes during those operations now take the desktop color rather
+than the terminal's default (typically black).  Set automatically at
+init, on desktop color change in Settings, on desktop switch, and
+re-applied after teleport (which gives us a fresh canvas + stdscr).
+
+The bkgd value uses only COLOR_PAIR with no attribute bits, so the
+ncurses bkgd-OR doesn't bleed bold / reverse / etc. into any cell
+written to the surface.  Backed by new libviper APIs
+vk_screen_set_surface_bkgd and vk_screen_apply_stdscr_bkgd.
+
+A residual artifact remains for wallpapers that use patterned glyphs
+(CKBOARD checkerboard, bricks, dots): you can see solid blue
+momentarily before the pattern paints over it.  The bkgd can only
+match one cell, not a pattern, so there's no clean fix short of
+switching the wallpaper to None (solid fill).  Much milder than the
+prior black flash.
+
+
 2026-06-02
 
 New Manage Desktop system tool, reachable from the VWM menu just

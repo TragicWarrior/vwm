@@ -19,6 +19,7 @@
 #include "mainmenu.h"
 #include "manage_settings.h"
 #include "winman.h"
+#include "bkgd.h"
 
 #define MANAGE_SETTINGS_HELP \
 "[Tab] cycle  [Up/Dn] select  " \
@@ -421,6 +422,7 @@ commit_to_vwm(void)
                     vwm_color_names[i]) == 0)
                 {
                     vwm->desktop_color[d] = (short)i;
+                    vwm_apply_desktop_bkgd(d);
                     break;
                 }
             }
