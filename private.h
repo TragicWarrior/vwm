@@ -26,7 +26,9 @@ struct _vwm_s
     struct list_head        module_list;
 
     vk_screen_t             *screen;
+    vk_deck_t               **decks;
     vk_deck_t               *deck;
+    int                     surface_count;
     vk_window_t             *menu;
     vk_menubar_t            *menubar;
     int                     menu_item_idx;

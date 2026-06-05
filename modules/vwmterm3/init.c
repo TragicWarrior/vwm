@@ -203,9 +203,13 @@ vwmterm_main(vwm_module_t *mod)
 
     if(vwmterm_mod->fullscreen == FALSE)
     {
+        char raw_title[64];
+        char title[68];
+        vwm_module_get_title(mod, raw_title, sizeof(raw_title));
+        snprintf(title, sizeof(title), " %s ", raw_title);
+
         window = vk_window_create(width + 2, height + 2);
-        vk_window_set_title(window,
-            " VTerm (Alt+PgUp/PgDn, Alt+Shft+V=Paste) ");
+        vk_window_set_title(window, title);
         vk_window_set_border_style(window, VK_FRAME_SINGLE);
         vk_window_set_decorate(window, vwm_window_decorate, NULL);
 
@@ -237,6 +241,7 @@ vwmterm_main(vwm_module_t *mod)
 
     vwmterm_data->window = window;
     vwmterm_data->vterm = vterm;
+    vwmterm_data->mod = mod;
     vwmterm_data->state = VWMTERM_STATE_RUNNING;
 
     vk_widget_set_userptr(VK_WIDGET(window), (void *)vwmterm_data);

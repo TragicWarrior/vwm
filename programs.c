@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <libconfig.h>
 
 #include "vwm.h"
@@ -6,6 +7,37 @@
 #include "programs.h"
 #include "private.h"
 #include "strings.h"
+
+static void
+vwm_programs_purge(vwm_t *vwm)
+{
+    struct list_head    *pos;
+    struct list_head    *tmp;
+    vwm_module_t        *mod;
+
+    list_for_each_safe(pos, tmp, &vwm->module_list)
+    {
+        mod = list_entry(pos, vwm_module_t, list);
+
+        if(vwm_module_get_zone(mod) != MODULE_ZONE_USER) continue;
+
+        list_del(pos);
+        free(mod);
+    }
+}
+
+int
+vwm_programs_reload(void)
+{
+    vwm_t   *vwm;
+
+    vwm = vwm_get_instance();
+
+    vwm_programs_purge(vwm);
+    config_destroy(&vwm->config);
+
+    return vwm_programs_load(vwm);
+}
 
 int
 vwm_programs_load(vwm_t *vwm)

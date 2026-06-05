@@ -29,11 +29,16 @@ vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
     int         i;
 
     (void)screen;
-    (void)surface_id;
 
     getmaxyx(canvas, height, width);
 
-    color = vdk_color_pair(COLOR_BLACK, COLOR_BLUE);
+    if(surface_id == 0)
+        color = vdk_color_pair(COLOR_BLACK, COLOR_BLUE);
+    else if(surface_id == 1)
+        color = vdk_color_pair(COLOR_RED, COLOR_BLACK);
+    else
+        color = vdk_color_pair(COLOR_CYAN, COLOR_BLACK);
+
     wattron(canvas, COLOR_PAIR(color) | A_ALTCHARSET);
     wmove(canvas, 0, 0);
     for(i = 0; i < width * height; i++)

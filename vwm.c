@@ -60,6 +60,9 @@
 static void
 vwm_cursor_overlay(vk_screen_t *screen, int surface_id, WINDOW *canvas);
 
+static int
+vwm_on_surface_change(vk_object_t *object, int event, void *data);
+
 vwm_sched_t             *sched = NULL;
 int                     shutdown = 0;
 
@@ -184,9 +187,27 @@ vwm_init(void)
 
         vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
 
-        vwm->deck = vk_deck_create();
-        vk_deck_set_shadow(vwm->deck, true);
-        vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm->deck));
+        vwm->surface_count = 3;
+        vwm->decks = calloc(vwm->surface_count, sizeof(vk_deck_t *));
+
+        vwm->decks[0] = vk_deck_create();
+        vk_deck_set_shadow(vwm->decks[0], true);
+        vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm->decks[0]));
+
+        vk_screen_add_surface(vwm->screen);
+        vwm->decks[1] = vk_deck_create();
+        vk_deck_set_shadow(vwm->decks[1], true);
+        vk_screen_attach_widget(vwm->screen, 1, VK_WIDGET(vwm->decks[1]));
+
+        vk_screen_add_surface(vwm->screen);
+        vwm->decks[2] = vk_deck_create();
+        vk_deck_set_shadow(vwm->decks[2], true);
+        vk_screen_attach_widget(vwm->screen, 2, VK_WIDGET(vwm->decks[2]));
+
+        vwm->deck = vwm->decks[0];
+
+        vk_object_register_event(VK_OBJECT(vwm->screen),
+            VK_EVENT_ON_SURFACE_CHANGE, vwm_on_surface_change, NULL);
 
         INIT_LIST_HEAD(&vwm->module_list);
 
@@ -205,6 +226,43 @@ vwm_init(void)
     }
 
 	return vwm;
+}
+
+static int
+vwm_on_surface_change(vk_object_t *object, int event, void *data)
+{
+    vwm_t       *vwm;
+    VWM_PANEL   *panel;
+    int         old_surface;
+    int         new_surface;
+
+    (void)object;
+    (void)event;
+    (void)data;
+
+    vwm = vwm_get_instance();
+    panel = vwm_panel_get_data();
+
+    new_surface = vk_screen_get_active_surface(vwm->screen);
+
+    for(old_surface = 0; old_surface < vwm->surface_count; old_surface++)
+    {
+        if(old_surface == new_surface) continue;
+
+        vk_screen_detach_widget(vwm->screen, old_surface,
+            VK_WIDGET(panel->box));
+        vk_screen_detach_widget(vwm->screen, old_surface,
+            VK_WIDGET(panel->status_box));
+    }
+
+    vk_screen_attach_widget(vwm->screen, new_surface,
+        VK_WIDGET(panel->box));
+    vk_screen_attach_widget(vwm->screen, new_surface,
+        VK_WIDGET(panel->status_box));
+
+    vwm->deck = vwm->decks[new_surface];
+
+    return 0;
 }
 
 static void

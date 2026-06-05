@@ -26,6 +26,7 @@
 #include "vwm.h"
 #include "mainmenu.h"
 #include "modules.h"
+#include "programs.h"
 #include "strings.h"
 #include "private.h"
 #include "events.h"
@@ -103,6 +104,17 @@ vwm_menubar_on_select(vk_object_t *object, int event, void *data)
 }
 
 static int
+vwm_reload_apps(vk_widget_t *widget, void *anything)
+{
+    (void)widget;
+    (void)anything;
+
+    vwm_programs_reload();
+
+    return 0;
+}
+
+static int
 vwm_file_menu_activate(vk_widget_t *widget, void *anything)
 {
     vwm_t   *vwm;
@@ -149,8 +161,11 @@ create_file_dropdown(vwm_t *vwm)
     vk_listbox_set_wrap(listbox, TRUE);
     vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
 
-    vk_listbox_add_item(listbox, "Manage Windows (Alt w)",
+    vk_listbox_add_item(listbox, "Manage windows (Alt w)",
         vwm_toggle_winman, NULL);
+    vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
+    vk_listbox_add_item(listbox, "Reload Apps Menu",
+        vwm_reload_apps, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Exit", vwm_exit, NULL);
 
@@ -262,7 +277,8 @@ open_dropdown(vwm_t *vwm, int idx)
     vk_menubar_get_item_position(vwm->menubar, idx, &item_x);
 
     vk_widget_move(VK_WIDGET(window), menubar_x + item_x, 1);
-    vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(window));
+    vk_screen_attach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen), VK_WIDGET(window));
 
     vk_listbox_update(VK_LISTBOX(vk_window_get_child(window)));
     vk_window_update(window);
@@ -413,7 +429,8 @@ vwm_menubar_close_dropdown(void)
 
     if(menu == NULL) return;
 
-    vk_screen_detach_widget(vwm->screen, 0, VK_WIDGET(menu));
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen), VK_WIDGET(menu));
 
     listbox = VK_LISTBOX(vk_window_get_child(menu));
     vk_listbox_destroy(listbox);

@@ -1,5 +1,17 @@
 2026-05-26
 
+Added multiple desktops (3 surfaces) with per-surface window decks.
+Ctrl+Shift+Right/Left cycles between desktops with wrap-around.
+Panel and status bar follow the active surface.  Each desktop has a
+distinct checkerboard wallpaper (blue, red, cyan).
+
+Added "Reload Apps Menu" to the VWM dropdown menu.  This re-reads
+~/.vwm/vwmrc and repopulates the Apps menu without restarting.
+
+Replaced vwmterm help text in the window title bar with the module
+name (e.g. "VTerm (xterm)").  Help is now shown in the status bar
+marquee instead.
+
 Added calendar popup triggered by clicking the clock in the panel.
 The calendar shows an XFCE4-style month view with navigation via
 arrow keys, mouse wheel, or clicking the < > arrows.  Escape or

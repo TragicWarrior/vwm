@@ -47,6 +47,8 @@
 #define     KEY_CTRL_LEFT       545
 
 static VWM_PANEL    *panel_data = NULL;
+static int          key_ctrl_shift_right = 0;
+static int          key_ctrl_shift_left = 0;
 
 VWM_PANEL*
 vwm_panel_get_data(void)
@@ -62,6 +64,9 @@ vwm_panel_init(vwm_t *vwm)
     int             has_utf8;
 
     if(panel_data != NULL) return;
+
+    key_ctrl_shift_right = key_defined("\033[1;6C");
+    key_ctrl_shift_left = key_defined("\033[1;6D");
 
     vwm_panel = (VWM_PANEL*)calloc(1, sizeof(VWM_PANEL));
     vwm_panel->tick_rate = 2;
@@ -284,6 +289,30 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
         if(keystroke == vwm->hotkey_menu)
         {
             vwm_menubar_hotkey();
+
+            return KMIO_HANDLED;
+        }
+
+        if(key_ctrl_shift_right > 0 && keystroke == key_ctrl_shift_right)
+        {
+            int cur = vk_screen_get_active_surface(vwm->screen);
+            int cnt = vk_screen_get_surface_count(vwm->screen);
+            int next = (cur + 1) % cnt;
+
+            vk_screen_set_surface(vwm->screen, next);
+            vk_screen_refresh(vwm->screen);
+
+            return KMIO_HANDLED;
+        }
+
+        if(key_ctrl_shift_left > 0 && keystroke == key_ctrl_shift_left)
+        {
+            int cur = vk_screen_get_active_surface(vwm->screen);
+            int cnt = vk_screen_get_surface_count(vwm->screen);
+            int prev = (cur + cnt - 1) % cnt;
+
+            vk_screen_set_surface(vwm->screen, prev);
+            vk_screen_refresh(vwm->screen);
 
             return KMIO_HANDLED;
         }
@@ -655,7 +684,8 @@ vwm_calendar_toggle(void)
         pos_y = 1;
 
         vk_widget_move(VK_WIDGET(window), pos_x, pos_y);
-        vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(window));
+        vk_screen_attach_widget(vwm->screen,
+            vk_screen_get_active_surface(vwm->screen), VK_WIDGET(window));
 
         vk_calendar_update(calendar);
         vk_window_update(window);
@@ -676,7 +706,8 @@ vwm_calendar_close(void)
 
     if(popup == NULL) return;
 
-    vk_screen_detach_widget(vwm->screen, 0, VK_WIDGET(popup));
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen), VK_WIDGET(popup));
 
     calendar = VK_CALENDAR(vk_window_get_child(popup));
     vk_calendar_destroy(calendar);
