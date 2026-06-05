@@ -23,7 +23,7 @@
 
 #include <ncursesw/curses.h>
 
-#include <viper.h>
+#include <vdk.h>
 
 #include "vwm.h"
 #include "panel.h"
@@ -46,30 +46,29 @@
 #define     KEY_LESS_THAN       '<'
 #define     KEY_CTRL_LEFT       545
 
-vwnd_t*
-vwm_panel_init(void)
+static VWM_PANEL    *panel_data = NULL;
+
+VWM_PANEL*
+vwm_panel_get_data(void)
 {
-    static vwnd_t   *vwnd = NULL;
+    return panel_data;
+}
+
+void
+vwm_panel_init(vwm_t *vwm)
+{
     VWM_PANEL       *vwm_panel;
     int             max_y, max_x;
     int             has_utf8;
 
-    if(vwnd != NULL) return vwnd;
+    if(panel_data != NULL) return;
 
     vwm_panel = (VWM_PANEL*)calloc(1, sizeof(VWM_PANEL));
     vwm_panel->tick_rate = 2;
     vwm_panel->thaw_rate = 3;
+    panel_data = vwm_panel;
 
-    vwnd = viper_window_create(0, FALSE, "vwm panel", 0, 0,
-        WSIZE_FULLSCREEN, 1);
-    viper_window_set_key_func(vwnd, vwm_panel_ON_KEYSTROKE);
-    viper_event_set(vwnd, "vwm-clock-tick", vwm_panel_ON_CLOCK_TICK,
-        (void*)vwm_panel);
-    viper_event_set(vwnd, "term-resized", vwm_panel_ON_TERM_RESIZED,
-        (void*)vwm_panel);
-    viper_window_set_userptr(vwnd, (void*)vwm_panel);
-
-    getmaxyx(VWINDOW(vwnd), max_y, max_x);
+    getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
     {
         const char *term = getenv("TERM");
         has_utf8 = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0);
@@ -77,15 +76,27 @@ vwm_panel_init(void)
             has_utf8 = 0;
     }
 
-    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 4);
+    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 6);
     vk_box_set_homogeneous(vwm_panel->box, false);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->box),
         COLOR_BLACK, COLOR_WHITE);
 
-    vwm_panel->msg_label = vk_label_create(max_x - 26);
+    vwm_panel->msg_label = vk_label_create(17);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->msg_label),
         COLOR_BLACK, COLOR_WHITE);
-    vk_widget_set_expand(VK_WIDGET(vwm_panel->msg_label));
+
+    vwm_panel->menubar = vk_menubar_create(1);
+    vk_widget_set_colors(VK_WIDGET(vwm_panel->menubar),
+        COLOR_BLACK, COLOR_WHITE);
+    vk_menubar_set_highlight(vwm_panel->menubar,
+        COLOR_WHITE, COLOR_BLUE);
+    vwm->menubar = vwm_panel->menubar;
+
+    {
+        vk_filler_t *spacer = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(spacer), COLOR_BLACK, COLOR_WHITE);
+        vk_box_set_widget(vwm_panel->box, 2, VK_WIDGET(spacer));
+    }
 
     vwm_panel->task_label = vk_label_create(4);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->task_label),
@@ -115,33 +126,30 @@ vwm_panel_init(void)
     vk_box_set_widget(vwm_panel->box, 0,
         VK_WIDGET(vwm_panel->msg_label));
     vk_box_set_widget(vwm_panel->box, 1,
-        VK_WIDGET(vwm_panel->task_label));
-    vk_box_set_widget(vwm_panel->box, 2,
-        VK_WIDGET(vwm_panel->clock_label));
+        VK_WIDGET(vwm_panel->menubar));
     vk_box_set_widget(vwm_panel->box, 3,
+        VK_WIDGET(vwm_panel->task_label));
+    vk_box_set_widget(vwm_panel->box, 4,
+        VK_WIDGET(vwm_panel->clock_label));
+    vk_box_set_widget(vwm_panel->box, 5,
         VK_WIDGET(vwm_panel->activity));
 
-    vk_widget_set_surface(VK_WIDGET(vwm_panel->box), VWINDOW(vwnd));
+    vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm_panel->box));
 
     vk_box_update(vwm_panel->box);
     vk_widget_draw(VK_WIDGET(vwm_panel->box));
 
     INIT_LIST_HEAD(&vwm_panel->msg_list);
 
-    viper_window_set_visible(vwnd, TRUE);
-    viper_window_redraw(vwnd);
-
     (void)max_y;
-
-    return vwnd;
 }
 
 int
-vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
+vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
 {
     vwm_t       *vwm;
 
-    (void)vwnd;
+    (void)anything;
 
     vwm = vwm_get_instance();
 
@@ -150,42 +158,54 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
         vwm->state ^= VWM_STATE_ACTIVE;
 
         if(vwm->state & VWM_STATE_ACTIVE)
-            vwm_default_VWM_START((void*)TOPMOST_MANAGED);
+            vwm_default_VWM_START();
         else
-            vwm_default_VWM_STOP((void*)TOPMOST_MANAGED);
+            vwm_default_VWM_STOP();
 
         return KMIO_HANDLED;
     }
 
     if(vwm->state & VWM_STATE_ACTIVE)
     {
+        vk_widget_t *top = vk_deck_get_top(vwm->deck);
+
         switch(keystroke)
         {
             case 17:
-                vwm_default_WINDOW_CLOSE(TOPMOST_MANAGED); return -1;
+                vwm_default_WINDOW_CLOSE(top);
+                return KMIO_HANDLED;
             case KEY_TAB:
-                vwm_default_WINDOW_CYCLE(); return -1;
+                vwm_default_WINDOW_CYCLE();
+                return KMIO_HANDLED;
             case KEY_UP:
-                vwm_default_WINDOW_MOVE_UP(TOPMOST_MANAGED); return -1;
+                vwm_default_WINDOW_MOVE_UP(top);
+                return KMIO_HANDLED;
             case KEY_DOWN:
-                vwm_default_WINDOW_MOVE_DOWN(TOPMOST_MANAGED); return -1;
+                vwm_default_WINDOW_MOVE_DOWN(top);
+                return KMIO_HANDLED;
             case KEY_LEFT:
-                vwm_default_WINDOW_MOVE_LEFT(TOPMOST_MANAGED); return -1;
+                vwm_default_WINDOW_MOVE_LEFT(top);
+                return KMIO_HANDLED;
             case KEY_RIGHT:
-                vwm_default_WINDOW_MOVE_RIGHT(TOPMOST_MANAGED); return -1;
+                vwm_default_WINDOW_MOVE_RIGHT(top);
+                return KMIO_HANDLED;
 
             case KEY_PLUS:
             case KEY_CTRL_DOWN:
-                vwm_default_WINDOW_INCREASE_HEIGHT(TOPMOST_MANAGED); return -1;
+                vwm_default_WINDOW_INCREASE_HEIGHT(top);
+                return KMIO_HANDLED;
             case KEY_MINUS:
             case KEY_CTRL_UP:
-                vwm_default_WINDOW_DECREASE_HEIGHT(TOPMOST_MANAGED); return -1;
+                vwm_default_WINDOW_DECREASE_HEIGHT(top);
+                return KMIO_HANDLED;
             case KEY_GREATER_THAN:
             case KEY_CTRL_RIGHT:
-                vwm_default_WINDOW_INCREASE_WIDTH(TOPMOST_MANAGED); return -1;
+                vwm_default_WINDOW_INCREASE_WIDTH(top);
+                return KMIO_HANDLED;
             case KEY_LESS_THAN:
             case KEY_CTRL_LEFT:
-                vwm_default_WINDOW_DECREASE_WIDTH(TOPMOST_MANAGED); return -1;
+                vwm_default_WINDOW_DECREASE_WIDTH(top);
+                return KMIO_HANDLED;
 
             default:
                 return keystroke;
@@ -196,7 +216,7 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
     {
         if(keystroke == vwm->hotkey_menu)
         {
-            vwm_main_menu_hotkey();
+            vwm_menubar_hotkey();
 
             return KMIO_HANDLED;
         }
@@ -205,33 +225,28 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
     return keystroke;
 }
 
-int
-vwm_panel_ON_TERM_RESIZED(vwnd_t *vwnd, void *arg)
+void
+vwm_panel_ON_TERM_RESIZED(VWM_PANEL *vwm_panel)
 {
-    VWM_PANEL       *vwm_panel;
-    int             max_y, max_x;
+    vwm_t       *vwm;
+    int         max_y, max_x;
 
-    vwm_panel = (VWM_PANEL*)arg;
-    getmaxyx(CURRENT_SCREEN, max_y, max_x);
+    if(vwm_panel == NULL) return;
 
-    viper_wresize_abs(vwnd, WSIZE_FULLSCREEN, WSIZE_UNCHANGED);
+    vwm = vwm_get_instance();
+    getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
 
     vk_widget_resize(VK_WIDGET(vwm_panel->box), max_x, 1);
     vk_box_update(vwm_panel->box);
-    vk_widget_draw(VK_WIDGET(vwm_panel->box));
-    viper_window_redraw(vwnd);
 
     (void)max_y;
-
-    return 0;
 }
 
-int
-vwm_panel_ON_CLOCK_TICK(vwnd_t *vwnd, void *arg)
+void
+vwm_panel_ON_CLOCK_TICK(VWM_PANEL *vwm_panel)
 {
-    VWM_PANEL   *vwm_panel;
+    if(vwm_panel == NULL) return;
 
-    vwm_panel = (VWM_PANEL*)arg;
     vwm_panel->clock++;
 
     vwm_panel_update_throbber(vwm_panel);
@@ -249,10 +264,6 @@ vwm_panel_ON_CLOCK_TICK(vwnd_t *vwnd, void *arg)
     vwm_panel_display(vwm_panel);
 
     vk_box_update(vwm_panel->box);
-    vk_widget_draw(VK_WIDGET(vwm_panel->box));
-    viper_window_redraw(vwnd);
-
-    return 0;
 }
 
 void
@@ -316,14 +327,13 @@ vwm_panel_display(VWM_PANEL *vwm_panel)
 uintmax_t
 vwm_panel_message_add(char *msg, int timeout)
 {
-    vwnd_t          *vwnd;
     VWM_PANEL       *vwm_panel;
     VWM_PANEL_MSG   *vwm_panel_msg;
 
     if(msg == NULL) return 0;
 
-    vwnd = vwm_panel_get_instance();
-    vwm_panel = viper_window_get_userptr(vwnd);
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return 0;
 
     if(timeout == 0 || timeout > VWM_PANEL_MSG_TTL_MAX)
         timeout = VWM_PANEL_MSG_TTL_MAX;
@@ -350,15 +360,14 @@ vwm_panel_message_add(char *msg, int timeout)
 void
 vwm_panel_message_del(uintmax_t msg_id)
 {
-    vwnd_t              *vwnd;
     VWM_PANEL           *vwm_panel;
     VWM_PANEL_MSG       *vwm_panel_msg;
     struct list_head    *pos;
 
     if(msg_id == 0) return;
 
-    vwnd = vwm_panel_get_instance();
-    vwm_panel = viper_window_get_userptr(vwnd);
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return;
 
     list_for_each(pos, &vwm_panel->msg_list)
     {
@@ -386,15 +395,14 @@ vwm_panel_message_del(uintmax_t msg_id)
 int
 vwm_panel_message_touch(uintmax_t msg_id)
 {
-    vwnd_t              *vwnd;
     VWM_PANEL           *vwm_panel;
     VWM_PANEL_MSG       *vwm_panel_msg;
     struct list_head    *pos;
 
     if(msg_id == 0) return -1;
 
-    vwnd = vwm_panel_get_instance();
-    vwm_panel = viper_window_get_userptr(vwnd);
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return -1;
 
     list_for_each(pos, &vwm_panel->msg_list)
     {
@@ -417,15 +425,14 @@ vwm_panel_message_touch(uintmax_t msg_id)
 int
 vwm_panel_message_promote(uintmax_t msg_id)
 {
-    vwnd_t              *vwnd;
     VWM_PANEL           *vwm_panel;
     VWM_PANEL_MSG       *vwm_panel_msg;
     struct list_head    *pos;
 
     if(msg_id == 0) return -1;
 
-    vwnd= vwm_panel_get_instance();
-    vwm_panel = viper_window_get_userptr(vwnd);
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return -1;
 
     list_for_each(pos, &vwm_panel->msg_list)
     {
@@ -449,15 +456,14 @@ vwm_panel_message_promote(uintmax_t msg_id)
 uintmax_t
 vwm_panel_message_find(char *msg)
 {
-    vwnd_t              *vwnd;
     VWM_PANEL           *vwm_panel;
     VWM_PANEL_MSG       *vwm_panel_msg;
     struct list_head    *pos;
 
     if(msg == NULL) return 0;
 
-    vwnd = vwm_panel_get_instance();
-    vwm_panel = viper_window_get_userptr(vwnd);
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return 0;
 
     list_for_each(pos, &vwm_panel->msg_list)
     {
@@ -467,6 +473,8 @@ vwm_panel_message_find(char *msg)
 
         vwm_panel_msg = NULL;
     }
+
+    if(vwm_panel_msg == NULL) return 0;
 
     return vwm_panel_msg->msg_id.msg_handle;
 }

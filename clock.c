@@ -5,15 +5,18 @@
 #include "vwm.h"
 #include "clock.h"
 #include "private.h"
+#include "panel.h"
 
 pt_t
 vwm_clock_driver(void * const env)
 {
     vwm_sched_ctx_t     *ctx_timer;
+    vwm_t               *vwm;
 
     extern unsigned int clock_tick;
 
     ctx_timer = (vwm_sched_ctx_t *)env;
+    vwm = vwm_get_instance();
 	pt_resume(ctx_timer);
 
 	do
@@ -25,7 +28,8 @@ vwm_clock_driver(void * const env)
 		}
 
         clock_tick = 0;
-		viper_event_run(VIPER_EVENT_BROADCAST,"vwm-clock-tick");
+        vwm_panel_ON_CLOCK_TICK(vwm_panel_get_data());
+        vk_screen_refresh(vwm->screen);
         ctx_timer->did_work = 1;
         pt_yield(ctx_timer);
 	}

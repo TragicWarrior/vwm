@@ -5,30 +5,354 @@
 #include "vwm.h"
 #include "poll_input_thd.h"
 #include "private.h"
+#include "mainmenu.h"
+#include "panel.h"
+#include "winman.h"
+#include "events.h"
+
+enum
+{
+    DRAG_NONE = 0,
+    DRAG_MOVE,
+    DRAG_RESIZE,
+};
+
+enum
+{
+    ZONE_SCREEN = 0,
+    ZONE_PANEL,
+    ZONE_MENU,
+    ZONE_CLOSE_BTN,
+    ZONE_RESIZE_CORNER,
+    ZONE_FRAME,
+    ZONE_CONTENT,
+};
+
+static int      drag_mode = DRAG_NONE;
+static int      drag_anchor_x;
+static int      drag_anchor_y;
+static int      drag_orig_wx;
+static int      drag_orig_wy;
+static int      drag_orig_ww;
+static int      drag_orig_wh;
+static vk_widget_t *drag_widget = NULL;
+
+static void
+apply_drag_position(MEVENT *mouse_event)
+{
+    if(drag_mode == DRAG_MOVE)
+    {
+        int dx = mouse_event->x - drag_anchor_x;
+        int dy = mouse_event->y - drag_anchor_y;
+
+        vk_widget_move(drag_widget,
+            drag_orig_wx + dx, drag_orig_wy + dy);
+    }
+    else if(drag_mode == DRAG_RESIZE)
+    {
+        int new_w = drag_orig_ww + (mouse_event->x - drag_anchor_x);
+        int new_h = drag_orig_wh + (mouse_event->y - drag_anchor_y);
+
+        if(new_w < 3) new_w = 3;
+        if(new_h < 3) new_h = 3;
+
+        vk_widget_resize(drag_widget, new_w, new_h);
+    }
+}
+
+static int
+classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
+{
+    vk_widget_t *hit;
+    int         wx, wy, ww, wh;
+    int         rx, ry;
+    uint32_t    state;
+
+    *hit_out = NULL;
+
+    if(my == 0) return ZONE_PANEL;
+
+    if(vwm->menu != NULL)
+    {
+        vk_widget_get_position(VK_WIDGET(vwm->menu), &wx, &wy);
+        vk_widget_get_metrics(VK_WIDGET(vwm->menu), &ww, &wh);
+
+        if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+        {
+            *hit_out = VK_WIDGET(vwm->menu);
+            return ZONE_MENU;
+        }
+    }
+
+    hit = vk_deck_hit_test(vwm->deck, mx, my);
+    if(hit == NULL) return ZONE_SCREEN;
+
+    *hit_out = hit;
+
+    vk_widget_get_position(hit, &wx, &wy);
+    vk_widget_get_metrics(hit, &ww, &wh);
+    rx = mx - wx;
+    ry = my - wy;
+
+    if(ry == 0 && rx >= ww - (int)sizeof("[X]") + 1 && rx < ww)
+        return ZONE_CLOSE_BTN;
+
+    state = vk_widget_get_state(hit);
+    if(ry == wh - 1 && rx == ww - 1 && !(state & VK_STATE_NORESIZE))
+        return ZONE_RESIZE_CORNER;
+
+    if(ry == 0 || ry == wh - 1 || rx == 0 || rx == ww - 1)
+        return ZONE_FRAME;
+
+    return ZONE_CONTENT;
+}
+
+static void
+raise_to_top(vwm_t *vwm, vk_widget_t *widget)
+{
+    vk_widget_t *old_top;
+
+    if(widget == vk_deck_get_top(vwm->deck)) return;
+
+    old_top = vk_deck_get_top(vwm->deck);
+    vk_deck_set_top(vwm->deck, widget);
+    if(old_top != NULL) vk_window_update(VK_WINDOW(old_top));
+    vk_window_update(VK_WINDOW(widget));
+}
+
+static void
+begin_drag(int mode, vk_widget_t *widget, MEVENT *mouse_event)
+{
+    int wx, wy, ww, wh;
+
+    drag_mode = mode;
+    drag_widget = widget;
+    drag_anchor_x = mouse_event->x;
+    drag_anchor_y = mouse_event->y;
+    vk_widget_get_position(widget, &wx, &wy);
+    vk_widget_get_metrics(widget, &ww, &wh);
+    drag_orig_wx = wx;
+    drag_orig_wy = wy;
+    drag_orig_ww = ww;
+    drag_orig_wh = wh;
+}
 
 pt_t
 vwm_poll_input(void * const env)
 {
     int32_t             keystroke;
     MEVENT              *mouse_event;
+    vwm_t               *vwm;
+    int                 retval;
 
     vwm_sched_ctx_t     *ctx_poll_input;
 
     ctx_poll_input = (vwm_sched_ctx_t *)env;
     mouse_event = (MEVENT*)ctx_poll_input->anything;
+    vwm = vwm_get_instance();
 
 	pt_resume(ctx_poll_input);
 
     do
     {
-        keystroke = viper_kmio_fetch(mouse_event);
+        keystroke = vk_kmio_fetch(mouse_event);
 
-        if(keystroke != -1)
+        if(keystroke == -1)
         {
-            viper_kmio_dispatch(keystroke, mouse_event);
-            ctx_poll_input->did_work = 1;
+            pt_yield(ctx_poll_input);
+            continue;
         }
 
+        if(keystroke == KEY_RESIZE)
+        {
+            vk_screen_resize(vwm->screen);
+            vwm_panel_ON_TERM_RESIZED(vwm_panel_get_data());
+            vwm_dropdown_ON_TERM_RESIZED();
+            vk_screen_refresh(vwm->screen);
+            ctx_poll_input->did_work = 1;
+            pt_yield(ctx_poll_input);
+            continue;
+        }
+
+        if(keystroke == KEY_MOUSE)
+        {
+            vk_widget_t     *hit = NULL;
+            int             zone;
+            mmask_t         bs = mouse_event->bstate;
+
+            if(drag_mode != DRAG_NONE && drag_widget != NULL)
+            {
+                if(bs & (BUTTON1_RELEASED | BUTTON1_CLICKED))
+                {
+                    apply_drag_position(mouse_event);
+                    drag_mode = DRAG_NONE;
+                    drag_widget = NULL;
+                }
+                else
+                {
+                    apply_drag_position(mouse_event);
+                }
+
+                vk_screen_refresh(vwm->screen);
+                ctx_poll_input->did_work = 1;
+                pt_yield(ctx_poll_input);
+                continue;
+            }
+
+            zone = classify_mouse(vwm, mouse_event->x,
+                mouse_event->y, &hit);
+
+            if(vwm->menu != NULL && zone != ZONE_MENU &&
+               zone != ZONE_PANEL && (bs & BUTTON1_PRESSED))
+            {
+                vwm_menubar_close_dropdown();
+                vk_menubar_set_focused(vwm->menubar, false);
+                vk_menubar_update(vwm->menubar);
+                vk_screen_refresh(vwm->screen);
+            }
+
+            switch(zone)
+            {
+                case ZONE_PANEL:
+                {
+                    if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+                    {
+                        int mb_x, mb_y, mb_w, mb_h;
+                        vk_widget_get_position(
+                            VK_WIDGET(vwm->menubar), &mb_x, &mb_y);
+                        vk_widget_get_metrics(
+                            VK_WIDGET(vwm->menubar), &mb_w, &mb_h);
+
+                        if(mouse_event->x >= mb_x &&
+                           mouse_event->x < mb_x + mb_w)
+                        {
+                            int hit_idx = vk_menubar_hit_test(
+                                vwm->menubar,
+                                mouse_event->x - mb_x);
+
+                            if(hit_idx >= 0)
+                            {
+                                vk_menubar_set_curr(vwm->menubar, hit_idx);
+                                vk_menubar_set_focused(vwm->menubar, true);
+                                vk_menubar_update(vwm->menubar);
+
+                                if(vwm->menu != NULL &&
+                                   vwm->menu_item_idx == hit_idx)
+                                {
+                                    vwm_menubar_close_dropdown();
+                                }
+                                else
+                                {
+                                    if(vwm->menu != NULL)
+                                        vwm_menubar_close_dropdown();
+                                    vk_menubar_exec_curr(vwm->menubar);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            vwm_menubar_hotkey();
+                        }
+                    }
+
+                    break;
+                }
+
+                case ZONE_MENU:
+                {
+                    vwm_dropdown_mouse(mouse_event);
+                    break;
+                }
+
+                case ZONE_CLOSE_BTN:
+                {
+                    if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+                    {
+                        raise_to_top(vwm, hit);
+                        vwm_default_WINDOW_CLOSE(hit);
+                    }
+
+                    break;
+                }
+
+                case ZONE_RESIZE_CORNER:
+                {
+                    if(bs & BUTTON1_PRESSED)
+                    {
+                        raise_to_top(vwm, hit);
+                        begin_drag(DRAG_RESIZE, hit, mouse_event);
+                    }
+                    else if(bs & BUTTON1_CLICKED)
+                    {
+                        raise_to_top(vwm, hit);
+                    }
+
+                    break;
+                }
+
+                case ZONE_FRAME:
+                {
+                    if(bs & BUTTON1_PRESSED)
+                    {
+                        raise_to_top(vwm, hit);
+                        begin_drag(DRAG_MOVE, hit, mouse_event);
+                    }
+                    else if(bs & BUTTON1_CLICKED)
+                    {
+                        raise_to_top(vwm, hit);
+                    }
+
+                    break;
+                }
+
+                case ZONE_CONTENT:
+                {
+                    if(bs & (BUTTON1_PRESSED | BUTTON1_CLICKED))
+                        raise_to_top(vwm, hit);
+
+                    vk_object_push_keystroke(VK_OBJECT(hit), keystroke);
+                    break;
+                }
+
+                case ZONE_SCREEN:
+                    break;
+            }
+
+            vk_screen_refresh(vwm->screen);
+            ctx_poll_input->did_work = 1;
+            pt_yield(ctx_poll_input);
+            continue;
+        }
+
+        retval = vwm_menubar_ON_KEYSTROKE(keystroke);
+        if(retval == KMIO_HANDLED)
+        {
+            vk_screen_refresh(vwm->screen);
+            ctx_poll_input->did_work = 1;
+            pt_yield(ctx_poll_input);
+            continue;
+        }
+
+        retval = vwm_panel_ON_KEYSTROKE(keystroke, NULL);
+        if(retval == KMIO_HANDLED)
+        {
+            vk_screen_refresh(vwm->screen);
+            ctx_poll_input->did_work = 1;
+            pt_yield(ctx_poll_input);
+            continue;
+        }
+
+        {
+            vk_widget_t *top = vk_deck_get_top(vwm->deck);
+
+            if(top != NULL)
+            {
+                vk_object_push_keystroke(VK_OBJECT(top), keystroke);
+                vk_screen_refresh(vwm->screen);
+            }
+        }
+
+        ctx_poll_input->did_work = 1;
         pt_yield(ctx_poll_input);
     }
     while(!(*ctx_poll_input->shutdown));

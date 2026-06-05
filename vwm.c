@@ -39,7 +39,8 @@
 #include <sys/klog.h>
 #endif
 
-#include <viper.h>
+#include <vdk.h>
+#include <vkmio.h>
 #include "protothread.h"
 #include "sched.h"
 
@@ -56,13 +57,6 @@
 #include "clock.h"
 #include "poll_input_thd.h"
 #include "programs.h"
-
-/*
-   According to GNU libc documentation. sig_atomic_t "is always atomic...
-   Reading and writing this data type is guaranteed to happen in a single
-   instruction.  The volatile qualifier appears to be implied for C99
-   but not necessarily true otherwise.
-*/
 
 vwm_sched_t             *sched = NULL;
 int                     shutdown = 0;
@@ -147,32 +141,27 @@ int main(int argc,char **argv)
 	flags = fcntl(STDIN_FILENO, F_GETFL);
 	fcntl(STDIN_FILENO,F_SETFL, flags | FASYNC);
 
-    viper_init(VIPER_GPM_SIGIO);
-    viper_set_border_agent(vwm_default_border_agent_unfocus, 0);
-    viper_set_border_agent(vwm_default_border_agent_focus, 1);
-
 	// use the integrated window manager
 	vwm = vwm_init();
-    vwm_panel_init();
+    vwm_panel_init(vwm);
 
-    // set hook to trap and filter keystrokes for window-management
-    // viper_kmio_dispatch_set_hook(KMIO_HOOK_ENTER,
-        // vwm_kmio_dispatch_hook_enter);
-
-    viper_screen_redraw(0, REDRAW_BACKGROUND);
-	viper_screen_redraw(0, REDRAW_ALL);
+    vk_screen_refresh(vwm->screen);
 
     vwm_modules_preload(vwm);
+    vwm_menubar_init();
     vwm_settings_load(vwm);
     vwm_programs_load(vwm);
 
     vwm_panel_message_add(vwm->hotkey_menu_msg, -1);
 
+    vk_screen_refresh(vwm->screen);
+
     vwm_sched_run(sched, &shutdown);
 
     vwm_sched_deinit(sched);
 
-    viper_end();
+    vk_kmio_shutdown();
+    vk_screen_destroy(vwm->screen);
     fsync(fd);
 	close(fd);
 
@@ -183,21 +172,21 @@ vwm_t*
 vwm_init(void)
 {
 	static vwm_t    *vwm = NULL;
-    int             width;
-    int             height;
-    int             screen_id;
 
 	if(vwm == NULL)
 	{
-        screen_id = CURRENT_SCREEN_ID;
-        getmaxyx(CURRENT_SCREEN, height, width);
-
  		vwm = (vwm_t*)calloc(1, sizeof(vwm_t));
 
-        vwm->wallpaper[screen_id] = newwin(height, width, 0, 0);
+        vwm->screen = vk_screen_create();
+        vdk_color_init();
+        vk_kmio_init(VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO);
+        nodelay(stdscr, TRUE);
 
-        viper_screen_set_wallpaper(screen_id, vwm->wallpaper[screen_id],
-            vwm_bkgd_simple_normal);
+        vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
+
+        vwm->deck = vk_deck_create();
+        vk_deck_set_shadow(vwm->deck, true);
+        vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm->deck));
 
         INIT_LIST_HEAD(&vwm->module_list);
 
@@ -209,17 +198,14 @@ vwm_init(void)
                 has_utf8 = 0;
 
             if(has_utf8)
-                vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP;
+                vwm->hotkey_menu_msg = VWM_MENU_HELP;
             else
-                vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP_ASCII;
+                vwm->hotkey_menu_msg = VWM_MENU_HELP_ASCII;
         }
 
         // load user profile
         vwm_profile_init(vwm);
-
-        // todo:  move more init stuff here
     }
 
 	return vwm;
 }
-

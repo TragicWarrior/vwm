@@ -21,7 +21,7 @@
 #include <string.h>
 #include <sys/types.h>
 
-#include <viper.h>
+#include <vdk.h>
 
 #include "vwm.h"
 #include "mainmenu.h"
@@ -29,6 +29,7 @@
 #include "strings.h"
 #include "private.h"
 #include "events.h"
+#include "panel.h"
 
 static void
 vwm_menu_scroll_info(vk_widget_t *child,
@@ -42,12 +43,12 @@ vwm_menu_scroll_info(vk_widget_t *child,
 
     if(content_h) *content_h = vk_listbox_get_item_count(lb);
     if(content_w) *content_w = metrics_w;
-    if(scroll_y) *scroll_y = vk_listbox_get_scroll_pos(lb);
+    if(scroll_y) *scroll_y = vk_listbox_get_curr(lb);
     if(scroll_x) *scroll_x = 0;
 }
 
 static int
-vwm_menu_kmio(vk_object_t *object, int32_t keystroke)
+vwm_dropdown_kmio(vk_object_t *object, int32_t keystroke)
 {
     vk_listbox_t    *listbox = VK_LISTBOX(object);
 
@@ -73,35 +74,120 @@ vwm_menu_kmio(vk_object_t *object, int32_t keystroke)
     return 0;
 }
 
-vwnd_t*
-vwm_main_menu(void)
+static void
+open_dropdown(vwm_t *vwm, int idx);
+
+static int
+vwm_menubar_on_select(vk_object_t *object, int event, void *data)
+{
+    vwm_t   *vwm;
+
+    (void)object;
+    (void)event;
+    (void)data;
+
+    vwm = vwm_get_instance();
+
+    if(vwm->menu != NULL)
+    {
+        int new_idx = vk_menubar_get_curr(vwm->menubar);
+
+        if(new_idx != vwm->menu_item_idx)
+        {
+            vwm_menubar_close_dropdown();
+            open_dropdown(vwm, new_idx);
+        }
+    }
+
+    return 0;
+}
+
+static int
+vwm_file_menu_activate(vk_widget_t *widget, void *anything)
+{
+    vwm_t   *vwm;
+
+    (void)widget;
+    (void)anything;
+
+    vwm = vwm_get_instance();
+    open_dropdown(vwm, 0);
+
+    return 0;
+}
+
+static int
+vwm_apps_menu_activate(vk_widget_t *widget, void *anything)
+{
+    vwm_t   *vwm;
+
+    (void)widget;
+    (void)anything;
+
+    vwm = vwm_get_instance();
+    open_dropdown(vwm, 1);
+
+    return 0;
+}
+
+static vk_window_t*
+create_file_dropdown(vwm_t *vwm)
 {
     vk_listbox_t    *listbox;
-    vk_frame_t      *frame;
-    vwnd_t          *vwnd;
-	int			    width = 8, height = 10;
-
-	vwm_module_t	*vwm_module;
-    char            buf[NAME_MAX];
-
+    vk_window_t     *window;
     int             max_width = 0;
     int             max_height = 0;
-    int             scr_width;
-    int             scr_height;
-    bool            category_found;
+    int             scr_width, scr_height;
 
-    int             i;
-
-    getmaxyx(CURRENT_SCREEN, scr_height, scr_width);
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
     scr_width -= 4;
     scr_height = (scr_height * 3) / 4;
 
-    listbox = vk_listbox_create(width, height);
+    listbox = vk_listbox_create(8, 10);
     vk_listbox_set_highlight(listbox, COLOR_BLACK, COLOR_RED);
     vk_listbox_set_wrap(listbox, TRUE);
-    vk_object_set_kmio(VK_OBJECT(listbox), vwm_menu_kmio);
+    vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
 
-    // iterate through the categories defined in modules.def
+    vk_listbox_add_item(listbox, "Exit", vwm_exit, NULL);
+
+    vk_listbox_update(listbox);
+    vk_listbox_get_metrics(listbox, &max_width, &max_height);
+    max_width += 3;
+    if(max_width > scr_width) max_width = scr_width;
+    if(max_height > scr_height) max_height = scr_height;
+
+    vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
+
+    window = vk_window_create(max_width + 2, max_height + 2);
+    vk_window_set_title(window, " File ");
+    vk_window_set_border_style(window, VK_FRAME_SINGLE);
+    vk_window_set_child(window, VK_WIDGET(listbox));
+
+    return window;
+}
+
+static vk_window_t*
+create_apps_dropdown(vwm_t *vwm)
+{
+    vk_listbox_t    *listbox;
+    vk_window_t     *window;
+    vwm_module_t    *vwm_module;
+    char            buf[NAME_MAX];
+    int             max_width = 0;
+    int             max_height = 0;
+    int             scr_width, scr_height;
+    bool            category_found;
+    int             i;
+
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
+    scr_width -= 4;
+    scr_height = (scr_height * 3) / 4;
+
+    listbox = vk_listbox_create(8, 10);
+    vk_listbox_set_highlight(listbox, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_wrap(listbox, TRUE);
+    vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
+
     for(i = 0; i < VWM_MOD_TYPE_MAX; i++)
     {
         vwm_module = NULL;
@@ -127,11 +213,6 @@ vwm_main_menu(void)
             vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     }
 
-    vk_listbox_add_item(listbox, "Toggle WM (alt + w)",
-        vwm_toggle_winman, NULL);
-    vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
-    vk_listbox_add_item(listbox, "Exit", vwm_exit, NULL);
-
     vk_listbox_update(listbox);
     vk_listbox_get_metrics(listbox, &max_width, &max_height);
     max_width += 3;
@@ -140,9 +221,10 @@ vwm_main_menu(void)
 
     vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
 
-    frame = vk_frame_create(max_width + 2, max_height + 2);
-    vk_frame_set_border_style(frame, VK_FRAME_SINGLE);
-    vk_frame_set_child(frame, VK_WIDGET(listbox));
+    window = vk_window_create(max_width + 2, max_height + 2);
+    vk_window_set_title(window, " Apps ");
+    vk_window_set_border_style(window, VK_FRAME_SINGLE);
+    vk_window_set_child(window, VK_WIDGET(listbox));
 
     {
         vk_scroller_t *scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
@@ -154,94 +236,272 @@ vwm_main_menu(void)
         vk_widget_attach_scroller(VK_WIDGET(listbox), scroller);
     }
 
-	vwnd = viper_window_create(CURRENT_SCREEN_ID, FALSE, " Menu ", 1, 1,
-        max_width + 2, max_height + 2);
+    return window;
+}
 
-    vk_widget_set_surface(VK_WIDGET(frame), VWINDOW(vwnd));
-    vk_widget_resize(VK_WIDGET(frame), max_width + 2, max_height + 2);
+static void
+open_dropdown(vwm_t *vwm, int idx)
+{
+    vk_window_t     *window;
+    int             menubar_x, menubar_y;
+    int             item_x;
 
-	viper_window_set_key_func(vwnd, vwm_main_menu_ON_KEYSTROKE);
-	viper_window_set_userptr(vwnd, (void*)frame);
+    if(vwm->menu != NULL) return;
 
-    viper_event_set(vwnd, "window-close", vwm_main_menu_ON_CLOSE, NULL);
-    viper_event_set(vwnd, "term-resized",
-        vwm_main_menu_ON_TERM_RESIZED, (void*)frame);
+    if(idx == 0)
+        window = create_file_dropdown(vwm);
+    else
+        window = create_apps_dropdown(vwm);
 
-    vk_listbox_update(listbox);
-    vk_frame_update(frame);
-    vk_widget_draw(VK_WIDGET(frame));
-    viper_window_set_focus(vwnd);
-    viper_window_redraw(vwnd);
+    vk_widget_get_position(VK_WIDGET(vwm->menubar), &menubar_x, &menubar_y);
+    vk_menubar_get_item_position(vwm->menubar, idx, &item_x);
 
-	return vwnd;
+    vk_widget_move(VK_WIDGET(window), menubar_x + item_x, 1);
+    vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(window));
+
+    vk_listbox_update(VK_LISTBOX(vk_window_get_child(window)));
+    vk_window_update(window);
+
+    vwm->menu = window;
+    vwm->menu_item_idx = idx;
 }
 
 int
-vwm_main_menu_hotkey(void)
+vwm_dropdown_mouse(MEVENT *mouse_event)
 {
-	vwnd_t  *vwnd = NULL;
-
-	vwnd = vwm_main_menu();
-	viper_window_set_class(vwnd, vwm_main_menu);
-	viper_window_set_top(vwnd);
-
-	return 0;
-}
-
-int
-vwm_main_menu_ON_CLOSE(vwnd_t *vwnd, void *anything)
-{
-    vk_frame_t      *frame;
+    vwm_t           *vwm;
+    vk_window_t     *menu;
     vk_listbox_t    *listbox;
+    int             beg_y, beg_x;
+    int             w, h;
+    int             row;
 
-    (void)anything;
+    vwm = vwm_get_instance();
+    menu = vwm->menu;
+    if(menu == NULL) return -1;
 
-    if(vwnd == NULL) return -1;
+    vk_widget_get_position(VK_WIDGET(menu), &beg_x, &beg_y);
+    vk_widget_get_metrics(VK_WIDGET(menu), &w, &h);
 
-    frame = (vk_frame_t *)viper_window_get_userptr(vwnd);
-    listbox = VK_LISTBOX(vk_frame_get_child(frame));
+    if(mouse_event->y < beg_y || mouse_event->y >= beg_y + h
+        || mouse_event->x < beg_x || mouse_event->x >= beg_x + w)
+        return -1;
 
-    vk_listbox_destroy(listbox);
-    vk_frame_destroy(frame);
+    listbox = VK_LISTBOX(vk_window_get_child(menu));
+    row = (mouse_event->y - beg_y - 1) + vk_listbox_get_scroll_pos(listbox);
+
+    if((mouse_event->bstate & REPORT_MOUSE_POSITION)
+        || (mouse_event->bstate & BUTTON1_PRESSED))
+    {
+        if(row >= 0 && row < vk_listbox_get_item_count(listbox)
+            && !vk_listbox_item_is_separator(listbox, row))
+        {
+            vk_listbox_set_curr(listbox, row);
+            vk_listbox_update(listbox);
+            vk_window_update(menu);
+        }
+        return 0;
+    }
+
+    if(mouse_event->bstate & BUTTON4_PRESSED)
+    {
+        vk_listbox_set_prev(listbox);
+        vk_listbox_update(listbox);
+        vk_window_update(menu);
+        return 0;
+    }
+
+    if(mouse_event->bstate & BUTTON5_PRESSED)
+    {
+        vk_listbox_set_next(listbox);
+        vk_listbox_update(listbox);
+        vk_window_update(menu);
+        return 0;
+    }
+
+    if(mouse_event->bstate & (BUTTON1_CLICKED | BUTTON1_RELEASED))
+    {
+        if(row >= 0 && row < vk_listbox_get_item_count(listbox)
+            && !vk_listbox_item_is_separator(listbox, row))
+        {
+            vk_listbox_set_curr(listbox, row);
+            vk_listbox_exec_curr(listbox);
+            vwm_menubar_close_dropdown();
+            vk_menubar_set_focused(vwm->menubar, false);
+            vk_menubar_update(vwm->menubar);
+        }
+        return 0;
+    }
 
     return 0;
 }
 
-
-int
-vwm_main_menu_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
+void
+vwm_menubar_init(void)
 {
-    vwm_t           *vwm;
-    vk_frame_t      *frame;
-    int             retval;
+    vwm_t       *vwm;
+    int         menubar_width;
 
     vwm = vwm_get_instance();
 
-    frame = (vk_frame_t *)viper_window_get_userptr(vwnd);
-    if(keystroke == -1) return -1;
+    vk_menubar_add_item(vwm->menubar, "File",
+        vwm_file_menu_activate, NULL);
+    vk_menubar_add_item(vwm->menubar, "Apps",
+        vwm_apps_menu_activate, NULL);
 
-    if(keystroke == vwm->hotkey_menu)
+    vk_object_register_event(VK_OBJECT(vwm->menubar),
+        VK_EVENT_ON_SELECT, vwm_menubar_on_select, NULL);
+
+    // " File " + "|" + " Apps " = 6 + 1 + 6 = 13
+    menubar_width = 13;
+    vk_widget_resize(VK_WIDGET(vwm->menubar), menubar_width, 1);
+
+    vk_menubar_update(vwm->menubar);
+
     {
-        viper_window_close(vwnd);
+        VWM_PANEL *panel = vwm_panel_get_data();
+        vk_box_update(panel->box);
+        vk_widget_draw(VK_WIDGET(panel->box));
+    }
+
+    vwm->menu_item_idx = -1;
+}
+
+int
+vwm_menubar_hotkey(void)
+{
+    vwm_t   *vwm;
+
+    vwm = vwm_get_instance();
+
+    if(vwm->menu != NULL)
+    {
+        vwm_menubar_close_dropdown();
+        vk_menubar_set_focused(vwm->menubar, false);
+        vk_menubar_update(vwm->menubar);
         return 0;
     }
 
-    retval = vk_object_push_keystroke(VK_OBJECT(frame), keystroke);
-
-    if(keystroke == 10 && retval == 0)
+    if(vk_menubar_get_focused(vwm->menubar))
     {
-        viper_window_close(vwnd);
-        return KMIO_HANDLED;
+        vk_menubar_set_focused(vwm->menubar, false);
+        vk_menubar_update(vwm->menubar);
+        return 0;
     }
 
-    if(retval == 0)
-    {
-        vk_frame_update(frame);
-        vk_widget_draw(VK_WIDGET(frame));
-        viper_window_redraw(vwnd);
-        return KMIO_HANDLED;
-    }
+    vk_menubar_set_curr(vwm->menubar, 0);
+    vk_menubar_set_focused(vwm->menubar, true);
+    vk_menubar_update(vwm->menubar);
 
-	return keystroke;
+    return 0;
 }
 
+void
+vwm_menubar_close_dropdown(void)
+{
+    vwm_t           *vwm;
+    vk_window_t     *menu;
+    vk_listbox_t    *listbox;
+
+    vwm = vwm_get_instance();
+    menu = vwm->menu;
+
+    if(menu == NULL) return;
+
+    vk_screen_detach_widget(vwm->screen, 0, VK_WIDGET(menu));
+
+    listbox = VK_LISTBOX(vk_window_get_child(menu));
+    vk_listbox_destroy(listbox);
+    vk_window_destroy(menu);
+
+    vwm->menu = NULL;
+    vwm->menu_item_idx = -1;
+}
+
+int
+vwm_menubar_ON_KEYSTROKE(int32_t keystroke)
+{
+    vwm_t           *vwm;
+    vk_window_t     *menu;
+    int             retval;
+
+    vwm = vwm_get_instance();
+    menu = vwm->menu;
+
+    if(menu != NULL)
+    {
+        if(keystroke == vwm->hotkey_menu || keystroke == 27)
+        {
+            vwm_menubar_close_dropdown();
+            vk_menubar_set_focused(vwm->menubar, false);
+            vk_menubar_update(vwm->menubar);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke == KEY_LEFT)
+        {
+            vk_menubar_set_prev(vwm->menubar);
+            vk_menubar_update(vwm->menubar);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke == KEY_RIGHT)
+        {
+            vk_menubar_set_next(vwm->menubar);
+            vk_menubar_update(vwm->menubar);
+            return KMIO_HANDLED;
+        }
+
+        retval = vk_object_push_keystroke(VK_OBJECT(menu), keystroke);
+
+        if(keystroke == KEY_CRLF && retval == 0)
+        {
+            vwm_menubar_close_dropdown();
+            vk_menubar_set_focused(vwm->menubar, false);
+            vk_menubar_update(vwm->menubar);
+            return KMIO_HANDLED;
+        }
+
+        if(retval == 0)
+        {
+            vk_window_update(menu);
+            return KMIO_HANDLED;
+        }
+
+        return keystroke;
+    }
+
+    if(vk_menubar_get_focused(vwm->menubar))
+    {
+        if(keystroke == 27)
+        {
+            vk_menubar_set_focused(vwm->menubar, false);
+            vk_menubar_update(vwm->menubar);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke == KEY_LEFT)
+        {
+            vk_menubar_set_prev(vwm->menubar);
+            vk_menubar_update(vwm->menubar);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke == KEY_RIGHT)
+        {
+            vk_menubar_set_next(vwm->menubar);
+            vk_menubar_update(vwm->menubar);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke == KEY_CRLF || keystroke == ' ' || keystroke == KEY_DOWN)
+        {
+            vk_menubar_exec_curr(vwm->menubar);
+            return KMIO_HANDLED;
+        }
+
+        return keystroke;
+    }
+
+    return keystroke;
+}

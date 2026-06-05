@@ -19,6 +19,7 @@ typedef struct
     int8_t              msg_count;
 
     vk_box_t            *box;
+    vk_menubar_t        *menubar;
     vk_label_t          *msg_label;
     vk_label_t          *task_label;
     vk_label_t          *clock_label;
@@ -50,9 +51,12 @@ typedef struct
 VWM_PANEL_MSG;
 
 /* panel events   */
-int     vwm_panel_ON_TERM_RESIZED(vwnd_t *vwnd, void *arg);
-int     vwm_panel_ON_CLOCK_TICK(vwnd_t *vwnd, void *arg);
-int     vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd);
+void    vwm_panel_ON_TERM_RESIZED(VWM_PANEL *panel);
+void    vwm_panel_ON_CLOCK_TICK(VWM_PANEL *panel);
+int     vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything);
+
+/* panel data access */
+VWM_PANEL*  vwm_panel_get_data(void);
 
 /* helpers  */
 void    vwm_panel_update_throbber(VWM_PANEL *panel);

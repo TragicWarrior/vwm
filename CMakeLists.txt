@@ -30,9 +30,10 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 find_package(VTERM REQUIRED)
 
-find_package(VIPER REQUIRED)
-
-find_package(VDK REQUIRED)
+# use libviper source tree (headers + library not yet installed)
+set(LIBVIPER_SOURCE_DIR "/home/bryanc/devel/repos-git/libviper")
+include_directories(BEFORE ${LIBVIPER_SOURCE_DIR}/vdk ${LIBVIPER_SOURCE_DIR}/vkmio)
+set(VDK_LIBRARY "${LIBVIPER_SOURCE_DIR}/libvdk.so")
 
 find_package(GPM)
 
@@ -71,20 +72,16 @@ add_executable(vwm
     )
 
 if (GPM_FOUND)
-target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VDK_LIBRARY}" "${VTERM_LIBRARY}" )
+target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}" )
 else()
-target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VDK_LIBRARY}" "${VTERM_LIBRARY}")
+target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}")
 endif()
 
 # set the subst vars that configure_file() will use
 set(PROJECT_VERSION 1.0)
 
-#set(PKG_CONFIG_LIBS
-#    "-lviper -lprotothread"
-#)
-
 set(PKG_CONFIG_LIBS
-    "-lviper"
+    "-lvdk"
 )
 
 

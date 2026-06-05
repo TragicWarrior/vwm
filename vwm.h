@@ -7,8 +7,8 @@
 
 #include <ncursesw/curses.h>
 
-#include "protothread.h"
-#include <viper.h>
+#include <vdk.h>
+#include <vkmio.h>
 
 
 #define VWM_VERSION					"3.3.2"
@@ -18,11 +18,7 @@
 #endif
 
 #ifndef _VWM_SHARED_MODULES
-#ifdef  _VIPER_WIDE
-#define _VWM_SHARED_MODULES         "/usr/lib/vwm/modules_wide/"
-#else
 #define _VWM_SHARED_MODULES         "/usr/local/lib/vwm/"
-#endif
 #endif
 
 #define VWM_CLOCK_TICK              (0.1F)
@@ -31,6 +27,9 @@
 #define VWM_STATE_NORMAL            0
 #define VMW_STATE_ASLEEP            (1 << 1)    // screensaver active
 #define VWM_STATE_ACTIVE            (1 << 2)    // indiates WM mode
+
+/* VWM-specific event types */
+#define VWM_EVENT_ON_CLOSE          100
 
 enum
 {
@@ -45,12 +44,9 @@ typedef struct _vwm_profile_s   vwm_profile_t;
 /*	startup functions	*/
 vwm_t*          vwm_init(void);
 #define			vwm_get_instance()	            (vwm_init())
-void 			vwm_hook_enter(ViperFunc func, void *arg);
-void			vwm_hook_leave(ViperFunc func, void *arg);
 
 /* panel facilities  */
-vwnd_t*         vwm_panel_init(void);
-#define         vwm_panel_get_instance()         (vwm_panel_init())
+void            vwm_panel_init(vwm_t *vwm);
 uintmax_t       vwm_panel_message_add(char *msg, int timeout);
 void            vwm_panel_message_del(uintmax_t msg_id);
 uintmax_t       vwm_panel_message_find(char *msg);
@@ -70,7 +66,7 @@ void            vwm_module_get_title(vwm_module_t *mod, char *buf, int buf_sz);
 void            vwm_module_set_userptr(vwm_module_t *mod, void *anything);
 void*           vwm_module_get_userptr(vwm_module_t *mod);
 int 		    vwm_module_add(vwm_module_t *mod);
-vwnd_t*         vwm_module_exec(vwm_module_t *mod);
+vk_window_t*    vwm_module_exec(vwm_module_t *mod);
 
 int             vwm_module_type_value(char *string);
 const char*     vwm_module_type_string(int value);

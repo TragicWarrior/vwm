@@ -5,19 +5,19 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include <viper.h>
+#include <vdk.h>
+#include <vkmio.h>
 #include <vterm.h>
 
 #include "vwmterm.h"
 #include "events.h"
 
+#include "../../vwm.h"
+#include "../../private.h"
+
 #define KEY_ENTER_CR    13
 #define KEY_ENTER_LF    10
 
-/*
-    Alt+Shift+V paste is an ESC + 'V' two-byte sequence handled by viper's
-    escape reader, not by ncurses keypad, so the encoding is fixed.
-*/
 #define KEY_PASTE       0x561B
 
 static int      key_alt_pgup;
@@ -63,18 +63,19 @@ vwmterm_highlight_cell(WINDOW *win, int row, int col)
 static void
 vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
 {
+    vwm_t       *vwm;
     vterm_t     *vterm;
     WINDOW      *win;
     int         width, height;
     int         r1, c1, r2, c2;
 
+    vwm = vwm_get_instance();
     vterm = vwmterm_data->vterm;
     win = vterm_wnd_get(vterm);
     vterm_wnd_size(vterm, &width, &height);
 
     vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
 
-    // normalize selection so (r1,c1) <= (r2,c2)
     if(vwmterm_data->sel_anchor_row < vwmterm_data->sel_end_row ||
        (vwmterm_data->sel_anchor_row == vwmterm_data->sel_end_row &&
         vwmterm_data->sel_anchor_col <= vwmterm_data->sel_end_col))
@@ -101,7 +102,8 @@ vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
             vwmterm_highlight_cell(win, r, c);
     }
 
-    viper_window_redraw(vwmterm_data->vwnd);
+    vk_window_update(vwmterm_data->window);
+    vk_screen_refresh(vwm->screen);
 }
 
 static void
@@ -121,7 +123,6 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
     cells = vterm_copy_buffer(vterm, &rows, &cols);
     if(cells == NULL) return;
 
-    // normalize
     if(vwmterm_data->sel_anchor_row < vwmterm_data->sel_end_row ||
        (vwmterm_data->sel_anchor_row == vwmterm_data->sel_end_row &&
         vwmterm_data->sel_anchor_col <= vwmterm_data->sel_end_col))
@@ -139,7 +140,6 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
         c2 = vwmterm_data->sel_anchor_col;
     }
 
-    // clamp to buffer bounds
     if(r1 < 0) r1 = 0;
     if(r2 >= rows) r2 = rows - 1;
     if(c1 < 0) c1 = 0;
@@ -167,7 +167,6 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
             }
         }
 
-        // trim trailing spaces on each line
         while(pos > 0 && buf[pos - 1] == ' ') pos--;
 
         if(r < r2)
@@ -176,12 +175,10 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
 
     buf[pos] = '\0';
 
-    // store in clipboard
     if(clipboard != NULL) free(clipboard);
     clipboard = buf;
     clipboard_len = pos;
 
-    // free the cell buffer copy
     for(int r = 0; r < rows; r++) free(cells[r]);
     free(cells);
 }
@@ -200,41 +197,49 @@ vwmterm_enter_selection(vwmterm_data_t *vwmterm_data)
     vwmterm_data->sel_end_row = row;
     vwmterm_data->sel_end_col = col;
 
-    viper_window_set_title(vwmterm_data->vwnd,
+    vk_window_set_title(vwmterm_data->window,
         " SELECT (Enter=Copy, Esc=Cancel) ");
 }
 
 static void
 vwmterm_exit_selection(vwmterm_data_t *vwmterm_data)
 {
+    vwm_t   *vwm;
     vterm_t *vterm = vwmterm_data->vterm;
+
+    vwm = vwm_get_instance();
 
     vwmterm_data->frozen = 0;
 
     vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
-    viper_window_set_title(vwmterm_data->vwnd,
+    vk_window_set_title(vwmterm_data->window,
         " VTerm (Alt+PgUp/PgDn, Alt+Shft+V=Paste) ");
-    viper_window_redraw(vwmterm_data->vwnd);
+    vk_window_update(vwmterm_data->window);
+    vk_screen_refresh(vwm->screen);
 }
 
 int
-vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
+vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 {
+    vwm_t           *vwm;
+    vk_window_t     *window;
     vwmterm_data_t  *vwmterm_data;
     vterm_t         *vterm;
     int             width, height;
     int             history_sz;
     int             offset;
 
+    window = VK_WINDOW(object);
+    vwm = vwm_get_instance();
+
     if(keystroke == KEY_MOUSE)
     {
-        MEVENT *me = viper_kmio_get_mouse_event();
+        MEVENT *me = vk_kmio_get_mouse_event();
         if(me == NULL) return 1;
 
-        vwmterm_data = (vwmterm_data_t *)viper_window_get_userptr(vwnd);
+        vwmterm_data = (vwmterm_data_t *)vk_widget_get_userptr(VK_WIDGET(window));
         vterm = vwmterm_data->vterm;
 
-        // Button1 press: cancel active selection or record potential drag start
         if(me->bstate & BUTTON1_PRESSED)
         {
             if(vwmterm_data->frozen == 1)
@@ -243,12 +248,12 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
                 return KMIO_HANDLED;
             }
 
-            int frame_y, frame_x;
+            int win_y, win_x;
             int row, col;
 
-            getbegyx(WINDOW_FRAME(vwnd), frame_y, frame_x);
-            row = me->y - frame_y - 1;
-            col = me->x - frame_x - 1;
+            vk_widget_get_position(VK_WIDGET(window), &win_x, &win_y);
+            row = me->y - win_y - 1;
+            col = me->x - win_x - 1;
 
             vterm_wnd_size(vterm, &width, &height);
 
@@ -263,23 +268,22 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
             }
         }
 
-        // drag: start or continue mouse selection
         if((me->bstate & REPORT_MOUSE_POSITION) &&
            (vwmterm_data->frozen == 3 || vwmterm_data->frozen == 2))
         {
-            int frame_y, frame_x;
+            int win_y, win_x;
             int row, col;
 
             if(vwmterm_data->frozen == 3)
             {
                 vwmterm_data->frozen = 2;
-                viper_window_set_title(vwmterm_data->vwnd,
+                vk_window_set_title(vwmterm_data->window,
                     " SELECT (Enter=Copy, Esc=Cancel) ");
             }
 
-            getbegyx(WINDOW_FRAME(vwnd), frame_y, frame_x);
-            row = me->y - frame_y - 1;
-            col = me->x - frame_x - 1;
+            vk_widget_get_position(VK_WIDGET(window), &win_x, &win_y);
+            row = me->y - win_y - 1;
+            col = me->x - win_x - 1;
 
             vterm_wnd_size(vterm, &width, &height);
             if(row < 0) row = 0;
@@ -294,13 +298,13 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
             return KMIO_HANDLED;
         }
 
-        // button release or click: finalize drag selection or cancel single click
         if((me->bstate & (BUTTON1_RELEASED | BUTTON1_CLICKED)) &&
            (vwmterm_data->frozen == 3 || vwmterm_data->frozen == 2))
         {
             if(vwmterm_data->frozen == 3)
             {
                 vwmterm_data->frozen = 0;
+                vterm_write_mouse_event(vterm, me);
             }
             else if(vwmterm_data->sel_anchor_row == vwmterm_data->sel_end_row &&
                     vwmterm_data->sel_anchor_col == vwmterm_data->sel_end_col)
@@ -315,7 +319,6 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
             return KMIO_HANDLED;
         }
 
-        // middle click: paste
         if(me->bstate & BUTTON2_PRESSED)
         {
             if(clipboard != NULL && clipboard_len > 0)
@@ -328,6 +331,9 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 
         if(me->bstate & BUTTON4_PRESSED)
         {
+            if(vterm_write_mouse_event(vterm, me) > 0)
+                return KMIO_HANDLED;
+
             vterm_wnd_size(vterm, &width, &height);
             history_sz = vterm_get_history_size(vterm);
 
@@ -342,13 +348,17 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 
             vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
                 VTERM_WND_RENDER_ALL);
-            viper_window_redraw(vwmterm_data->vwnd);
+            vk_window_update(vwmterm_data->window);
+            vk_screen_refresh(vwm->screen);
 
             return KMIO_HANDLED;
         }
 
         if(me->bstate & BUTTON5_PRESSED)
         {
+            if(vterm_write_mouse_event(vterm, me) > 0)
+                return KMIO_HANDLED;
+
             if(vwmterm_data->scroll_offset == 0) return KMIO_HANDLED;
 
             vterm_wnd_size(vterm, &width, &height);
@@ -359,7 +369,8 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
             {
                 vwmterm_data->scroll_offset = 0;
                 vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
-                viper_window_redraw(vwmterm_data->vwnd);
+                vk_window_update(vwmterm_data->window);
+                vk_screen_refresh(vwm->screen);
                 return KMIO_HANDLED;
             }
 
@@ -368,7 +379,8 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 
             vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
                 VTERM_WND_RENDER_ALL);
-            viper_window_redraw(vwmterm_data->vwnd);
+            vk_window_update(vwmterm_data->window);
+            vk_screen_refresh(vwm->screen);
 
             return KMIO_HANDLED;
         }
@@ -376,11 +388,8 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
         return KMIO_HANDLED;
     }
 
-    vwmterm_data = (vwmterm_data_t *)viper_window_get_userptr(vwnd);
+    vwmterm_data = (vwmterm_data_t *)vk_widget_get_userptr(VK_WIDGET(window));
     vterm = vwmterm_data->vterm;
-
-
-    // --- selection mode keys ---
 
     if(keystroke == key_sel_up || keystroke == key_sel_dn ||
        keystroke == key_sel_left || keystroke == key_sel_right ||
@@ -434,7 +443,6 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
         return KMIO_HANDLED;
     }
 
-    // copy selection
     if((keystroke == KEY_ENTER_CR || keystroke == KEY_ENTER_LF ||
         keystroke == KEY_ENTER) && vwmterm_data->frozen)
     {
@@ -443,14 +451,12 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
         return KMIO_HANDLED;
     }
 
-    // cancel selection
     if(keystroke == 27 && vwmterm_data->frozen)
     {
         vwmterm_exit_selection(vwmterm_data);
         return KMIO_HANDLED;
     }
 
-    // paste clipboard
     if(keystroke == KEY_PASTE)
     {
         if(clipboard != NULL && clipboard_len > 0)
@@ -461,10 +467,7 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
         return KMIO_HANDLED;
     }
 
-    // ignore other keys while frozen
     if(vwmterm_data->frozen) return KMIO_HANDLED;
-
-    // --- scrollback keys ---
 
     if(keystroke == key_alt_pgup)
     {
@@ -482,7 +485,8 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 
         vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
             VTERM_WND_RENDER_ALL);
-        viper_window_redraw(vwmterm_data->vwnd);
+        vk_window_update(vwmterm_data->window);
+        vk_screen_refresh(vwm->screen);
 
         return KMIO_HANDLED;
     }
@@ -499,7 +503,8 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
         {
             vwmterm_data->scroll_offset = 0;
             vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
-            viper_window_redraw(vwmterm_data->vwnd);
+            vk_window_update(vwmterm_data->window);
+            vk_screen_refresh(vwm->screen);
             return KMIO_HANDLED;
         }
 
@@ -508,7 +513,8 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 
         vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
             VTERM_WND_RENDER_ALL);
-        viper_window_redraw(vwmterm_data->vwnd);
+        vk_window_update(vwmterm_data->window);
+        vk_screen_refresh(vwm->screen);
 
         return KMIO_HANDLED;
     }
@@ -517,7 +523,8 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
     {
         vwmterm_data->scroll_offset = 0;
         vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
-        viper_window_redraw(vwmterm_data->vwnd);
+        vk_window_update(vwmterm_data->window);
+        vk_screen_refresh(vwm->screen);
     }
 
     vterm_write_pipe(vterm, keystroke);
@@ -526,13 +533,24 @@ vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 }
 
 int
-vwmterm_ON_SCREEN_RESIZED(vwnd_t *vwnd, void *anything)
+vwmterm_ON_SCREEN_RESIZED(vk_object_t *object, int event, void *anything)
 {
+    vwm_t           *vwm;
+    vk_window_t     *window;
+    int             scr_width, scr_height;
+
+    (void)event;
+
+    window = VK_WINDOW(object);
+    vwm = vwm_get_instance();
+
     if(anything != NULL)
     {
         if(strcmp((char *)anything, "fullscreen") == 0)
         {
-            viper_wresize_abs(vwnd, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
+            getmaxyx(vk_screen_get_window(vwm->screen),
+                scr_height, scr_width);
+            vk_widget_resize(VK_WIDGET(window), scr_width, scr_height);
         }
     }
 
@@ -541,15 +559,19 @@ vwmterm_ON_SCREEN_RESIZED(vwnd_t *vwnd, void *anything)
 
 
 int
-vwmterm_ON_RESIZE(vwnd_t *vwnd, void *anything)
+vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything)
 {
 	vterm_t         *vterm;
+    vk_widget_t     *content;
     unsigned int    width;
     unsigned int    height;
 
+    (void)event;
+
 	vterm = (vterm_t*)anything;
 
-	getmaxyx(VWINDOW(vwnd), height, width);
+    content = vk_window_get_child(VK_WINDOW(object));
+    getmaxyx(vk_widget_get_canvas(content), height, width);
     vterm_resize(vterm, width, height);
     vterm_wnd_update(vterm, -1, 0, 0);
 
@@ -557,22 +579,28 @@ vwmterm_ON_RESIZE(vwnd_t *vwnd, void *anything)
 }
 
 int
-vwmterm_ON_CLOSE(vwnd_t *vwnd, void *anything)
+vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything)
 {
     vwmterm_data_t  *vwmterm_data;
     pid_t           child_pid;
 
-    (void)vwnd;
+    (void)object;
+    (void)event;
 
     vwmterm_data = (vwmterm_data_t*)anything;
 
-    // tell the pseudo thread we're shutting down
     vwmterm_data->state = VWMTERM_STATE_EXITING;
 
-    child_pid = vterm_get_pid(vwmterm_data->vterm);
+    if(vwmterm_data->vterm != NULL)
+    {
+        child_pid = vterm_get_pid(vwmterm_data->vterm);
 
-	kill(child_pid, SIGKILL);
-	waitpid(child_pid, NULL, 0);
+        kill(child_pid, SIGKILL);
+        waitpid(child_pid, NULL, 0);
+
+        vterm_destroy(vwmterm_data->vterm);
+        vwmterm_data->vterm = NULL;
+    }
 
 	return 0;
 }

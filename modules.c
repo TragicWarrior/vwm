@@ -158,18 +158,18 @@ vwm_module_get_userptr(vwm_module_t *mod)
     return mod->anything;
 }
 
-vwnd_t*
+vk_window_t*
 vwm_module_exec(vwm_module_t *mod)
 {
-    vwnd_t  *vwnd;
+    vk_window_t *window;
 
     if(mod == NULL) return NULL;
 
     if(mod->main == NULL) return NULL;
 
-    vwnd = mod->main(mod);
+    window = mod->main(mod);
 
-    return vwnd;
+    return window;
 }
 
 
@@ -437,15 +437,31 @@ vwm_module_simple_clone(vwm_module_t *mod)
 int
 vwm_menu_helper(vk_widget_t *widget, void *anything)
 {
+    vwm_t           *vwm;
     vwm_module_t    *module;
+    vk_window_t     *window;
 
     (void)widget;
 
     if(anything == NULL) return -1;
 
+    vwm = vwm_get_instance();
     module = (vwm_module_t *)anything;
 
-    module->main(anything);
+    window = module->main(module);
+
+    if(window != NULL)
+    {
+        vk_widget_t *old_top = vk_deck_get_top(vwm->deck);
+
+        vk_deck_add_widget(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+
+        if(old_top != NULL)
+            vk_window_update(VK_WINDOW(old_top));
+
+        vk_window_update(window);
+        vk_screen_refresh(vwm->screen);
+    }
 
     return 0;
 }

@@ -10,7 +10,7 @@
 #include "protothread.h"
 #include "sched.h"
 
-#include "viper.h"
+#include <vdk.h>
 #include "list.h"
 #include "profile.h"
 #include "vwm.h"
@@ -25,8 +25,11 @@ struct _vwm_s
 
     struct list_head        module_list;
 
-    WINDOW                  *wallpaper[4];
-    int                     (*wallpaper_agent)  (WINDOW *, void *);
+    vk_screen_t             *screen;
+    vk_deck_t               *deck;
+    vk_window_t             *menu;
+    vk_menubar_t            *menubar;
+    int                     menu_item_idx;
 
     uint32_t                state;
 };
@@ -37,9 +40,8 @@ struct _vwm_s
 
 struct sigaction* vwm_sigset(int signum, sighandler_t handler);
 
-/* default borders and controls callbacks */
-int     vwm_default_border_agent_focus(vwnd_t *vwnd, void *anything);
-int     vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything);
+/* border decoration callback for vk_window_t */
+void    vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *data);
 
 /*	default events	*/
 int     vwm_hook_wm_start(WINDOW *window, void *arg);

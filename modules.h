@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include <limits.h>
 
-#include <viper.h>
+#include <vdk.h>
 
 // ensure that x-macro for modules.def is not already defined
 #ifdef  X_MOD
@@ -44,7 +44,7 @@ struct _vwm_module_s
 
     struct list_head        list;
 
-    vwnd_t*                 (*main)             (vwm_module_t *);
+    vk_window_t*            (*main)             (vwm_module_t *);
     void                    *anything;
 };
 

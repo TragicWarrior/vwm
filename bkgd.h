@@ -1,11 +1,11 @@
 #ifndef _H_VWM_BKGD_
 #define _H_VWM_BKGD_
 
-#include <ncursesw/ncurses.h>
+#include <vdk.h>
 
-void    vwm_bkgd_simple_normal(int screen_id);
-void    vwm_bkgd_simple_winman(int screen_id);
-
-int     vwm_bkgd_bricks(WINDOW *bkgd_window, void *arg);
+void    vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id,
+            WINDOW *canvas);
+void    vwm_bkgd_simple_winman(vk_screen_t *screen, int surface_id,
+            WINDOW *canvas);
 
 #endif
