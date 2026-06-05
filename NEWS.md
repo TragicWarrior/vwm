@@ -1,3 +1,12 @@
+2026-05-27
+
+Ported the Edit App and Load Config popups in Manage Apps to use the
+new vk_popup_t composite widget from VDK.  The popup handles window
+creation, button bar layout, and interior structure internally.  Edit
+popup buttons (Apply/Cancel) are now individually tab-stoppable.
+Mouse clicks on popup buttons use dynamic hit testing based on button
+count instead of hardcoded pixel positions.
+
 2026-05-26
 
 Fixed mouse clicks not reaching terminal applications (e.g. Midnight

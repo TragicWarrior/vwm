@@ -135,13 +135,11 @@ enum
 #define EDIT_BTN_OK         0
 #define EDIT_BTN_CANCEL     1
 
-static vk_window_t     *edit_popup = NULL;
-static vk_box_t        *edit_vbox = NULL;
-static vk_box_t        *edit_btn_hbox = NULL;
+static vk_popup_t      *edit_popup = NULL;
+static vk_box_t        *edit_client = NULL;
 static vk_input_t      *edit_input_title = NULL;
 static vk_input_t      *edit_input_binary = NULL;
 static vk_input_t      *edit_input_params = NULL;
-static vk_button_t     *edit_buttons[2];
 static int             edit_focus = EDIT_FOCUS_TITLE;
 static int             edit_active_btn = EDIT_BTN_OK;
 static vk_dropdown_t   *active_dropdown = NULL;
@@ -152,7 +150,7 @@ static vk_dropdown_t   *active_dropdown = NULL;
 static struct timespec      list_last_click_time;
 static int                 list_last_click_item = -1;
 
-static vk_window_t         *load_popup = NULL;
+static vk_popup_t          *load_popup = NULL;
 static vk_filedialog_t     *load_filedialog = NULL;
 static struct timespec     load_last_click_time;
 static int                 load_last_click_item = -1;
@@ -573,14 +571,12 @@ edit_popup_close(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(edit_popup));
 
-    vk_window_destroy(edit_popup);
+    vk_popup_destroy(edit_popup);
     edit_popup = NULL;
-    edit_vbox = NULL;
-    edit_btn_hbox = NULL;
+    edit_client = NULL;
     edit_input_title = NULL;
     edit_input_binary = NULL;
     edit_input_params = NULL;
-    memset(edit_buttons, 0, sizeof(edit_buttons));
 
     refresh_dialog();
 }
@@ -636,25 +632,32 @@ static void
 update_edit_button_highlights(void)
 {
     int i;
+    int count;
 
-    for(i = 0; i < 2; i++)
+    if(edit_popup == NULL) return;
+
+    count = vk_popup_get_button_count(edit_popup);
+
+    for(i = 0; i < count; i++)
     {
-        vk_button_release(edit_buttons[i]);
+        vk_button_t *btn = vk_popup_get_button(edit_popup, i);
+
+        vk_button_release(btn);
 
         if(edit_focus == EDIT_FOCUS_BUTTONS && i == edit_active_btn)
         {
-            vk_widget_set_colors(VK_WIDGET(edit_buttons[i]),
+            vk_widget_set_colors(VK_WIDGET(btn),
                 COLOR_YELLOW, COLOR_BLUE);
-            vk_widget_set_attrs(VK_WIDGET(edit_buttons[i]), A_BOLD);
+            vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
         }
         else
         {
-            vk_widget_set_colors(VK_WIDGET(edit_buttons[i]),
+            vk_widget_set_colors(VK_WIDGET(btn),
                 COLOR_WHITE, COLOR_BLUE);
-            vk_widget_set_attrs(VK_WIDGET(edit_buttons[i]), A_BOLD);
+            vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
         }
 
-        vk_button_update(edit_buttons[i]);
+        vk_button_update(btn);
     }
 }
 
@@ -694,9 +697,10 @@ refresh_edit_popup(void)
 
     if(edit_popup == NULL) return;
 
-    vk_box_update(edit_btn_hbox);
-    vk_box_update(edit_vbox);
-    vk_window_update(edit_popup);
+    if(edit_client != NULL)
+        vk_box_update(edit_client);
+
+    vk_popup_update(edit_popup);
 
     vwm = vwm_get_instance();
     vk_screen_refresh(vwm->screen);
@@ -764,9 +768,19 @@ edit_popup_kmio(vk_object_t *object, int32_t keystroke)
 
     if(keystroke == '\t')
     {
-        edit_focus++;
-        if(edit_focus >= EDIT_FOCUS_MAX)
-            edit_focus = EDIT_FOCUS_TITLE;
+        if(edit_focus == EDIT_FOCUS_BUTTONS
+            && edit_active_btn < EDIT_BTN_CANCEL)
+        {
+            edit_active_btn++;
+        }
+        else
+        {
+            edit_focus++;
+            if(edit_focus >= EDIT_FOCUS_MAX)
+                edit_focus = EDIT_FOCUS_TITLE;
+            if(edit_focus == EDIT_FOCUS_BUTTONS)
+                edit_active_btn = EDIT_BTN_OK;
+        }
 
         update_edit_input_highlights();
         update_edit_button_highlights();
@@ -776,9 +790,19 @@ edit_popup_kmio(vk_object_t *object, int32_t keystroke)
 
     if(keystroke == KEY_BTAB)
     {
-        edit_focus--;
-        if(edit_focus < 0)
-            edit_focus = EDIT_FOCUS_MAX - 1;
+        if(edit_focus == EDIT_FOCUS_BUTTONS
+            && edit_active_btn > EDIT_BTN_OK)
+        {
+            edit_active_btn--;
+        }
+        else
+        {
+            edit_focus--;
+            if(edit_focus < 0)
+                edit_focus = EDIT_FOCUS_MAX - 1;
+            if(edit_focus == EDIT_FOCUS_BUTTONS)
+                edit_active_btn = EDIT_BTN_CANCEL;
+        }
 
         update_edit_input_highlights();
         update_edit_button_highlights();
@@ -851,12 +875,11 @@ edit_popup_kmio(vk_object_t *object, int32_t keystroke)
 static void
 edit_popup_open(void)
 {
-    vwm_t           *vwm;
-    manage_app_entry_t *e;
-    vk_label_t      *lbl;
-    vk_filler_t     *spacer;
-    int             scr_width, scr_height;
-    int             pos_x, pos_y;
+    vwm_t               *vwm;
+    manage_app_entry_t  *e;
+    vk_label_t          *lbl;
+    int                 scr_width, scr_height;
+    int                 pos_x, pos_y;
 
     if(edit_popup != NULL) return;
     if(model->selected < 0 || model->selected >= model->count) return;
@@ -865,92 +888,60 @@ edit_popup_open(void)
     vwm = vwm_get_instance();
     getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
 
-    edit_popup = vk_window_create(EDIT_WIDTH, EDIT_HEIGHT);
-    vk_window_set_title(edit_popup, " Edit App ");
-    vk_window_set_border_style(edit_popup, VK_FRAME_SINGLE);
-    vk_window_set_border_colors(edit_popup, COLOR_WHITE, COLOR_BLUE);
-    vk_window_set_border_attrs(edit_popup, A_BOLD);
+    edit_popup = vk_popup_create(EDIT_WIDTH, EDIT_HEIGHT,
+        VK_FRAME_SINGLE, "Apply", "Cancel", NULL);
+    vk_popup_set_title(edit_popup, " Edit App ");
+    vk_popup_set_border_colors(edit_popup, COLOR_WHITE, COLOR_BLUE);
+    vk_popup_set_border_attrs(edit_popup, A_BOLD);
+    vk_popup_set_colors(edit_popup, COLOR_WHITE, COLOR_BLUE);
+    vk_popup_set_button_colors(edit_popup, COLOR_WHITE, COLOR_BLUE);
+    vk_popup_set_button_attrs(edit_popup, A_BOLD);
 
-    edit_vbox = vk_box_create(EDIT_INTERIOR_W, EDIT_INTERIOR_H,
-        VK_BOX_VERTICAL, 8);
-    vk_box_set_homogeneous(edit_vbox, false);
-    vk_widget_set_colors(VK_WIDGET(edit_vbox), COLOR_WHITE, COLOR_BLUE);
+    edit_client = vk_box_create(EDIT_INTERIOR_W, EDIT_INTERIOR_H - 3,
+        VK_BOX_VERTICAL, 6);
+    vk_box_set_homogeneous(edit_client, false);
+    vk_widget_set_colors(VK_WIDGET(edit_client), COLOR_WHITE, COLOR_BLUE);
 
     lbl = vk_label_create(EDIT_INTERIOR_W);
     vk_label_set_text(lbl, "  Title");
     vk_widget_set_colors(VK_WIDGET(lbl), COLOR_WHITE, COLOR_BLUE);
     vk_label_update(lbl);
-    vk_box_set_widget(edit_vbox, 0, VK_WIDGET(lbl));
+    vk_box_set_widget(edit_client, 0, VK_WIDGET(lbl));
 
     edit_input_title = vk_input_create(EDIT_INTERIOR_W);
     vk_input_set_relief_style(edit_input_title, VK_FRAME_SINGLE);
     vk_widget_set_colors(VK_WIDGET(edit_input_title), COLOR_BLACK, COLOR_BLUE);
     vk_input_set_text(edit_input_title, e->title);
     vk_input_update(edit_input_title);
-    vk_box_set_widget(edit_vbox, 1, VK_WIDGET(edit_input_title));
+    vk_box_set_widget(edit_client, 1, VK_WIDGET(edit_input_title));
 
     lbl = vk_label_create(EDIT_INTERIOR_W);
     vk_label_set_text(lbl, "  Binary");
     vk_widget_set_colors(VK_WIDGET(lbl), COLOR_WHITE, COLOR_BLUE);
     vk_label_update(lbl);
-    vk_box_set_widget(edit_vbox, 2, VK_WIDGET(lbl));
+    vk_box_set_widget(edit_client, 2, VK_WIDGET(lbl));
 
     edit_input_binary = vk_input_create(EDIT_INTERIOR_W);
     vk_input_set_relief_style(edit_input_binary, VK_FRAME_SINGLE);
     vk_widget_set_colors(VK_WIDGET(edit_input_binary), COLOR_BLACK, COLOR_BLUE);
     vk_input_set_text(edit_input_binary, e->bin);
     vk_input_update(edit_input_binary);
-    vk_box_set_widget(edit_vbox, 3, VK_WIDGET(edit_input_binary));
+    vk_box_set_widget(edit_client, 3, VK_WIDGET(edit_input_binary));
 
     lbl = vk_label_create(EDIT_INTERIOR_W);
     vk_label_set_text(lbl, "  Params");
     vk_widget_set_colors(VK_WIDGET(lbl), COLOR_WHITE, COLOR_BLUE);
     vk_label_update(lbl);
-    vk_box_set_widget(edit_vbox, 4, VK_WIDGET(lbl));
+    vk_box_set_widget(edit_client, 4, VK_WIDGET(lbl));
 
     edit_input_params = vk_input_create(EDIT_INTERIOR_W);
     vk_input_set_relief_style(edit_input_params, VK_FRAME_SINGLE);
     vk_widget_set_colors(VK_WIDGET(edit_input_params), COLOR_BLACK, COLOR_BLUE);
     vk_input_set_text(edit_input_params, e->params);
     vk_input_update(edit_input_params);
-    vk_box_set_widget(edit_vbox, 5, VK_WIDGET(edit_input_params));
+    vk_box_set_widget(edit_client, 5, VK_WIDGET(edit_input_params));
 
-    spacer = vk_filler_create();
-    vk_widget_set_colors(VK_WIDGET(spacer), COLOR_WHITE, COLOR_BLUE);
-    vk_widget_set_expand(VK_WIDGET(spacer));
-    vk_box_set_widget(edit_vbox, 6, VK_WIDGET(spacer));
-
-    edit_btn_hbox = vk_box_create(EDIT_INTERIOR_W, 3, VK_BOX_HORIZONTAL, 3);
-    vk_box_set_homogeneous(edit_btn_hbox, false);
-    vk_widget_set_colors(VK_WIDGET(edit_btn_hbox), COLOR_WHITE, COLOR_BLUE);
-
-    edit_buttons[EDIT_BTN_OK] = vk_button_create("Apply");
-    edit_buttons[EDIT_BTN_CANCEL] = vk_button_create("Cancel");
-
-    {
-        int i;
-        for(i = 0; i < 2; i++)
-        {
-            vk_button_set_relief_style(edit_buttons[i], VK_FRAME_SINGLE);
-            vk_widget_set_colors(VK_WIDGET(edit_buttons[i]),
-                COLOR_WHITE, COLOR_BLUE);
-            vk_widget_set_attrs(VK_WIDGET(edit_buttons[i]), A_BOLD);
-        }
-    }
-
-    {
-        vk_filler_t *btn_spacer = vk_filler_create();
-        vk_widget_set_colors(VK_WIDGET(btn_spacer), COLOR_WHITE, COLOR_BLUE);
-        vk_widget_set_expand(VK_WIDGET(btn_spacer));
-
-        vk_box_set_widget(edit_btn_hbox, 0, VK_WIDGET(edit_buttons[EDIT_BTN_OK]));
-        vk_box_set_widget(edit_btn_hbox, 1, VK_WIDGET(btn_spacer));
-        vk_box_set_widget(edit_btn_hbox, 2, VK_WIDGET(edit_buttons[EDIT_BTN_CANCEL]));
-    }
-
-    vk_box_set_widget(edit_vbox, 7, VK_WIDGET(edit_btn_hbox));
-
-    vk_window_set_child(edit_popup, VK_WIDGET(edit_vbox));
+    vk_popup_set_client(edit_popup, VK_WIDGET(edit_client));
     vk_object_set_kmio(VK_OBJECT(edit_popup), edit_popup_kmio);
 
     edit_focus = EDIT_FOCUS_TITLE;
@@ -987,10 +978,8 @@ load_popup_close(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(load_popup));
 
-    vk_window_destroy(load_popup);
+    vk_popup_destroy(load_popup);
     load_popup = NULL;
-
-    vk_filedialog_destroy(load_filedialog);
     load_filedialog = NULL;
 
     refresh_dialog();
@@ -1083,7 +1072,7 @@ refresh_load_popup(void)
     if(load_popup == NULL) return;
 
     vk_filedialog_update(load_filedialog);
-    vk_window_update(load_popup);
+    vk_popup_update(load_popup);
 
     vwm = vwm_get_instance();
     vk_screen_refresh(vwm->screen);
@@ -1105,11 +1094,11 @@ load_popup_open(void)
     vwm = vwm_get_instance();
     getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
 
-    load_popup = vk_window_create(LOAD_WIDTH, LOAD_HEIGHT);
-    vk_window_set_title(load_popup, " Load Config ");
-    vk_window_set_border_style(load_popup, VK_FRAME_SINGLE);
-    vk_window_set_border_colors(load_popup, COLOR_WHITE, COLOR_BLUE);
-    vk_window_set_border_attrs(load_popup, A_BOLD);
+    load_popup = vk_popup_create(LOAD_WIDTH, LOAD_HEIGHT,
+        VK_FRAME_SINGLE, NULL);
+    vk_popup_set_title(load_popup, " Load Config ");
+    vk_popup_set_border_colors(load_popup, COLOR_WHITE, COLOR_BLUE);
+    vk_popup_set_border_attrs(load_popup, A_BOLD);
 
     interior_w = LOAD_WIDTH - 2;
     interior_h = LOAD_HEIGHT - 2;
@@ -1137,7 +1126,7 @@ load_popup_open(void)
 
     vk_filedialog_update(load_filedialog);
 
-    vk_window_set_child(load_popup, VK_WIDGET(load_filedialog));
+    vk_popup_set_client(load_popup, VK_WIDGET(load_filedialog));
     vk_object_set_kmio(VK_OBJECT(load_popup), load_popup_kmio);
 
     pos_x = (scr_width - LOAD_WIDTH) / 2;
@@ -2009,13 +1998,18 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         }
         else if(ey >= EDIT_INTERIOR_H - 3)
         {
-            int apply_w = 7;
-            int cancel_w = 8;
-            int cancel_x = EDIT_INTERIOR_W - cancel_w;
+            int btn_count = vk_popup_get_button_count(edit_popup);
+            int clicked_btn = -1;
+
+            if(btn_count > 0)
+                clicked_btn = ex / (EDIT_INTERIOR_W / btn_count);
+
+            if(clicked_btn >= btn_count)
+                clicked_btn = btn_count - 1;
 
             edit_focus = EDIT_FOCUS_BUTTONS;
 
-            if(ex < apply_w)
+            if(clicked_btn == EDIT_BTN_OK)
             {
                 edit_active_btn = EDIT_BTN_OK;
                 update_edit_input_highlights();
@@ -2023,7 +2017,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
                 refresh_edit_popup();
                 edit_popup_ok();
             }
-            else if(ex >= cancel_x)
+            else if(clicked_btn == EDIT_BTN_CANCEL)
             {
                 edit_active_btn = EDIT_BTN_CANCEL;
                 update_edit_input_highlights();
