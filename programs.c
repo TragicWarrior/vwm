@@ -1,6 +1,7 @@
 #include <stdlib.h>
-#include <libconfig.h>
 
+#include "cJSON.h"
+#include "config.h"
 #include "vwm.h"
 #include "modules.h"
 #include "profile.h"
@@ -34,7 +35,6 @@ vwm_programs_reload(void)
     vwm = vwm_get_instance();
 
     vwm_programs_purge(vwm);
-    config_destroy(&vwm->config);
 
     return vwm_programs_load(vwm);
 }
@@ -42,8 +42,9 @@ vwm_programs_reload(void)
 int
 vwm_programs_load(vwm_t *vwm)
 {
-    config_setting_t    *programs;
-    config_setting_t    *entry;
+    cJSON               *root;
+    cJSON               *programs;
+    cJSON               *entry;
     vwm_module_t        *module;
 
     const char          *requires;
@@ -55,85 +56,65 @@ vwm_programs_load(vwm_t *vwm)
     int                 value;
 
     char                buf[256];
-    int                 i = 0;
 
     if(vwm == NULL) return -1;
     if(vwm->profile == NULL) return -1;
     if(vwm->profile->rc_file == NULL) return -1;
 
-    config_init(&vwm->config);
-    config_read_file(&vwm->config, vwm->profile->rc_file);
+    root = vwm_config_load(vwm->profile->rc_file);
+    if(root == NULL) return -1;
 
-    programs = config_lookup(&vwm->config, "programs");
+    programs = cJSON_GetObjectItemCaseSensitive(root, "programs");
 
-    if(programs == NULL)
+    if(!cJSON_IsArray(programs))
     {
-        config_destroy(&vwm->config);
+        cJSON_Delete(root);
         return -1;
     }
 
-    do
+    cJSON_ArrayForEach(entry, programs)
     {
-        module = NULL;
-        entry = config_setting_get_elem(programs, i);
+        if(!cJSON_IsObject(entry)) continue;
 
-        if(entry != NULL)
+        /* every program requires an installed terminal module */
+        requires = vwm_json_str(entry, "requires", NULL);
+        if(requires == NULL) continue;
+
+        module = vwm_module_find_by_name((char *)requires);
+        if(module == NULL) continue;
+
+        title  = vwm_json_str(entry, "title", "");
+        type   = vwm_json_str(entry, "type", "Misc");
+        bin    = vwm_json_str(entry, "bin", "");
+        params = vwm_json_str(entry, "params", NULL);
+
+        value = vwm_module_type_value((char *)type);
+        if(value == -1) value = VWM_MOD_TYPE_MISC;
+
+        module = vwm_module_clone(module);
+        vwm_module_set_title(module, (char *)title);
+        vwm_module_set_type(module, value);
+
+        // copy bin and params into a buffer so we can explode it
+        if(params != NULL)
         {
-            // check to see if program has a dependency
-            requires = NULL;
-            params = NULL;
-            config_setting_lookup_string(entry, "requires", &requires);
-
-            // if the program requires a module that's not installed, move on
-            if(requires != NULL)
-            {
-                module = vwm_module_find_by_name((char *)requires);
-
-                if(module == NULL)
-                {
-                    i++;
-                    continue;
-                }
-            }
-
-            config_setting_lookup_string(entry, "title", &title);
-            config_setting_lookup_string(entry, "type", &type);
-            config_setting_lookup_string(entry, "bin", &bin);
-            config_setting_lookup_string(entry, "params", &params);
-
-            value = vwm_module_type_value((char *)type);
-            if(value == -1) value = VWM_MOD_TYPE_MISC;
-
-            module = vwm_module_clone(module);
-            vwm_module_set_title(module, (char *)title);
-            vwm_module_set_type(module, value);
-
-            // copy it bin and params  into a buffer so we can explode it
-            if(params != NULL)
-            {
-                snprintf(buf, sizeof(buf), "%s %s", bin, params);
-                args = strsplitv(buf, " ");
-            }
-            else
-            {
-                args = strcatv(NULL, (char *)bin);
-            }
-
-            {
-                int hidden_val = 0;
-                config_setting_lookup_bool(entry, "hidden", &hidden_val);
-                vwm_module_set_hidden(module, hidden_val != 0);
-            }
-
-            vwm_module_configure(module, bin, args);
-            vwm_module_set_zone(module, MODULE_ZONE_USER);
-            vwm_module_add(module);
-            strfreev(args);
-            args = NULL;
+            snprintf(buf, sizeof(buf), "%s %s", bin, params);
+            args = strsplitv(buf, " ");
         }
-        i++;
+        else
+        {
+            args = strcatv(NULL, (char *)bin);
+        }
+
+        vwm_module_set_hidden(module, vwm_json_bool(entry, "hidden", 0) != 0);
+
+        vwm_module_configure(module, (char *)bin, args);
+        vwm_module_set_zone(module, MODULE_ZONE_USER);
+        vwm_module_add(module);
+        strfreev(args);
     }
-    while(entry != NULL);
+
+    cJSON_Delete(root);
 
     return 0;
 }

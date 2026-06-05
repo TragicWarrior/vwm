@@ -8,7 +8,6 @@
 
 #include <ncursesw/curses.h>
 
-#include <libconfig.h>
 #include "protothread.h"
 #include "sched.h"
 
@@ -19,7 +18,6 @@
 
 struct _vwm_s
 {
-    config_t                config;
     vwm_profile_t           *profile;
 
     int32_t                 hotkey_menu;

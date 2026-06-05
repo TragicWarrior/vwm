@@ -4,11 +4,12 @@
 #include <ctype.h>
 #include <time.h>
 
-#include <libconfig.h>
 #include <ncursesw/curses.h>
 
 #include <vdk.h>
 
+#include "cJSON.h"
+#include "config.h"
 #include "vwm.h"
 #include "private.h"
 #include "profile.h"
@@ -206,37 +207,39 @@ model_load_from_vwm(vwm_t *vwm)
 static void
 model_load_from_config(const char *path)
 {
-    config_t    cfg;
+    cJSON       *root;
+    cJSON       *settings;
+    cJSON       *item;
     const char  *str;
-    int         val;
 
-    config_init(&cfg);
-    if(config_read_file(&cfg, path) != CONFIG_TRUE)
-    {
-        config_destroy(&cfg);
-        return;
-    }
+    root = vwm_config_load(path);
+    if(root == NULL) return;
 
-    if(config_lookup_string(&cfg,
-        "settings.task_indicator_action", &str) == CONFIG_TRUE)
+    settings = cJSON_GetObjectItemCaseSensitive(root, "settings");
+
+    str = vwm_json_str(settings, "task_indicator_action", NULL);
+    if(str != NULL)
         strncpy(model->values[SETTING_TASK_ACTION], str, NAME_MAX - 1);
 
-    if(config_lookup_string(&cfg,
-        "settings.date_click_action", &str) == CONFIG_TRUE)
+    str = vwm_json_str(settings, "date_click_action", NULL);
+    if(str != NULL)
         strncpy(model->values[SETTING_DATE_ACTION], str, NAME_MAX - 1);
 
-    if(config_lookup_int(&cfg, "settings.num_desktops", &val) == CONFIG_TRUE)
-        snprintf(model->values[SETTING_NUM_DESKTOPS], NAME_MAX, "%d", val);
+    item = cJSON_GetObjectItemCaseSensitive(settings, "num_desktops");
+    if(cJSON_IsNumber(item))
+        snprintf(model->values[SETTING_NUM_DESKTOPS], NAME_MAX, "%d",
+            item->valueint);
 
-    if(config_lookup_string(&cfg,
-        "settings.screensaver_command", &str) == CONFIG_TRUE)
+    str = vwm_json_str(settings, "screensaver_command", NULL);
+    if(str != NULL)
         strncpy(model->values[SETTING_SCREENSAVER_CMD], str, NAME_MAX - 1);
 
-    if(config_lookup_int(&cfg,
-        "settings.screensaver_timeout", &val) == CONFIG_TRUE)
-        snprintf(model->values[SETTING_SCREENSAVER_IDLE], NAME_MAX, "%d", val);
+    item = cJSON_GetObjectItemCaseSensitive(settings, "screensaver_timeout");
+    if(cJSON_IsNumber(item))
+        snprintf(model->values[SETTING_SCREENSAVER_IDLE], NAME_MAX, "%d",
+            item->valueint);
 
-    config_destroy(&cfg);
+    cJSON_Delete(root);
 }
 
 static void

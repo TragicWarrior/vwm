@@ -3,11 +3,12 @@
 #include <limits.h>
 #include <time.h>
 
-#include <libconfig.h>
 #include <ncursesw/curses.h>
 
 #include <vdk.h>
 
+#include "cJSON.h"
+#include "config.h"
 #include "vwm.h"
 #include "private.h"
 #include "profile.h"
@@ -45,32 +46,19 @@ static const struct
 }
 hotkey_defs[NUM_HOTKEYS] =
 {
-    { "Main Menu",        (27 | (96 << 8)),   CAT_MENU,
-        "hotkeys.menu.key" },
-    { "Toggle WM",        (27 | (119 << 8)),  CAT_WM,
-        "hotkeys.window_management.wm.key" },
-    { "Close Window",     17,                 CAT_WM,
-        "hotkeys.window_management.close.key" },
-    { "Cycle Windows",    9,                  CAT_WM,
-        "hotkeys.window_management.cycle.key" },
-    { "Move Up",          KEY_UP,             CAT_WM,
-        "hotkeys.window_management.move_up.key" },
-    { "Move Down",        KEY_DOWN,           CAT_WM,
-        "hotkeys.window_management.move_down.key" },
-    { "Move Left",        KEY_LEFT,           CAT_WM,
-        "hotkeys.window_management.move_left.key" },
-    { "Move Right",       KEY_RIGHT,          CAT_WM,
-        "hotkeys.window_management.move_right.key" },
-    { "Increase Height",  '+',               CAT_WM,
-        "hotkeys.window_management.grow_h.key" },
-    { "Decrease Height",  '-',               CAT_WM,
-        "hotkeys.window_management.shrink_h.key" },
-    { "Increase Width",   '>',               CAT_WM,
-        "hotkeys.window_management.grow_w.key" },
-    { "Decrease Width",   '<',               CAT_WM,
-        "hotkeys.window_management.shrink_w.key" },
-    { "Switch Desktop",   (27 | (100 << 8)), CAT_NAV,
-        "hotkeys.navigation.desktop.key" },
+    { "Main Menu",        (27 | (96 << 8)),   CAT_MENU,  "menu" },
+    { "Toggle WM",        (27 | (119 << 8)),  CAT_WM,    "wm" },
+    { "Close Window",     17,                 CAT_WM,    "close" },
+    { "Cycle Windows",    9,                  CAT_WM,    "cycle" },
+    { "Move Up",          KEY_UP,             CAT_WM,    "move_up" },
+    { "Move Down",        KEY_DOWN,           CAT_WM,    "move_down" },
+    { "Move Left",        KEY_LEFT,           CAT_WM,    "move_left" },
+    { "Move Right",       KEY_RIGHT,          CAT_WM,    "move_right" },
+    { "Increase Height",  '+',                CAT_WM,    "grow_h" },
+    { "Decrease Height",  '-',                CAT_WM,    "shrink_h" },
+    { "Increase Width",   '>',                CAT_WM,    "grow_w" },
+    { "Decrease Width",   '<',                CAT_WM,    "shrink_w" },
+    { "Switch Desktop",   (27 | (100 << 8)),  CAT_NAV,   "desktop" },
 };
 
 enum
@@ -284,33 +272,25 @@ model_apply_to_vwm(vwm_t *vwm)
 static void
 model_load_from_config(const char *path)
 {
-    config_t    cfg;
+    cJSON       *root;
+    cJSON       *hotkeys;
     const char  *value;
     int32_t     keystroke;
-    int         retval;
     int         i;
 
-    config_init(&cfg);
+    root = vwm_config_load(path);
+    if(root == NULL) return;
 
-    if(config_read_file(&cfg, path) != CONFIG_TRUE)
-    {
-        config_destroy(&cfg);
-        return;
-    }
+    hotkeys = cJSON_GetObjectItemCaseSensitive(root, "hotkeys");
 
     for(i = 0; i < NUM_HOTKEYS; i++)
     {
-        retval = config_lookup_string(&cfg,
-            hotkey_defs[i].config_path, &value);
-
-        if(retval == CONFIG_TRUE)
-        {
-            if(sscanf(value, "%x", &keystroke) == 1)
-                model->values[i] = keystroke;
-        }
+        value = vwm_json_str(hotkeys, hotkey_defs[i].config_path, NULL);
+        if(value != NULL && sscanf(value, "%x", &keystroke) == 1)
+            model->values[i] = keystroke;
     }
 
-    config_destroy(&cfg);
+    cJSON_Delete(root);
 }
 
 /* ── listbox rebuild ───────────────────────────────────────── */

@@ -3,11 +3,12 @@
 #include <limits.h>
 #include <time.h>
 
-#include <libconfig.h>
 #include <ncursesw/curses.h>
 
 #include <vdk.h>
 
+#include "cJSON.h"
+#include "config.h"
 #include "vwm.h"
 #include "modules.h"
 #include "programs.h"
@@ -234,51 +235,46 @@ category_index_from_type(int type)
 static void
 model_load_from_config(const char *path)
 {
-    config_t            cfg;
-    config_setting_t    *programs;
-    config_setting_t    *entry;
+    cJSON               *root;
+    cJSON               *programs;
+    cJSON               *entry;
     const char          *str;
-    int                 i = 0;
 
     model->count = 0;
 
-    config_init(&cfg);
+    root = vwm_config_load(path);
+    if(root == NULL) return;
 
-    config_read_file(&cfg, path);
-
-    programs = config_lookup(&cfg, "programs");
-    if(programs == NULL)
+    programs = cJSON_GetObjectItemCaseSensitive(root, "programs");
+    if(!cJSON_IsArray(programs))
     {
-        config_destroy(&cfg);
+        cJSON_Delete(root);
         return;
     }
 
-    while(i < MAX_ENTRIES)
+    cJSON_ArrayForEach(entry, programs)
     {
-        entry = config_setting_get_elem(programs, i);
-        if(entry == NULL) break;
+        manage_app_entry_t *e;
 
-        manage_app_entry_t *e = &model->entries[model->count];
+        if(model->count >= MAX_ENTRIES) break;
+        if(!cJSON_IsObject(entry)) continue;
+
+        e = &model->entries[model->count];
         memset(e, 0, sizeof(*e));
 
-        str = NULL;
-        config_setting_lookup_string(entry, "title", &str);
+        str = vwm_json_str(entry, "title", NULL);
         if(str != NULL) strncpy(e->title, str, NAME_MAX - 1);
 
-        str = NULL;
-        config_setting_lookup_string(entry, "bin", &str);
+        str = vwm_json_str(entry, "bin", NULL);
         if(str != NULL) strncpy(e->bin, str, PATH_MAX - 1);
 
-        str = NULL;
-        config_setting_lookup_string(entry, "params", &str);
+        str = vwm_json_str(entry, "params", NULL);
         if(str != NULL) strncpy(e->params, str, MAX_PARAMS - 1);
 
-        str = NULL;
-        config_setting_lookup_string(entry, "requires", &str);
+        str = vwm_json_str(entry, "requires", NULL);
         if(str != NULL) strncpy(e->requires, str, NAME_MAX - 1);
 
-        str = NULL;
-        config_setting_lookup_string(entry, "type", &str);
+        str = vwm_json_str(entry, "type", NULL);
         if(str != NULL)
         {
             int val = vwm_module_type_value((char *)str);
@@ -289,81 +285,55 @@ model_load_from_config(const char *path)
             e->type = VWM_MOD_TYPE_MISC;
         }
 
-        {
-            int hidden_val = 0;
-            config_setting_lookup_bool(entry, "hidden", &hidden_val);
-            e->hidden = (hidden_val != 0);
-        }
+        e->hidden = (vwm_json_bool(entry, "hidden", 0) != 0);
 
         model->count++;
-        i++;
     }
 
-    config_destroy(&cfg);
+    cJSON_Delete(root);
 }
 
 static int
 model_save_to_config(const char *path)
 {
-    config_t            cfg;
-    config_setting_t    *root;
-    config_setting_t    *programs;
-    config_setting_t    *entry;
-    config_setting_t    *setting;
-    int                 i;
+    cJSON   *root;
+    cJSON   *programs;
+    int     i;
 
-    config_init(&cfg);
+    root = vwm_config_load(path);
+    if(root == NULL) root = cJSON_CreateObject();
 
-    config_read_file(&cfg, path);
-
-    root = config_root_setting(&cfg);
-    config_setting_remove(root, "programs");
-
-    programs = config_setting_add(root, "programs", CONFIG_TYPE_LIST);
+    cJSON_DeleteItemFromObjectCaseSensitive(root, "programs");
+    programs = cJSON_AddArrayToObject(root, "programs");
 
     for(i = 0; i < model->count; i++)
     {
         manage_app_entry_t *e = &model->entries[i];
-
-        entry = config_setting_add(programs, NULL, CONFIG_TYPE_GROUP);
+        cJSON *entry = cJSON_CreateObject();
 
         if(e->requires[0] != '\0')
-        {
-            setting = config_setting_add(entry,
-                "requires", CONFIG_TYPE_STRING);
-            config_setting_set_string(setting, e->requires);
-        }
+            cJSON_AddStringToObject(entry, "requires", e->requires);
 
-        setting = config_setting_add(entry, "title", CONFIG_TYPE_STRING);
-        config_setting_set_string(setting, e->title);
-
-        setting = config_setting_add(entry, "bin", CONFIG_TYPE_STRING);
-        config_setting_set_string(setting, e->bin);
+        cJSON_AddStringToObject(entry, "title", e->title);
+        cJSON_AddStringToObject(entry, "bin", e->bin);
 
         {
             const char *type_str = vwm_module_type_string(e->type);
             if(type_str == NULL) type_str = "Misc";
-            setting = config_setting_add(entry, "type", CONFIG_TYPE_STRING);
-            config_setting_set_string(setting, type_str);
+            cJSON_AddStringToObject(entry, "type", type_str);
         }
 
         if(e->params[0] != '\0')
-        {
-            setting = config_setting_add(entry,
-                "params", CONFIG_TYPE_STRING);
-            config_setting_set_string(setting, e->params);
-        }
+            cJSON_AddStringToObject(entry, "params", e->params);
 
         if(e->hidden)
-        {
-            setting = config_setting_add(entry,
-                "hidden", CONFIG_TYPE_BOOL);
-            config_setting_set_bool(setting, CONFIG_TRUE);
-        }
+            cJSON_AddBoolToObject(entry, "hidden", 1);
+
+        cJSON_AddItemToArray(programs, entry);
     }
 
-    config_write_file(&cfg, path);
-    config_destroy(&cfg);
+    vwm_config_store(path, root);
+    cJSON_Delete(root);
 
     return 0;
 }

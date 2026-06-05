@@ -1,0 +1,139 @@
+{
+	"hotkeys":	{
+		"menu":	"0000601b",
+		"wm":	"0000771b",
+		"close":	"00000011",
+		"cycle":	"00000009",
+		"move_up":	"00000103",
+		"move_down":	"00000102",
+		"move_left":	"00000104",
+		"move_right":	"00000105",
+		"grow_h":	"0000002b",
+		"shrink_h":	"0000002d",
+		"grow_w":	"0000003e",
+		"shrink_w":	"0000003c",
+		"desktop":	"0000641b"
+	},
+	"programs":	[{
+			"requires":	"vterm-color",
+			"title":	"VTerm Color",
+			"bin":	"/bin/bash",
+			"type":	"Tool"
+		}, {
+			"requires":	"vterm-xterm256",
+			"title":	"VTerm HiColor",
+			"bin":	"/bin/bash",
+			"type":	"Tool"
+		}, {
+			"requires":	"vterm-vt100",
+			"title":	"VTerm Color (fullscreen)",
+			"bin":	"/bin/bash",
+			"type":	"Tool",
+			"hidden":	true
+		}, {
+			"requires":	"vterm-vt100",
+			"title":	"VTerm (vt100 mode)",
+			"bin":	"/bin/sh",
+			"type":	"Tool"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"htop",
+			"bin":	"/usr/bin/htop",
+			"type":	"System"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"MyMan",
+			"bin":	"/usr/local/bin/myman",
+			"type":	"Game",
+			"params":	"-z big"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Scim",
+			"bin":	"/usr/local/bin/sc-im",
+			"type":	"Office"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Midnight Commander",
+			"bin":	"/usr/bin/mc",
+			"type":	"System"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Nano",
+			"bin":	"/bin/nano",
+			"type":	"Office"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Last File Manager",
+			"bin":	"/usr/bin/lfm",
+			"type":	"System"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Links",
+			"bin":	"/usr/bin/links",
+			"type":	"Web"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"ALSA Mixer",
+			"bin":	"/usr/bin/alsamixer",
+			"type":	"Multimedia"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Ranger",
+			"bin":	"/usr/bin/ranger",
+			"type":	"System"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Lynx",
+			"bin":	"/usr/bin/lynx",
+			"type":	"Web"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Network Manager",
+			"bin":	"/usr/bin/nmtui",
+			"type":	"Network"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Hexedit",
+			"bin":	"/usr/bin/hexedit",
+			"type":	"Development"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Disk Usage",
+			"bin":	"/usr/bin/ncdu",
+			"type":	"System",
+			"hidden":	true
+		}, {
+			"requires":	"vterm-color",
+			"title":	"dstat",
+			"bin":	"/usr/bin/dstat",
+			"type":	"System"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"CDW",
+			"bin":	"/usr/bin/cdw",
+			"type":	"Multimedia"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"Mutt",
+			"bin":	"/usr/bin/mutt",
+			"type":	"Messaging"
+		}, {
+			"requires":	"vterm-xterm256",
+			"title":	"BTOP++",
+			"bin":	"/usr/bin/btop",
+			"type":	"System"
+		}, {
+			"requires":	"vterm-color",
+			"title":	"IPTraf",
+			"bin":	"/usr/bin/sudo",
+			"type":	"System",
+			"params":	"/usr/sbin/iptraf"
+		}],
+	"settings":	{
+		"task_indicator_action":	"htop",
+		"date_click_action":	"calendar",
+		"num_desktops":	3,
+		"screensaver_command":	"/usr/local/bin/vlock -S cmatrix",
+		"screensaver_timeout":	1
+	}
+}

@@ -1,5 +1,14 @@
 2026-05-29
 
+Configuration moved from libconfig to JSON.  Settings now live in
+$HOME/.config/vwm/config.json (created with sane defaults on first
+run) rather than ~/.vwm/vwmrc, organized into three sections:
+"hotkeys" (flat name to hex keycode), "programs" (an array of app
+entries), and "settings".  The file is parsed and written with a
+vendored copy of cJSON, so libconfig is no longer a build dependency.
+An existing ~/.vwm/vwmrc is left untouched; convert it by hand using
+samples/config.json as a guide.
+
 Added a screen saver.  When the idle timeout set in the Settings
 dialog elapses with no keyboard or mouse activity, VWM launches a
 configured program (for example vlock) in a full-screen terminal

@@ -4,7 +4,6 @@ REQUIREMENTS
 CMake
 ncursesw 5.4+
 libviper 3.0.0+  - https://github.com/TragicWarrior/libviper
-libconfig
 libgpm (optional)
 libvterm 9.0+ - https://github.com/TragicWarrior/libvterm
 
@@ -23,10 +22,10 @@ sudo make install
 CONFIGURATION
 =============
 
-To add "programs" to the menu, it must by done by editing the vwmrc file
-which is located in ~/.vwm/
+To add "programs" to the menu, edit the JSON configuration file located at
+~/.config/vwm/config.json (created with sane defaults on first run).
 
-An sample configuration file is located at samples/vwmrc which can easily be
-editted to support your binary paths.
+A sample configuration file is located at samples/config.json which can
+easily be edited to support your binary paths.
 
 Enjoy!
