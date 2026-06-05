@@ -204,21 +204,7 @@ int main(int argc,char **argv)
 
     vwm_sched_deinit(sched);
 
-    /* disable any-event mouse tracking on the active SCREEN's fd before
-       vk_kmio_shutdown runs -- shutdown writes \033[?1003l to stdout
-       (still the original TTY post-teleport), so without this the
-       destination PTY keeps mouse-tracking on and the shell that
-       takes over echoes raw mouse-report bytes (\033[M...). */
-    {
-        int fd = vk_screen_get_fd(vwm->screen);
-        if(fd >= 0)
-        {
-            const char *esc = "\033[?1003l";
-            (void)!write(fd, esc, strlen(esc));
-        }
-    }
-
-    vk_kmio_shutdown();
+    vk_kmio_shutdown(vk_screen_get_fd(vwm->screen));
     vk_screen_destroy(vwm->screen);
     fsync(fd);
 	close(fd);
@@ -237,7 +223,8 @@ vwm_init(void)
 
         vwm->screen = vk_screen_create();
         vdk_color_init();
-        vk_kmio_init(VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO);
+        vk_kmio_init(vk_screen_get_fd(vwm->screen),
+            VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO);
         nodelay(stdscr, TRUE);
 
         vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
@@ -429,22 +416,14 @@ vwm_on_teleport(vk_object_t *object, int event, void *anything)
     if(vwm == NULL) return 0;
 
     vdk_color_init();
-    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
-    mouseinterval(0);
-    nodelay(stdscr, TRUE);
 
-    /* re-arm any-event mouse tracking on the destination PTY -- the
-       \033[?1003h escape vk_kmio_init emits at startup goes to stdout,
-       which still points at the original TTY, so we have to write it
-       directly to the new SCREEN's fd here */
-    {
-        int fd = vk_screen_get_fd(vwm->screen);
-        if(fd >= 0)
-        {
-            const char *esc = "\033[?1003h";
-            (void)!write(fd, esc, strlen(esc));
-        }
-    }
+    /* re-arm everything kmio set up at startup against the new SCREEN:
+       mousemask + mouseinterval are SCREEN-local ncurses state, and
+       the \033[?1003h hover escape has to land on the new fd (kmio
+       writes it directly to whatever fd we hand it) */
+    vk_kmio_init(vk_screen_get_fd(vwm->screen),
+        VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO);
+    nodelay(stdscr, TRUE);
 
     /* queue a KEY_RESIZE so the poll loop runs the same cascade it does
        for a real terminal resize (panel + status bar + dialogs) */
