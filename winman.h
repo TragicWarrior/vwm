@@ -14,6 +14,10 @@ Use keys [Up Dn Lt Rt] to move windows.  \
 Use keys [+ - < >] to resize windows. \
 Press [Ctrl+Q] to close a window."
 
+#define  VWM_WINDOW_HELP   \
+"Alt+PgUp/PgDn to scroll, Alt+Shft+V to paste.  \
+Press Alt ~ for Menu.  Press Alt+W to manage windows."
+
 
 void    vwm_default_VWM_START(void);
 void    vwm_default_VWM_STOP(void);

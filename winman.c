@@ -26,50 +26,45 @@
 #include "mainmenu.h"
 #include "bkgd.h"
 #include "private.h"
+#include "panel.h"
 
 
 void
 vwm_default_VWM_START(void)
 {
-    vwm_t       *vwm;
-    uintmax_t   msg_id;
+    vwm_t   *vwm;
 
     vwm = vwm_get_instance();
 
+    vwm_menubar_close_dropdown();
+    vk_menubar_set_focused(vwm->menubar, false);
+
+    vwm_panel_set_status(VWM_WM_HELP);
+
     vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_winman);
-
-    msg_id = vwm_panel_message_find(vwm->hotkey_menu_msg);
-    if(msg_id != 0) vwm_panel_message_del(msg_id);
-
-    msg_id = vwm_panel_message_add(VWM_WM_HELP, -1);
-    vwm_panel_message_promote(msg_id);
 
     vk_screen_refresh(vwm->screen);
     flash();
-
-    return;
 }
 
 void
 vwm_default_VWM_STOP(void)
 {
-    vwm_t           *vwm;
-    uintmax_t       msg_id;
+    vwm_t       *vwm;
+    vk_widget_t *top;
 
-	vwm = vwm_get_instance();
+    vwm = vwm_get_instance();
+
+    top = vk_deck_get_top(vwm->deck);
+    if(top != NULL)
+        vwm_panel_set_status(VWM_WINDOW_HELP);
+    else
+        vwm_panel_set_status("Press Alt ~ for Menu");
 
     vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
 
-    msg_id = vwm_panel_message_find(VWM_WM_HELP);
-    if(msg_id != 0) vwm_panel_message_del(msg_id);
-
-    msg_id = vwm_panel_message_add(vwm->hotkey_menu_msg, -1);
-    vwm_panel_message_promote(msg_id);
-
-	vk_screen_refresh(vwm->screen);
-	flash();
-
-	return;
+    vk_screen_refresh(vwm->screen);
+    flash();
 }
 
 void
@@ -89,6 +84,8 @@ vwm_default_WINDOW_CLOSE(vk_widget_t *widget)
     new_top = vk_deck_get_top(vwm->deck);
     if(new_top != NULL)
         vk_window_update(VK_WINDOW(new_top));
+    else
+        vwm_panel_set_status("Press Alt ~ for Menu");
 
     vk_screen_refresh(vwm->screen);
 }

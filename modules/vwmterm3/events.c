@@ -14,6 +14,8 @@
 
 #include "../../vwm.h"
 #include "../../private.h"
+#include "../../panel.h"
+#include "../../winman.h"
 
 #define KEY_ENTER_CR    13
 #define KEY_ENTER_LF    10
@@ -199,6 +201,9 @@ vwmterm_enter_selection(vwmterm_data_t *vwmterm_data)
 
     vk_window_set_title(vwmterm_data->window,
         " SELECT (Enter=Copy, Esc=Cancel) ");
+
+    vwm_panel_set_status(
+        "SELECT MODE: Arrow keys to select, Enter to copy, Esc to cancel");
 }
 
 static void
@@ -214,6 +219,9 @@ vwmterm_exit_selection(vwmterm_data_t *vwmterm_data)
     vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
     vk_window_set_title(vwmterm_data->window,
         " VTerm (Alt+PgUp/PgDn, Alt+Shft+V=Paste) ");
+
+    vwm_panel_set_status(VWM_WINDOW_HELP);
+
     vk_window_update(vwmterm_data->window);
     vk_screen_refresh(vwm->screen);
 }

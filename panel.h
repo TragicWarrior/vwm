@@ -21,9 +21,14 @@ typedef struct
     vk_box_t            *box;
     vk_menubar_t        *menubar;
     vk_label_t          *msg_label;
+    const char          *msg_default;
     vk_label_t          *task_label;
     vk_label_t          *clock_label;
     vk_activity_t       *activity;
+
+    vk_box_t            *status_box;
+    vk_marquee_t        *status_marquee;
+    vk_label_t          *version_label;
 
     int32_t             tick_rate;
     int32_t             freeze_time;
@@ -63,5 +68,6 @@ void    vwm_panel_update_throbber(VWM_PANEL *panel);
 void    vwm_panel_update_taskcount(VWM_PANEL *panel);
 void    vwm_panel_update_clock(VWM_PANEL *panel);
 void    vwm_panel_display(VWM_PANEL *panel);
+void    vwm_panel_set_status(const char *text);
 
 #endif

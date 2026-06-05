@@ -26,7 +26,6 @@
 #include <signal.h>
 #include <dirent.h>
 #include <locale.h>
-#include <langinfo.h>
 #include <inttypes.h>
 #include <signal.h>
 #include <time.h>
@@ -57,6 +56,9 @@
 #include "clock.h"
 #include "poll_input_thd.h"
 #include "programs.h"
+
+static void
+vwm_cursor_overlay(vk_screen_t *screen, int surface_id, WINDOW *canvas);
 
 vwm_sched_t             *sched = NULL;
 int                     shutdown = 0;
@@ -152,8 +154,6 @@ int main(int argc,char **argv)
     vwm_settings_load(vwm);
     vwm_programs_load(vwm);
 
-    vwm_panel_message_add(vwm->hotkey_menu_msg, -1);
-
     vk_screen_refresh(vwm->screen);
 
     vwm_sched_run(sched, &shutdown);
@@ -193,14 +193,11 @@ vwm_init(void)
         vwm->hotkey_menu = VWM_HOTKEY_MENU;
         {
             const char *term = getenv("TERM");
-            int has_utf8 = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0);
             if(term != NULL && strcmp(term, "linux") == 0)
-                has_utf8 = 0;
-
-            if(has_utf8)
-                vwm->hotkey_menu_msg = VWM_MENU_HELP;
-            else
-                vwm->hotkey_menu_msg = VWM_MENU_HELP_ASCII;
+            {
+                vwm->show_cursor = true;
+                vk_screen_set_overlay(vwm->screen, vwm_cursor_overlay);
+            }
         }
 
         // load user profile
@@ -208,4 +205,19 @@ vwm_init(void)
     }
 
 	return vwm;
+}
+
+static void
+vwm_cursor_overlay(vk_screen_t *screen, int surface_id, WINDOW *canvas)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     colors;
+
+    (void)screen;
+    (void)surface_id;
+
+    if(!vwm->show_cursor) return;
+
+    colors = COLOR_PAIR(vdk_color_pair(COLOR_YELLOW, COLOR_YELLOW));
+    mvwaddch(canvas, vwm->cursor_y, vwm->cursor_x, ' ' | colors);
 }

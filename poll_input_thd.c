@@ -36,6 +36,7 @@ static int      drag_orig_wy;
 static int      drag_orig_ww;
 static int      drag_orig_wh;
 static vk_widget_t *drag_widget = NULL;
+static bool     menubar_ate_press = false;
 
 static void
 apply_drag_position(MEVENT *mouse_event)
@@ -180,6 +181,9 @@ vwm_poll_input(void * const env)
             int             zone;
             mmask_t         bs = mouse_event->bstate;
 
+            vwm->cursor_x = mouse_event->x;
+            vwm->cursor_y = mouse_event->y;
+
             if(drag_mode != DRAG_NONE && drag_widget != NULL)
             {
                 if(bs & (BUTTON1_RELEASED | BUTTON1_CLICKED))
@@ -215,6 +219,12 @@ vwm_poll_input(void * const env)
             {
                 case ZONE_PANEL:
                 {
+                    if(bs & BUTTON1_CLICKED && menubar_ate_press)
+                    {
+                        menubar_ate_press = false;
+                        break;
+                    }
+
                     if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
                     {
                         int mb_x, mb_y, mb_w, mb_h;
@@ -232,6 +242,9 @@ vwm_poll_input(void * const env)
 
                             if(hit_idx >= 0)
                             {
+                                if(bs & BUTTON1_PRESSED)
+                                    menubar_ate_press = true;
+
                                 vk_menubar_set_curr(vwm->menubar, hit_idx);
                                 vk_menubar_set_focused(vwm->menubar, true);
                                 vk_menubar_update(vwm->menubar);
@@ -251,6 +264,9 @@ vwm_poll_input(void * const env)
                         }
                         else
                         {
+                            if(bs & BUTTON1_PRESSED)
+                                menubar_ate_press = true;
+
                             vwm_menubar_hotkey();
                         }
                     }

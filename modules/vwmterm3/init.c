@@ -33,6 +33,8 @@
 #include "../../vwm.h"
 #include "../../modules.h"
 #include "../../private.h"
+#include "../../panel.h"
+#include "../../winman.h"
 #include "../../protothread.h"
 #include "../../sched.h"
 
@@ -257,6 +259,8 @@ vwmterm_main(vwm_module_t *mod)
     }
 
     vwm_sched_task_create(sched, ctx_vwmterm, vwmterm_thd, VWM_SCHED_NORMAL);
+
+    vwm_panel_set_status(VWM_WINDOW_HELP);
 
 	return window;
 }

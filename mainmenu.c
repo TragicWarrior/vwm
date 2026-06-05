@@ -148,6 +148,9 @@ create_file_dropdown(vwm_t *vwm)
     vk_listbox_set_wrap(listbox, TRUE);
     vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
 
+    vk_listbox_add_item(listbox, "Manage Windows (Alt w)",
+        vwm_toggle_winman, NULL);
+    vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Exit", vwm_exit, NULL);
 
     vk_listbox_update(listbox);
@@ -159,7 +162,7 @@ create_file_dropdown(vwm_t *vwm)
     vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
 
     window = vk_window_create(max_width + 2, max_height + 2);
-    vk_window_set_title(window, " File ");
+    vk_window_set_title(window, " VWM ");
     vk_window_set_border_style(window, VK_FRAME_SINGLE);
     vk_window_set_child(window, VK_WIDGET(listbox));
 
@@ -344,7 +347,7 @@ vwm_menubar_init(void)
 
     vwm = vwm_get_instance();
 
-    vk_menubar_add_item(vwm->menubar, "File",
+    vk_menubar_add_item(vwm->menubar, "VWM",
         vwm_file_menu_activate, NULL);
     vk_menubar_add_item(vwm->menubar, "Apps",
         vwm_apps_menu_activate, NULL);
@@ -352,8 +355,8 @@ vwm_menubar_init(void)
     vk_object_register_event(VK_OBJECT(vwm->menubar),
         VK_EVENT_ON_SELECT, vwm_menubar_on_select, NULL);
 
-    // " File " + "|" + " Apps " = 6 + 1 + 6 = 13
-    menubar_width = 13;
+    // " VWM " + "|" + " Apps " = 5 + 1 + 6 = 12
+    menubar_width = 12;
     vk_widget_resize(VK_WIDGET(vwm->menubar), menubar_width, 1);
 
     vk_menubar_update(vwm->menubar);

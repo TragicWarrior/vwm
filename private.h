@@ -2,6 +2,7 @@
 #define _H_VWM_PRIVATE_
 
 #include <inttypes.h>
+#include <stdbool.h>
 #include <signal.h>
 
 #include <ncursesw/curses.h>
@@ -21,7 +22,6 @@ struct _vwm_s
     vwm_profile_t           *profile;
 
     int32_t                 hotkey_menu;
-    char                    *hotkey_menu_msg;
 
     struct list_head        module_list;
 
@@ -32,6 +32,10 @@ struct _vwm_s
     int                     menu_item_idx;
 
     uint32_t                state;
+
+    int                     cursor_x;
+    int                     cursor_y;
+    bool                    show_cursor;
 };
 
 

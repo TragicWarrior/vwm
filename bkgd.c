@@ -17,10 +17,8 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *----------------------------------------------------------------------*/
 
-#include <string.h>
 #include <inttypes.h>
 
-#include "vwm.h"
 #include "bkgd.h"
 
 void
@@ -29,7 +27,6 @@ vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
     short       color;
     int         width, height;
     int         i;
-    char        version_str[32];
 
     (void)screen;
     (void)surface_id;
@@ -42,13 +39,6 @@ vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
     for(i = 0; i < width * height; i++)
         waddch(canvas, ACS_CKBOARD);
     wattroff(canvas, COLOR_PAIR(color) | A_ALTCHARSET);
-
-    color = vdk_color_pair(COLOR_BLACK, COLOR_WHITE);
-    sprintf(version_str, " VWM %s ", VWM_VERSION);
-    wattron(canvas, COLOR_PAIR(color));
-    mvwprintw(canvas, height - 1, width - (int)strlen(version_str),
-        "%s", version_str);
-    wattroff(canvas, COLOR_PAIR(color));
 }
 
 void
@@ -57,7 +47,6 @@ vwm_bkgd_simple_winman(vk_screen_t *screen, int surface_id, WINDOW *canvas)
     short       color;
     int         width, height;
     int         i;
-    char        version_str[32];
 
     (void)screen;
     (void)surface_id;
@@ -69,11 +58,5 @@ vwm_bkgd_simple_winman(vk_screen_t *screen, int surface_id, WINDOW *canvas)
     wmove(canvas, 0, 0);
     for(i = 0; i < width * height; i++)
         waddch(canvas, '.');
-    wattroff(canvas, COLOR_PAIR(color));
-
-    sprintf(version_str, " VWM %s ", VWM_VERSION);
-    wattron(canvas, COLOR_PAIR(color));
-    mvwprintw(canvas, height - 1, width - (int)strlen(version_str),
-        "%s", version_str);
     wattroff(canvas, COLOR_PAIR(color));
 }

@@ -76,14 +76,22 @@ vwm_panel_init(vwm_t *vwm)
             has_utf8 = 0;
     }
 
-    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 6);
+    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 7);
     vk_box_set_homogeneous(vwm_panel->box, false);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->box),
         COLOR_BLACK, COLOR_WHITE);
 
-    vwm_panel->msg_label = vk_label_create(17);
+    if(has_utf8)
+        vwm_panel->msg_default = "  \xe2\x98\xb0";
+    else
+        vwm_panel->msg_default = " [=]";
+
+    vwm_panel->msg_label = vk_label_create(5);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->msg_label),
-        COLOR_BLACK, COLOR_WHITE);
+        COLOR_WHITE, COLOR_BLUE);
+    vk_widget_set_attrs(VK_WIDGET(vwm_panel->msg_label), A_BOLD);
+    vk_label_set_text(vwm_panel->msg_label, vwm_panel->msg_default);
+    vk_label_update(vwm_panel->msg_label);
 
     vwm_panel->menubar = vk_menubar_create(1);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->menubar),
@@ -134,14 +142,63 @@ vwm_panel_init(vwm_t *vwm)
     vk_box_set_widget(vwm_panel->box, 5,
         VK_WIDGET(vwm_panel->activity));
 
+    {
+        vk_label_t *pad = vk_label_create(1);
+        vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_CYAN);
+        vk_label_set_text(pad, " ");
+        vk_label_update(pad);
+        vk_box_set_widget(vwm_panel->box, 6, VK_WIDGET(pad));
+    }
+
     vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm_panel->box));
 
     vk_box_update(vwm_panel->box);
     vk_widget_draw(VK_WIDGET(vwm_panel->box));
 
-    INIT_LIST_HEAD(&vwm_panel->msg_list);
+    {
+        char version_str[32];
+        int  version_len;
 
-    (void)max_y;
+        snprintf(version_str, sizeof(version_str), " VWM %s ", VWM_VERSION);
+        version_len = strlen(version_str);
+
+        vwm_panel->status_box = vk_box_create(max_x, 1,
+            VK_BOX_HORIZONTAL, 2);
+        vk_box_set_homogeneous(vwm_panel->status_box, false);
+        vk_widget_set_colors(VK_WIDGET(vwm_panel->status_box),
+            COLOR_BLACK, COLOR_WHITE);
+
+        vwm_panel->status_marquee = vk_marquee_create(1);
+        vk_widget_set_expand(VK_WIDGET(vwm_panel->status_marquee));
+        vk_widget_set_colors(VK_WIDGET(vwm_panel->status_marquee),
+            COLOR_BLACK, COLOR_WHITE);
+        vk_marquee_set_direction(vwm_panel->status_marquee, VK_SCROLL_LEFT);
+        vk_marquee_set_repeat(vwm_panel->status_marquee, true);
+        vk_marquee_set_speed(vwm_panel->status_marquee, 3);
+        vk_marquee_set_pause(vwm_panel->status_marquee, 50);
+        vk_marquee_set_text(vwm_panel->status_marquee,
+            "Press Alt ~ for Menu");
+
+        vwm_panel->version_label = vk_label_create(version_len);
+        vk_widget_set_colors(VK_WIDGET(vwm_panel->version_label),
+            COLOR_BLACK, COLOR_WHITE);
+        vk_label_set_text(vwm_panel->version_label, version_str);
+        vk_label_update(vwm_panel->version_label);
+
+        vk_box_set_widget(vwm_panel->status_box, 0,
+            VK_WIDGET(vwm_panel->status_marquee));
+        vk_box_set_widget(vwm_panel->status_box, 1,
+            VK_WIDGET(vwm_panel->version_label));
+
+        vk_widget_move(VK_WIDGET(vwm_panel->status_box), 0, max_y - 1);
+        vk_screen_attach_widget(vwm->screen, 0,
+            VK_WIDGET(vwm_panel->status_box));
+
+        vk_box_update(vwm_panel->status_box);
+        vk_widget_draw(VK_WIDGET(vwm_panel->status_box));
+    }
+
+    INIT_LIST_HEAD(&vwm_panel->msg_list);
 }
 
 int
@@ -239,6 +296,10 @@ vwm_panel_ON_TERM_RESIZED(VWM_PANEL *vwm_panel)
     vk_widget_resize(VK_WIDGET(vwm_panel->box), max_x, 1);
     vk_box_update(vwm_panel->box);
 
+    vk_widget_resize(VK_WIDGET(vwm_panel->status_box), max_x, 1);
+    vk_widget_move(VK_WIDGET(vwm_panel->status_box), 0, max_y - 1);
+    vk_box_update(vwm_panel->status_box);
+
     (void)max_y;
 }
 
@@ -264,6 +325,9 @@ vwm_panel_ON_CLOCK_TICK(VWM_PANEL *vwm_panel)
     vwm_panel_display(vwm_panel);
 
     vk_box_update(vwm_panel->box);
+
+    vk_marquee_run(vwm_panel->status_marquee);
+    vk_box_update(vwm_panel->status_box);
 }
 
 void
@@ -312,7 +376,7 @@ vwm_panel_display(VWM_PANEL *vwm_panel)
 
     if(list_empty(&vwm_panel->msg_list))
     {
-        vk_label_set_text(vwm_panel->msg_label, "");
+        vk_label_set_text(vwm_panel->msg_label, vwm_panel->msg_default);
         vk_label_update(vwm_panel->msg_label);
         return;
     }
@@ -477,4 +541,15 @@ vwm_panel_message_find(char *msg)
     if(vwm_panel_msg == NULL) return 0;
 
     return vwm_panel_msg->msg_id.msg_handle;
+}
+
+void
+vwm_panel_set_status(const char *text)
+{
+    VWM_PANEL   *vwm_panel;
+
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return;
+
+    vk_marquee_set_text(vwm_panel->status_marquee, text);
 }
