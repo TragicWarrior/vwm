@@ -7,7 +7,10 @@
 #define VWM_HOTKEY_MENU     (27 | (96 << 8))
 
 #define VWM_MAIN_MENU_HELP \
-"Press [alt ~] for Main Menu"
+" ☰ Press [alt ~] for Main Menu"
+
+#define VWM_MAIN_MENU_HELP_ASCII \
+" [=] Press [alt ~] for Main Menu"
 
 vwnd_t* vwm_main_menu(void);
 int	    vwm_main_menu_hotkey(void);

@@ -43,7 +43,7 @@ vwm_default_VWM_START(vwnd_t *topmost_window)
     viper_screen_set_wallpaper(screen_id, vwm->wallpaper[screen_id],
             vwm_bkgd_simple_winman);
 
-    msg_id = vwm_panel_message_find(VWM_MAIN_MENU_HELP);
+    msg_id = vwm_panel_message_find(vwm->hotkey_menu_msg);
     if(msg_id != 0) vwm_panel_message_del(msg_id);
 
     msg_id = vwm_panel_message_add(VWM_WM_HELP, -1);
@@ -73,7 +73,7 @@ vwm_default_VWM_STOP(vwnd_t *topmost_window)
     msg_id = vwm_panel_message_find(VWM_WM_HELP);
     if(msg_id != 0) vwm_panel_message_del(msg_id);
 
-    msg_id = vwm_panel_message_add(VWM_MAIN_MENU_HELP, -1);
+    msg_id = vwm_panel_message_add(vwm->hotkey_menu_msg, -1);
     vwm_panel_message_promote(msg_id);
 
 	viper_screen_redraw(CURRENT_SCREEN_ID, REDRAW_ALL | REDRAW_BACKGROUND);

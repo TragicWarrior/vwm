@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include <locale.h>
+#include <langinfo.h>
 #include <inttypes.h>
 #include <signal.h>
 #include <time.h>
@@ -165,7 +166,7 @@ int main(int argc,char **argv)
     vwm_settings_load(vwm);
     vwm_programs_load(vwm);
 
-    vwm_panel_message_add(VWM_MAIN_MENU_HELP,-1);
+    vwm_panel_message_add(vwm->hotkey_menu_msg, -1);
 
     vwm_sched_run(sched, &shutdown);
 
@@ -201,7 +202,10 @@ vwm_init(void)
         INIT_LIST_HEAD(&vwm->module_list);
 
         vwm->hotkey_menu = VWM_HOTKEY_MENU;
-        vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP;
+        if(strcmp(nl_langinfo(CODESET), "UTF-8") == 0)
+            vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP;
+        else
+            vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP_ASCII;
 
         // load user profile
         vwm_profile_init(vwm);
