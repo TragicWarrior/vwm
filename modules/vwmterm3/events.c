@@ -715,6 +715,47 @@ vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything)
 	return 0;
 }
 
+/*
+    fires when libviper rebuilds the WINDOW backing this widget -- happens
+    after a teleport, where vk_screen_teleport tears down the old ncurses
+    SCREEN, creates a new one, and calls vk_widget_recreate on every
+    surface widget.  the per-widget canvas WINDOW pointer libvterm cached
+    at init time is now dead; rebind it to the freshly-recreated canvas
+    and force a full redraw.
+*/
+int
+vwmterm_ON_RECREATE(vk_object_t *object, int event, void *anything)
+{
+    vwmterm_data_t  *vwmterm_data;
+    vterm_t         *vterm;
+    vk_widget_t     *content;
+    vwm_t           *vwm;
+
+    (void)event;
+
+    vwmterm_data = (vwmterm_data_t *)anything;
+    if(vwmterm_data == NULL) return 0;
+
+    vterm = vwmterm_data->vterm;
+    if(vterm == NULL) return 0;
+
+    content = vk_window_get_child(VK_WINDOW(object));
+    if(content == NULL) return 0;
+
+    vterm_wnd_set(vterm, vk_widget_get_canvas(content));
+
+    vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
+
+    vwm = vwm_get_instance();
+    if(vwm != NULL)
+    {
+        vk_window_update(vwmterm_data->window);
+        vk_screen_refresh(vwm->screen);
+    }
+
+    return 0;
+}
+
 int
 vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything)
 {

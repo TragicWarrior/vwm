@@ -264,6 +264,15 @@ vwmterm_main(vwm_module_t *mod)
     vk_object_register_event(VK_OBJECT(window), VK_EVENT_ON_RESIZE,
         vwmterm_ON_RESIZE, (void *)vwmterm_data);
 
+    /*
+        ON_RECREATE fires after a teleport, when libviper rebuilds the
+        widget's underlying ncurses WINDOW in the new SCREEN.  the cached
+        WINDOW pointer in libvterm is then dead -- rebind to the fresh
+        canvas and force a full redraw.
+    */
+    vk_object_register_event(VK_OBJECT(window), VK_EVENT_ON_RECREATE,
+        vwmterm_ON_RECREATE, (void *)vwmterm_data);
+
     if(vwmterm_mod->fullscreen == FALSE)
     {
         int pos_x = (scr_width - (width + 2)) / 2;
