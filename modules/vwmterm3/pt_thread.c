@@ -73,6 +73,12 @@ pt_t vwmterm_thd(void * const env)
         // check to see if thread is exiting
         if(vwmterm_data->state == VWMTERM_STATE_EXITING) break;
 
+        if(vwmterm_data->frozen)
+        {
+            pt_yield(ctx_vwmterm);
+            continue;
+        }
+
         /* drain up to VWMTERM_DRAIN_CHUNKS chunks per dispatch */
         bytes_read = 0;
         for(i = 0; i < VWMTERM_DRAIN_CHUNKS; i++)

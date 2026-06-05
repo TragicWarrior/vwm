@@ -75,7 +75,7 @@ vwm_bkgd_simple_normal(int screen_id)
 	sprintf(version_str, " VWM %s ", VWM_VERSION);
 	wattron(wallpaper, COLOR_PAIR(color));
 	mvwprintw(wallpaper, height - 1, width - (strlen(version_str)),
-        version_str);
+        "%s", version_str);
 	wattron(wallpaper, A_NORMAL);
 
     overwrite(wallpaper, screen_wnd);
@@ -129,7 +129,7 @@ vwm_bkgd_simple_winman(int screen_id)
 	sprintf(version_str, " VWM %s ", VWM_VERSION);
 	wattron(wallpaper, COLOR_PAIR(color));
 	mvwprintw(wallpaper, height - 1, width - (strlen(version_str)),
-        version_str);
+        "%s", version_str);
 	wattron(wallpaper, A_NORMAL);
 
     overwrite(wallpaper, screen_wnd);
@@ -209,7 +209,7 @@ vwm_bkgd_bricks(WINDOW *bkgd_window, void *arg)
     sprintf(version_str, " VWM %s ", VWM_VERSION);
     wattron(bkgd_window, COLOR_PAIR(color));
     mvwprintw(bkgd_window, height - 1, width - (strlen(version_str)),
-        version_str);
+        "%s", version_str);
     wattron(bkgd_window, A_NORMAL);
 
     return 0;

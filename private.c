@@ -36,7 +36,7 @@ vwm_default_border_agent_focus(vwnd_t *vwnd, void *anything)
 {
 	const char		*title;
 	uint32_t		window_state;
-    char            buf[16];
+    char            buf[32];
     int             len;
  	int		   	    y, x;
 
@@ -69,7 +69,7 @@ vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything)
 {
 	const char	    *title;
 	uint32_t	    window_state;
-    char            buf[16];
+    char            buf[32];
     int             len;
  	int		        y, x;
 

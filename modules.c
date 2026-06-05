@@ -261,7 +261,6 @@ vwm_module_add(vwm_module_t *mod)
 {
 	vwm_t		        *vwm;
 
-    if(mod->title == NULL) return -1;
     if(mod->title[0] == '\0') return -1;
 
 	vwm = vwm_get_instance();

@@ -32,6 +32,8 @@ find_package(VTERM REQUIRED)
 
 find_package(VIPER REQUIRED)
 
+find_package(VDK REQUIRED)
+
 find_package(GPM)
 
 if (!GPM_FOUND)
@@ -69,9 +71,9 @@ add_executable(vwm
     )
 
 if (GPM_FOUND)
-target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VTERM_LIBRARY}" )
+target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VDK_LIBRARY}" "${VTERM_LIBRARY}" )
 else()
-target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VTERM_LIBRARY}")
+target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VDK_LIBRARY}" "${VTERM_LIBRARY}")
 endif()
 
 # set the subst vars that configure_file() will use

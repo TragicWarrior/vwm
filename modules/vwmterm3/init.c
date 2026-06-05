@@ -52,6 +52,8 @@ vwm_mod_init(const char *modpath)
 
     (void)modpath;
 
+    vwmterm_init_keycodes();
+
 	// preload libutil for use with this module.
 	dynlib = dlopen("libutil.so", RTLD_LAZY | RTLD_GLOBAL);
     if(dynlib == NULL)
@@ -183,14 +185,14 @@ vwmterm_main(vwm_module_t *mod)
     // create window
     if(vwmterm_mod->fullscreen == FALSE)
     {
-	    vwnd = viper_window_create(CURRENT_SCREEN_ID, TRUE, " VTerm (Alt+PgUp / Alt+PgDn) ",
+	    vwnd = viper_window_create(CURRENT_SCREEN_ID, TRUE, " VTerm (Alt+PgUp/PgDn, Alt+Shft+V=Paste) ",
             0.5, 0.5, width, height);
         viper_window_set_resizable(vwnd, TRUE);
 	    viper_window_set_limits(vwnd, 15, 2, WSIZE_UNCHANGED, WSIZE_UNCHANGED);
     }
     else
     {
-        vwnd = viper_window_create(CURRENT_SCREEN_ID, FALSE, " VTerm (Alt+PgUp / Alt+PgDn) ",
+        vwnd = viper_window_create(CURRENT_SCREEN_ID, FALSE, " VTerm (Alt+PgUp/PgDn, Alt+Shft+V=Paste) ",
             0, 0, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
         viper_window_set_resizable(vwnd, FALSE);
     }

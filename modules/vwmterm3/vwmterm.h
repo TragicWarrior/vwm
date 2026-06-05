@@ -24,6 +24,11 @@ struct _vwmterm_data_s
     unsigned int    state;
     int             redraw_pending;
     int             scroll_offset;
+    int             frozen;
+    int             sel_anchor_row;
+    int             sel_anchor_col;
+    int             sel_end_row;
+    int             sel_end_col;
 };
 
 enum

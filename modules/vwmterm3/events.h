@@ -11,6 +11,8 @@
 
 #include <viper.h>
 
+void    vwmterm_init_keycodes(void);
+
 int     vwmterm_ON_RESIZE(vwnd_t *vwnd, void *anything);
 int     vwmterm_ON_SCREEN_RESIZED(vwnd_t *vwnd, void *anything);
 int	    vwmterm_ON_CLOSE(vwnd_t *vwnd, void *anything);
