@@ -957,11 +957,14 @@ modify_popup_open(int setting_idx)
         }
         else
         {
-            /* Desktop N Wallpaper: static list of pattern names */
+            /* Desktop N Wallpaper: static list of pattern names.
+               vk_listbox_add_item takes char *; vwm_wallpaper_names
+               is const char * -- cast is safe since the listbox
+               copies the string internally. */
             for(i = 0; i < VWM_WALLPAPER_COUNT; i++)
             {
                 vk_listbox_add_item(modify_listbox,
-                    vwm_wallpaper_names[i], NULL, NULL);
+                    (char *)vwm_wallpaper_names[i], NULL, NULL);
                 if(strcmp(model->values[setting_idx],
                     vwm_wallpaper_names[i]) == 0)
                     sel_idx = i;
