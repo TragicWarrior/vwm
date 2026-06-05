@@ -46,9 +46,9 @@
 #define     KEY_LESS_THAN       '<'
 #define     KEY_CTRL_LEFT       545
 
+#define     VWM_HOTKEY_DESKTOP  (27 | (100 << 8))
+
 static VWM_PANEL    *panel_data = NULL;
-static int          key_ctrl_shift_right = 0;
-static int          key_ctrl_shift_left = 0;
 
 VWM_PANEL*
 vwm_panel_get_data(void)
@@ -64,9 +64,6 @@ vwm_panel_init(vwm_t *vwm)
     int             has_utf8;
 
     if(panel_data != NULL) return;
-
-    key_ctrl_shift_right = key_defined("\033[1;6C");
-    key_ctrl_shift_left = key_defined("\033[1;6D");
 
     vwm_panel = (VWM_PANEL*)calloc(1, sizeof(VWM_PANEL));
     vwm_panel->tick_rate = 2;
@@ -192,7 +189,7 @@ vwm_panel_init(vwm_t *vwm)
         vk_marquee_set_speed(vwm_panel->status_marquee, 3);
         vk_marquee_set_pause(vwm_panel->status_marquee, 50);
         vk_marquee_set_text(vwm_panel->status_marquee,
-            "Press Alt ~ for Menu");
+            "Alt ~ Menu | Alt d Switch Desktop");
 
         vwm_panel->version_label = vk_label_create(version_len);
         vk_widget_set_colors(VK_WIDGET(vwm_panel->version_label),
@@ -216,6 +213,77 @@ vwm_panel_init(vwm_t *vwm)
     INIT_LIST_HEAD(&vwm_panel->msg_list);
 }
 
+void
+vwm_desktop_prompt_show(void)
+{
+    vwm_t       *vwm;
+    VWM_PANEL   *vwm_panel;
+    vk_label_t  *prompt;
+    int          max_y, max_x;
+    char         text[64];
+    int          pos;
+    int          surface;
+
+    vwm = vwm_get_instance();
+    vwm_panel = vwm_panel_get_data();
+
+    if(vwm_panel->desktop_prompt != NULL) return;
+
+    vwm_menubar_close_dropdown();
+    vk_menubar_set_focused(vwm->menubar, false);
+    vk_menubar_update(vwm->menubar);
+    vwm_calendar_close();
+
+    getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
+    (void)max_y;
+
+    pos = 0;
+    pos += snprintf(text + pos, sizeof(text) - pos, " Switch desktop (");
+    for(int i = 0; i < vwm->surface_count; i++)
+    {
+        if(i > 0)
+            pos += snprintf(text + pos, sizeof(text) - pos, ", ");
+        pos += snprintf(text + pos, sizeof(text) - pos, "%d", i + 1);
+    }
+    snprintf(text + pos, sizeof(text) - pos, "): ");
+
+    prompt = vk_label_create(max_x);
+    vk_widget_set_colors(VK_WIDGET(prompt), COLOR_WHITE, COLOR_BLUE);
+    vk_widget_set_attrs(VK_WIDGET(prompt), A_BOLD);
+    vk_label_set_text(prompt, text);
+    vk_label_update(prompt);
+
+    surface = vk_screen_get_active_surface(vwm->screen);
+    vk_screen_detach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->box));
+    vk_screen_attach_widget(vwm->screen, surface, VK_WIDGET(prompt));
+
+    vwm_panel->desktop_prompt = prompt;
+}
+
+static void
+vwm_desktop_prompt_close(void)
+{
+    vwm_t       *vwm;
+    VWM_PANEL   *vwm_panel;
+    int          surface;
+
+    vwm = vwm_get_instance();
+    vwm_panel = vwm_panel_get_data();
+
+    if(vwm_panel->desktop_prompt == NULL) return;
+
+    surface = vk_screen_get_active_surface(vwm->screen);
+    vk_screen_detach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->desktop_prompt));
+    vk_label_destroy(vwm_panel->desktop_prompt);
+    vwm_panel->desktop_prompt = NULL;
+
+    vk_screen_attach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->box));
+    vk_box_update(vwm_panel->box);
+}
+
 int
 vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
 {
@@ -224,6 +292,28 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
     (void)anything;
 
     vwm = vwm_get_instance();
+
+    if(panel_data->desktop_prompt != NULL)
+    {
+        if(keystroke == 27)
+        {
+            vwm_desktop_prompt_close();
+            vk_screen_refresh(vwm->screen);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke >= '1' && keystroke <= '0' + vwm->surface_count)
+        {
+            int target = keystroke - '1';
+
+            vwm_desktop_prompt_close();
+            vk_screen_set_surface(vwm->screen, target);
+            vk_screen_refresh(vwm->screen);
+            return KMIO_HANDLED;
+        }
+
+        return KMIO_HANDLED;
+    }
 
     if(keystroke == VWM_HOTKEY_WM)
     {
@@ -284,38 +374,17 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
         }
     }
 
-    if(!(vwm->state & VWM_STATE_ACTIVE))
+    if(keystroke == vwm->hotkey_menu)
     {
-        if(keystroke == vwm->hotkey_menu)
-        {
-            vwm_menubar_hotkey();
+        vwm_menubar_hotkey();
+        return KMIO_HANDLED;
+    }
 
-            return KMIO_HANDLED;
-        }
-
-        if(key_ctrl_shift_right > 0 && keystroke == key_ctrl_shift_right)
-        {
-            int cur = vk_screen_get_active_surface(vwm->screen);
-            int cnt = vk_screen_get_surface_count(vwm->screen);
-            int next = (cur + 1) % cnt;
-
-            vk_screen_set_surface(vwm->screen, next);
-            vk_screen_refresh(vwm->screen);
-
-            return KMIO_HANDLED;
-        }
-
-        if(key_ctrl_shift_left > 0 && keystroke == key_ctrl_shift_left)
-        {
-            int cur = vk_screen_get_active_surface(vwm->screen);
-            int cnt = vk_screen_get_surface_count(vwm->screen);
-            int prev = (cur + cnt - 1) % cnt;
-
-            vk_screen_set_surface(vwm->screen, prev);
-            vk_screen_refresh(vwm->screen);
-
-            return KMIO_HANDLED;
-        }
+    if(keystroke == VWM_HOTKEY_DESKTOP)
+    {
+        vwm_desktop_prompt_show();
+        vk_screen_refresh(vwm->screen);
+        return KMIO_HANDLED;
     }
 
     return keystroke;
@@ -328,6 +397,9 @@ vwm_panel_ON_TERM_RESIZED(VWM_PANEL *vwm_panel)
     int         max_y, max_x;
 
     if(vwm_panel == NULL) return;
+
+    if(vwm_panel->desktop_prompt != NULL)
+        vwm_desktop_prompt_close();
 
     vwm = vwm_get_instance();
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);

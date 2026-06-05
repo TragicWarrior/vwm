@@ -7,9 +7,11 @@ clicks not being forwarded at all due to mouseinterval(0) preventing
 ncurses BUTTON1_CLICKED synthesis.
 
 Added multiple desktops (3 surfaces) with per-surface window decks.
-Ctrl+Shift+Right/Left cycles between desktops with wrap-around.
-Panel and status bar follow the active surface.  Each desktop has a
-distinct checkerboard wallpaper (blue, red, cyan).
+Alt+d opens a prompt to switch desktops by number (works on both
+xterm and Linux console).  "Switch desktop (Alt d)" is also available
+in the VWM dropdown menu.  Panel and status bar follow the active
+surface.  Each desktop has a distinct checkerboard wallpaper (blue,
+red, cyan).
 
 Added "Reload Apps Menu" to the VWM dropdown menu.  This re-reads
 ~/.vwm/vwmrc and repopulates the Apps menu without restarting.

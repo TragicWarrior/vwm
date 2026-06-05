@@ -26,6 +26,8 @@ typedef struct
     vk_label_t          *clock_label;
     vk_activity_t       *activity;
 
+    vk_label_t          *desktop_prompt;
+
     vk_box_t            *status_box;
     vk_marquee_t        *status_marquee;
     vk_label_t          *version_label;
@@ -69,6 +71,8 @@ void    vwm_panel_update_taskcount(VWM_PANEL *panel);
 void    vwm_panel_update_clock(VWM_PANEL *panel);
 void    vwm_panel_display(VWM_PANEL *panel);
 void    vwm_panel_set_status(const char *text);
+
+void    vwm_desktop_prompt_show(void);
 
 void    vwm_calendar_toggle(void);
 void    vwm_calendar_close(void);
