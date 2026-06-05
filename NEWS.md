@@ -1,3 +1,45 @@
+2026-06-04
+
+Performance: wallpaper backing-WINDOW cache.  Each desktop's
+wallpaper used to be re-rendered cell-by-cell on every
+vk_screen_refresh -- ~12000 per-cell ncurses calls per refresh on a
+200x60 surface, with the brick patterns (setcchar / getcchar per
+cell) more expensive still.  The wallpaper is static between user
+changes, so each desktop now pre-renders into a cached WINDOW once
+and the refresh callback blits with overwrite().  Caches invalidate
+on Settings color or pattern change, on surface_count shrink, on
+geometry mismatch (lazy resize check + explicit invalidation in the
+KEY_RESIZE handler), and on teleport (orphan-style: the cached
+WINDOWs belong to a dying SCREEN, so they're nulled without delwin --
+same intentional leak libviper does for surface canvases).  Per
+refresh, wallpaper cost drops from ~1-2 ms to ~100 us; the
+compounding win is most visible on burst-refresh paths (myman
+scroll, htop frame, drag-resize).
+
+Performance: skip the surface refresh on fall-through keystrokes
+that just got pushed into a vwmterm.  poll_input_thd previously
+called vk_screen_refresh after every keystroke including the
+fall-through case (no menubar / panel / dialog consumed it; no
+popup open), even though the keystroke had only been pushed into
+the vterm's PTY -- with no visible vwm-level change until the
+child's echo comes back through pt_thread.  Dropping that one
+refresh removes a full surface composite per shell-typed
+character.
+
+Shadow tint fix.  The recent wbkgdset-on-surface-canvas change
+(part of the desktop-flicker work) caused window drop shadows to
+take on the desktop color: the deck shadow code writes pair-0
+cells (vdk_color_init maps white-on-black to pair 0 for
+default-pair compatibility), and ncurses fills pair-0 cells with
+the destination window's bkgd pair on write.  Fix: stop applying
+the bkgd to the surface canvas; keep applying it to stdscr, which
+is what actually mattered for the flicker (wrefresh hardware-scroll
+optimizations expose cells whose color comes from stdscr's bkgd).
+The surface canvas is always fully overpainted before being
+overwritten to stdscr, so dropping its bkgd costs nothing visually
+and unbreaks the shadows.
+
+
 2026-06-03
 
 Reduced desktop flicker during heavy vwmterm scrolling (e.g. running

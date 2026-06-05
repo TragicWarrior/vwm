@@ -10,6 +10,7 @@
 #include "manage_hotkeys.h"
 #include "manage_settings.h"
 #include "manage_windows.h"
+#include "bkgd.h"
 #include "modules.h"
 #include "panel.h"
 #include "winman.h"
@@ -487,6 +488,17 @@ vwm_poll_input(void * const env)
         if(keystroke == KEY_RESIZE)
         {
             vk_screen_resize(vwm->screen);
+
+            /* drop every cached wallpaper -- the surface canvases were
+               just wresized and the cache callback's geometry mismatch
+               check has been observed to miss the change in practice
+               (apparently a quirk of getmaxyx returning stale values
+               on a freshly-wresized window in some ncurses versions).
+               KEY_RESIZE is the authoritative signal that geometry
+               changed; invalidate here so the next refresh rebuilds
+               every cache at the new size. */
+            vwm_invalidate_wallpaper_cache_all();
+
             vwm_panel_ON_TERM_RESIZED(vwm_panel_get_data());
             vwm_dropdown_ON_TERM_RESIZED();
 
@@ -935,7 +947,20 @@ vwm_poll_input(void * const env)
             if(top != NULL)
             {
                 vk_object_push_keystroke(VK_OBJECT(top), keystroke);
-                vk_screen_refresh(vwm->screen);
+                /*
+                    fall-through keystrokes (no menubar / panel / dialog
+                    handled them; no popup is open) are pushed to the
+                    deck-top widget -- in practice almost always a
+                    vwmterm.  The keystroke goes through libvterm into
+                    the PTY; the visible change is the child's echo,
+                    which pt_thread picks up a millisecond later and
+                    refreshes from its side.  Refreshing here too would
+                    composite the full surface for a keystroke that
+                    hasn't produced any visible change yet -- pure
+                    double work during shell typing, the dominant
+                    interactive case.  Skip it; pt_thread covers the
+                    actual visible update.
+                */
             }
         }
 

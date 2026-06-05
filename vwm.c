@@ -355,6 +355,9 @@ vwm_apply_surface_count(int new_count)
             VK_WIDGET(vwm->decks[i]));
         vk_deck_destroy(vwm->decks[i]);
         vk_screen_del_surface(vwm->screen, i);
+
+        /* release the cached wallpaper for the surface we just dropped */
+        vwm_invalidate_wallpaper_cache(i);
     }
 
     vwm->decks = realloc(vwm->decks, new_count * sizeof(vk_deck_t *));
@@ -438,6 +441,13 @@ vwm_on_teleport(vk_object_t *object, int event, void *anything)
     if(vwm == NULL) return 0;
 
     vdk_color_init();
+
+    /* the wallpaper-cache WINDOWs belong to the OLD SCREEN that's about
+       to be torn down.  delwin across a different SCREEN corrupts
+       ncurses state (same reason libviper leaks the surface canvases on
+       teleport), so null the slots without freeing -- next refresh in
+       the new SCREEN lazily allocates fresh caches. */
+    vwm_invalidate_wallpaper_cache_all_orphan();
 
     /* re-arm everything kmio set up at startup against the new SCREEN:
        mousemask + mouseinterval are SCREEN-local ncurses state, and

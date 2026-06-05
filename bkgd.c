@@ -225,24 +225,43 @@ _bkgd_render_large_bricks(WINDOW *canvas, int width, int height, short pair)
     wattroff(canvas, colors);
 }
 
-void
-vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
+/*
+    Wallpaper backing-WINDOW cache, one slot per possible desktop.
+
+    The wallpaper is static between user-driven changes (color, pattern,
+    or terminal resize), but the libviper refresh loop calls our
+    callback on every vk_screen_refresh.  Pre-render each desktop's
+    wallpaper into its own off-screen WINDOW once and just blit it onto
+    the surface canvas per refresh, replacing ~width*height per-cell
+    ncurses calls with a single bulk copywin.
+
+    Lifetime:
+      - Lazy create:    the callback fills NULL slots on first use.
+      - Resize:         geometry mismatch in the callback delwin's +
+                        rebuilds.
+      - Color/pattern:  vwm_invalidate_wallpaper_cache() called from
+                        Settings change paths.
+      - Surface remove: vwm_invalidate_wallpaper_cache() in the
+                        vwm_apply_surface_count shrink branch.
+      - Teleport:       vwm_invalidate_wallpaper_cache_all_orphan()
+                        nulls without delwin (the WINDOWs are bound to
+                        a SCREEN that's about to die; same intentional
+                        leak as libviper's canvases -- see KLASSES.md
+                        "Old ncurses WINDOWs are intentionally leaked
+                        during teleport").
+*/
+static WINDOW *g_wallpaper_cache[VWM_MAX_DESKTOPS];
+
+static void
+_bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
 {
     vwm_t       *vwm;
-    short       pair;
     short       bg;
     short       pattern;
-    int         width, height;
-
-    (void)screen;
+    short       pair;
 
     vwm = vwm_get_instance();
 
-    getmaxyx(canvas, height, width);
-
-    /* per-surface desktop color + wallpaper pattern picked by the user
-       in Settings; render the chosen tile with black FG over the
-       chosen color as BG */
     bg = COLOR_BLUE;
     pattern = VWM_WALLPAPER_STIPLE;
     if(vwm != NULL && surface_id >= 0 && surface_id < VWM_MAX_DESKTOPS)
@@ -268,29 +287,117 @@ vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
             /* solid fill: just the desktop color, no overlay glyph */
             int colors = COLOR_PAIR(pair);
             int i;
-            wattron(canvas, colors);
-            wmove(canvas, 0, 0);
-            for(i = 0; i < width * height; i++) waddch(canvas, ' ');
-            wattroff(canvas, colors);
+            wattron(target, colors);
+            wmove(target, 0, 0);
+            for(i = 0; i < width * height; i++) waddch(target, ' ');
+            wattroff(target, colors);
             break;
         }
         case VWM_WALLPAPER_SMALL_BRICKS:
-            _bkgd_render_small_bricks(canvas, width, height, pair);
+            _bkgd_render_small_bricks(target, width, height, pair);
             break;
         case VWM_WALLPAPER_LARGE_BRICKS:
-            _bkgd_render_large_bricks(canvas, width, height, pair);
+            _bkgd_render_large_bricks(target, width, height, pair);
             break;
         case VWM_WALLPAPER_DOTS_1:
-            _bkgd_render_dots_1(canvas, width, height, pair);
+            _bkgd_render_dots_1(target, width, height, pair);
             break;
         case VWM_WALLPAPER_DOTS_2:
-            _bkgd_render_dots_2(canvas, width, height, pair);
+            _bkgd_render_dots_2(target, width, height, pair);
             break;
         case VWM_WALLPAPER_STIPLE:
         default:
-            _bkgd_render_stiple(canvas, width, height, pair);
+            _bkgd_render_stiple(target, width, height, pair);
             break;
     }
+}
+
+void
+vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
+{
+    int         width, height;
+    int         cw, ch;
+
+    (void)screen;
+
+    if(surface_id < 0 || surface_id >= VWM_MAX_DESKTOPS)
+    {
+        /* out-of-range slot -- paint directly, no caching */
+        getmaxyx(canvas, height, width);
+        _bkgd_paint_into(canvas, surface_id, width, height);
+        return;
+    }
+
+    getmaxyx(canvas, height, width);
+
+    /* resize check: if the cached window's size doesn't match the
+       current canvas, drop it and rebuild at the new size.  same-SCREEN
+       so delwin is safe. */
+    if(g_wallpaper_cache[surface_id] != NULL)
+    {
+        getmaxyx(g_wallpaper_cache[surface_id], ch, cw);
+        if(ch != height || cw != width)
+            vwm_invalidate_wallpaper_cache(surface_id);
+    }
+
+    if(g_wallpaper_cache[surface_id] == NULL)
+    {
+        g_wallpaper_cache[surface_id] = newwin(height, width, 0, 0);
+        if(g_wallpaper_cache[surface_id] == NULL)
+        {
+            /* newwin failed -- paint directly so we don't lose a frame */
+            _bkgd_paint_into(canvas, surface_id, width, height);
+            return;
+        }
+        _bkgd_paint_into(g_wallpaper_cache[surface_id],
+            surface_id, width, height);
+    }
+
+    /* copywin in overwrite mode (FALSE) replaces every cell of the
+       destination rectangle, blanks included -- identical effect to
+       overwrite() but explicit about the rectangle and the mode. */
+    overwrite(g_wallpaper_cache[surface_id], canvas);
+}
+
+/*
+    Drop a single surface's cached wallpaper.  delwin is safe -- callers
+    invoke this only from the SCREEN that owns the WINDOW (Settings
+    change, surface shrink, geometry-mismatch rebuild).
+*/
+void
+vwm_invalidate_wallpaper_cache(int surface_id)
+{
+    if(surface_id < 0 || surface_id >= VWM_MAX_DESKTOPS) return;
+
+    if(g_wallpaper_cache[surface_id] != NULL)
+    {
+        delwin(g_wallpaper_cache[surface_id]);
+        g_wallpaper_cache[surface_id] = NULL;
+    }
+}
+
+void
+vwm_invalidate_wallpaper_cache_all(void)
+{
+    int i;
+    for(i = 0; i < VWM_MAX_DESKTOPS; i++)
+        vwm_invalidate_wallpaper_cache(i);
+}
+
+/*
+    Teleport variant: the cached WINDOWs are bound to a SCREEN that's
+    about to be torn down.  delwin on a different-SCREEN window
+    corrupts ncurses internal state (same reason libviper leaks
+    surface canvases during teleport -- see KLASSES.md).  Null the
+    slots and let the WINDOWs leak with the dying SCREEN; next refresh
+    after the new SCREEN is established lazily allocates fresh ones.
+*/
+void
+vwm_invalidate_wallpaper_cache_all_orphan(void)
+{
+    int i;
+    for(i = 0; i < VWM_MAX_DESKTOPS; i++)
+        g_wallpaper_cache[i] = NULL;
 }
 
 void

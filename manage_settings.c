@@ -414,15 +414,20 @@ commit_to_vwm(void)
 
         for(d = 0; d < vwm->surface_count && d < VWM_MAX_DESKTOPS; d++)
         {
-            int i;
+            int  i;
+            bool color_changed = false;
+            bool pattern_changed = false;
+
             for(i = 0; i < 16; i++)
             {
                 if(strcmp(
                     model->values[SETTING_DESKTOP_COLOR_BASE + d],
                     vwm_color_names[i]) == 0)
                 {
+                    if(vwm->desktop_color[d] != (short)i)
+                        color_changed = true;
                     vwm->desktop_color[d] = (short)i;
-                    vwm_apply_desktop_bkgd(d);
+                    if(color_changed) vwm_apply_desktop_bkgd(d);
                     break;
                 }
             }
@@ -432,10 +437,17 @@ commit_to_vwm(void)
                     model->values[wp_base + d],
                     vwm_wallpaper_names[i]) == 0)
                 {
+                    if(vwm->desktop_wallpaper[d] != (short)i)
+                        pattern_changed = true;
                     vwm->desktop_wallpaper[d] = (short)i;
                     break;
                 }
             }
+
+            /* drop the cached wallpaper bitmap whenever the source
+               (color or pattern) changes so the next refresh re-renders */
+            if(color_changed || pattern_changed)
+                vwm_invalidate_wallpaper_cache(d);
         }
     }
 
