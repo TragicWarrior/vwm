@@ -210,7 +210,7 @@ vwmterm_main(vwm_module_t *mod)
 
         window = vk_window_create(width + 2, height + 2);
         vk_window_set_title(window, title);
-        vk_window_set_border_style(window, VK_FRAME_SINGLE);
+        vk_window_set_border_style(window, VK_BORDER_SINGLE);
         vk_window_set_decorate(window, vwm_window_decorate, NULL);
 
         content = vk_widget_create(width, height);
@@ -220,7 +220,7 @@ vwmterm_main(vwm_module_t *mod)
     else
     {
         window = vk_window_create(width, height);
-        vk_window_set_border_style(window, VK_FRAME_NONE);
+        vk_window_set_border_style(window, VK_BORDER_NONE);
 
         uint32_t state = vk_widget_get_state(VK_WIDGET(window));
         vk_widget_set_state(VK_WIDGET(window), state | VK_STATE_NORESIZE);

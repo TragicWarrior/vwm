@@ -152,7 +152,7 @@ make_window(int w, int h, const char *title, short fg, short bg)
 
     win = vk_window_create(w, h);
     vk_window_set_title(win, title);
-    vk_window_set_border_style(win, VK_FRAME_SINGLE);
+    vk_window_set_border_style(win, VK_BORDER_SINGLE);
     vk_window_set_border_colors(win, fg, bg);
     vk_window_set_border_attrs(win, A_BOLD);
 
@@ -207,7 +207,7 @@ build_prompt(scrshot_session_t *s)
     center_pad(b_window, sizeof(b_window), "Top window",    PROMPT_BTN_W);
     center_pad(b_cancel, sizeof(b_cancel), "Cancel",        PROMPT_BTN_W);
 
-    popup = vk_popup_create(W, H, VK_FRAME_SINGLE,
+    popup = vk_popup_create(W, H, VK_BORDER_SINGLE,
         b_screen, b_window, b_cancel, NULL);
     vk_popup_set_title(popup, " Screen Capture ");
     vk_popup_set_border_colors(popup, COLOR_WHITE, COLOR_CYAN);
@@ -406,7 +406,7 @@ build_save(scrshot_session_t *s)
     vk_widget_set_colors(VK_WIDGET(box), COLOR_WHITE, COLOR_BLUE);
 
     fname = vk_input_create(W - 2);
-    vk_input_set_relief_style(fname, VK_FRAME_SINGLE);
+    vk_input_set_relief_style(fname, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(fname), COLOR_WHITE, COLOR_BLUE);
 
     now = time(NULL);
@@ -416,7 +416,7 @@ build_save(scrshot_session_t *s)
     vk_input_update(fname);
     vk_box_set_widget(box, 0, VK_WIDGET(fname));
 
-    fd = vk_filedialog_create(W - 2, fd_h, VK_FRAME_SINGLE, false);
+    fd = vk_filedialog_create(W - 2, fd_h, VK_BORDER_SINGLE, false);
     vk_filedialog_set_colors(fd, COLOR_WHITE, COLOR_BLUE);
     vk_filedialog_set_highlight(fd, COLOR_WHITE, COLOR_RED);
     vk_filedialog_set_button_colors(fd, COLOR_WHITE, COLOR_BLUE);

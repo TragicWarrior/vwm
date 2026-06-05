@@ -248,7 +248,7 @@ create_file_dropdown(vwm_t *vwm)
 
     window = vk_window_create(max_width + 2, max_height + 2);
     vk_window_set_title(window, " VWM ");
-    vk_window_set_border_style(window, VK_FRAME_SINGLE);
+    vk_window_set_border_style(window, VK_BORDER_SINGLE);
     vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
     vk_window_set_border_attrs(window, A_BOLD);
     vk_window_set_child(window, VK_WIDGET(listbox));
@@ -324,14 +324,14 @@ create_apps_dropdown(vwm_t *vwm)
 
     window = vk_window_create(max_width + 2, max_height + 2);
     vk_window_set_title(window, " Apps ");
-    vk_window_set_border_style(window, VK_FRAME_SINGLE);
+    vk_window_set_border_style(window, VK_BORDER_SINGLE);
     vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
     vk_window_set_border_attrs(window, A_BOLD);
     vk_window_set_child(window, VK_WIDGET(listbox));
 
     {
         vk_scroller_t *scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
-        vk_scroller_set_border_style(scroller, VK_FRAME_SINGLE);
+        vk_scroller_set_border_style(scroller, VK_BORDER_SINGLE);
         vk_scroller_set_border_colors(scroller, COLOR_BLACK, COLOR_CYAN);
         vk_widget_set_attrs(VK_WIDGET(scroller), A_BOLD);
         vk_scroller_set_scroll_source(scroller, VK_WIDGET(listbox));

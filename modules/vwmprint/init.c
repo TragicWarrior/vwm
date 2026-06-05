@@ -164,7 +164,7 @@ make_window(int w, int h, const char *title, short fg, short bg)
 
     win = vk_window_create(w, h);
     vk_window_set_title(win, title);
-    vk_window_set_border_style(win, VK_FRAME_SINGLE);
+    vk_window_set_border_style(win, VK_BORDER_SINGLE);
     vk_window_set_border_colors(win, fg, bg);
     vk_window_set_border_attrs(win, A_BOLD);
 
@@ -197,7 +197,7 @@ build_pick(print_session_t *s)
 
     win = make_window(W, H, " Print File ", COLOR_WHITE, COLOR_BLUE);
 
-    fd = vk_filedialog_create(W - 2, H - 2, VK_FRAME_SINGLE, false);
+    fd = vk_filedialog_create(W - 2, H - 2, VK_BORDER_SINGLE, false);
     vk_filedialog_set_colors(fd, COLOR_WHITE, COLOR_BLUE);
     vk_filedialog_set_highlight(fd, COLOR_WHITE, COLOR_RED);
     vk_filedialog_set_button_colors(fd, COLOR_WHITE, COLOR_BLUE);
@@ -296,7 +296,7 @@ build_printers(print_session_t *s)
     center_pad(b_print, sizeof(b_print), "Print", PR_BTN_W);
     center_pad(b_cancel, sizeof(b_cancel), "Cancel", PR_BTN_W);
 
-    popup = vk_popup_create(W, H, VK_FRAME_SINGLE, b_print, b_cancel, NULL);
+    popup = vk_popup_create(W, H, VK_BORDER_SINGLE, b_print, b_cancel, NULL);
     vk_popup_set_title(popup, " Select Printer ");
     vk_popup_set_border_colors(popup, COLOR_WHITE, COLOR_CYAN);
     vk_popup_set_border_attrs(popup, A_BOLD);
@@ -323,7 +323,7 @@ build_printers(print_session_t *s)
     vk_widget_set_colors(VK_WIDGET(client), COLOR_BLACK, COLOR_CYAN);
 
     frame = vk_frame_create(W - 2, H - 5);
-    vk_frame_set_border_style(frame, VK_FRAME_SINGLE);
+    vk_frame_set_border_style(frame, VK_BORDER_SINGLE);
     vk_frame_set_border_colors(frame, COLOR_YELLOW, COLOR_CYAN);
     vk_frame_set_border_attrs(frame, A_BOLD);
     vk_widget_set_colors(VK_WIDGET(frame), COLOR_BLACK, COLOR_CYAN);

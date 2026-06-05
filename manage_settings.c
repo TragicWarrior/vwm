@@ -689,7 +689,7 @@ modify_popup_open(int setting_idx)
         popup_h = MODIFY_DD_HEIGHT;
 
         modify_popup = vk_popup_create(popup_w, popup_h,
-            VK_FRAME_SINGLE, "Apply", "Cancel", NULL);
+            VK_BORDER_SINGLE, "Apply", "Cancel", NULL);
         vk_popup_set_title(modify_popup, title);
         vk_popup_set_border_colors(modify_popup, COLOR_WHITE, COLOR_BLUE);
         vk_popup_set_border_attrs(modify_popup, A_BOLD);
@@ -744,7 +744,7 @@ modify_popup_open(int setting_idx)
         popup_h = MODIFY_IN_HEIGHT;
 
         modify_popup = vk_popup_create(popup_w, popup_h,
-            VK_FRAME_SINGLE, "Apply", "Cancel", NULL);
+            VK_BORDER_SINGLE, "Apply", "Cancel", NULL);
         vk_popup_set_title(modify_popup, title);
         vk_popup_set_border_colors(modify_popup, COLOR_WHITE, COLOR_BLUE);
         vk_popup_set_border_attrs(modify_popup, A_BOLD);
@@ -774,7 +774,7 @@ modify_popup_open(int setting_idx)
         vk_box_set_widget(modify_client, 0, VK_WIDGET(lbl));
 
         modify_input = vk_input_create(popup_w - 4);
-        vk_input_set_relief_style(modify_input, VK_FRAME_SINGLE);
+        vk_input_set_relief_style(modify_input, VK_BORDER_SINGLE);
         vk_widget_set_colors(VK_WIDGET(modify_input),
             COLOR_CYAN, COLOR_BLUE);
         vk_input_set_text(modify_input,
@@ -929,7 +929,7 @@ error_popup_show(const char *msg)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     error_popup = vk_popup_create(popup_w, popup_h,
-        VK_FRAME_SINGLE, "OK", NULL);
+        VK_BORDER_SINGLE, "OK", NULL);
     vk_popup_set_title(error_popup, " Error ");
     vk_popup_set_border_colors(error_popup, COLOR_RED, COLOR_WHITE);
     vk_popup_set_border_attrs(error_popup, A_NORMAL);
@@ -1041,7 +1041,7 @@ warning_popup_show(void)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     warning_popup = vk_popup_create(popup_w, popup_h,
-        VK_FRAME_SINGLE, "OK", NULL);
+        VK_BORDER_SINGLE, "OK", NULL);
     vk_popup_set_title(warning_popup, " Warning ");
     vk_popup_set_border_colors(warning_popup, COLOR_RED, COLOR_WHITE);
     vk_popup_set_border_attrs(warning_popup, A_NORMAL);
@@ -1172,7 +1172,7 @@ saved_popup_show(void)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     saved_popup = vk_popup_create(popup_w, popup_h,
-        VK_FRAME_SINGLE, "OK", NULL);
+        VK_BORDER_SINGLE, "OK", NULL);
     vk_popup_set_border_colors(saved_popup, COLOR_WHITE, COLOR_BLUE);
     vk_popup_set_border_attrs(saved_popup, A_BOLD);
     vk_popup_set_colors(saved_popup, COLOR_WHITE, COLOR_BLUE);
@@ -1326,7 +1326,7 @@ confirm_popup_show(void)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     confirm_popup = vk_popup_create(popup_w, popup_h,
-        VK_FRAME_SINGLE, "Discard", "Cancel", NULL);
+        VK_BORDER_SINGLE, "Discard", "Cancel", NULL);
     vk_popup_set_title(confirm_popup, " Confirm ");
     vk_popup_set_border_colors(confirm_popup, COLOR_RED, COLOR_WHITE);
     vk_popup_set_border_attrs(confirm_popup, A_NORMAL);
@@ -1524,7 +1524,7 @@ save_confirm_popup_show(void)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     save_confirm_popup = vk_popup_create(popup_w, popup_h,
-        VK_FRAME_SINGLE, "Save", "Cancel", NULL);
+        VK_BORDER_SINGLE, "Save", "Cancel", NULL);
     vk_popup_set_title(save_confirm_popup, " Confirm Save ");
     vk_popup_set_border_colors(save_confirm_popup,
         COLOR_RED, COLOR_WHITE);
@@ -1755,7 +1755,7 @@ load_popup_open(void)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     load_popup = vk_popup_create(LOAD_WIDTH, LOAD_HEIGHT,
-        VK_FRAME_SINGLE, NULL);
+        VK_BORDER_SINGLE, NULL);
     vk_popup_set_title(load_popup, " Load Settings ");
     vk_popup_set_border_colors(load_popup, COLOR_WHITE, COLOR_BLUE);
     vk_popup_set_border_attrs(load_popup, A_BOLD);
@@ -1764,7 +1764,7 @@ load_popup_open(void)
     interior_h = LOAD_HEIGHT - 2;
 
     load_filedialog = vk_filedialog_create(interior_w, interior_h,
-        VK_FRAME_SINGLE, false);
+        VK_BORDER_SINGLE, false);
     vk_filedialog_set_colors(load_filedialog, COLOR_WHITE, COLOR_BLUE);
     vk_filedialog_set_highlight(load_filedialog, COLOR_WHITE, COLOR_RED);
     vk_filedialog_set_button_colors(load_filedialog,
@@ -2005,7 +2005,7 @@ build_dialog(void)
 
     dialog_window = vk_window_create(DIALOG_WIDTH, DIALOG_HEIGHT);
     vk_window_set_title(dialog_window, " Settings ");
-    vk_window_set_border_style(dialog_window, VK_FRAME_SINGLE);
+    vk_window_set_border_style(dialog_window, VK_BORDER_SINGLE);
     vk_window_set_border_colors(dialog_window, COLOR_WHITE, COLOR_CYAN);
     vk_window_set_border_attrs(dialog_window, A_BOLD);
 
@@ -2029,14 +2029,14 @@ build_dialog(void)
         COLOR_WHITE, COLOR_BLACK);
 
     listbox_frame = vk_frame_create(INTERIOR_WIDTH, lb_height + 2);
-    vk_frame_set_border_style(listbox_frame, VK_FRAME_SINGLE);
+    vk_frame_set_border_style(listbox_frame, VK_BORDER_SINGLE);
     vk_frame_set_border_colors(listbox_frame, COLOR_YELLOW, COLOR_CYAN);
     vk_frame_set_border_attrs(listbox_frame, A_BOLD);
     vk_frame_set_child(listbox_frame, VK_WIDGET(settings_listbox));
     vk_widget_set_expand(VK_WIDGET(listbox_frame));
 
     listbox_scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
-    vk_scroller_set_border_style(listbox_scroller, VK_FRAME_SINGLE);
+    vk_scroller_set_border_style(listbox_scroller, VK_BORDER_SINGLE);
     vk_scroller_set_border_colors(listbox_scroller,
         COLOR_BLACK, COLOR_CYAN);
     vk_scroller_set_scroll_source(listbox_scroller,
@@ -2060,7 +2060,7 @@ build_dialog(void)
         int i;
         for(i = 0; i < NUM_BUTTONS; i++)
         {
-            vk_button_set_relief_style(buttons[i], VK_FRAME_SINGLE);
+            vk_button_set_relief_style(buttons[i], VK_BORDER_SINGLE);
             vk_widget_set_colors(VK_WIDGET(buttons[i]),
                 COLOR_BLACK, COLOR_CYAN);
             vk_widget_set_attrs(VK_WIDGET(buttons[i]), A_BOLD);

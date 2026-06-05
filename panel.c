@@ -755,7 +755,7 @@ vwm_calendar_toggle(void)
         vk_object_set_kmio(VK_OBJECT(calendar), vwm_calendar_kmio);
 
         window = vk_window_create(win_w, win_h);
-        vk_window_set_border_style(window, VK_FRAME_SINGLE);
+        vk_window_set_border_style(window, VK_BORDER_SINGLE);
         vk_window_set_border_colors(window, COLOR_BLACK, COLOR_CYAN);
         vk_window_set_child(window, VK_WIDGET(calendar));
 
