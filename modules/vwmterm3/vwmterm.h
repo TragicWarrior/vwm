@@ -23,6 +23,7 @@ struct _vwmterm_data_s
     vterm_t         *vterm;
     unsigned int    state;
     int             redraw_pending;
+    int             scroll_offset;
 };
 
 enum

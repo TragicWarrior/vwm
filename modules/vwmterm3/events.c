@@ -9,18 +9,78 @@
 #include "vwmterm.h"
 #include "events.h"
 
+#define KEY_ALT_PGUP    562
+#define KEY_ALT_PGDN    557
+
 int
 vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 {
-	vterm_t	*vterm;
+    vwmterm_data_t  *vwmterm_data;
+    vterm_t         *vterm;
+    int             width, height;
+    int             history_sz;
+    int             offset;
 
-	if(keystroke == KEY_MOUSE) return 1;
+    if(keystroke == KEY_MOUSE) return 1;
 
-	vterm = (vterm_t*)viper_window_get_userptr(vwnd);
+    vwmterm_data = (vwmterm_data_t *)viper_window_get_userptr(vwnd);
+    vterm = vwmterm_data->vterm;
+
+    if(keystroke == KEY_ALT_PGUP)
+    {
+        vterm_wnd_size(vterm, &width, &height);
+        history_sz = vterm_get_history_size(vterm);
+
+        vwmterm_data->scroll_offset += height;
+        if(vwmterm_data->scroll_offset > history_sz - height)
+            vwmterm_data->scroll_offset = history_sz - height;
+        if(vwmterm_data->scroll_offset < 0)
+            vwmterm_data->scroll_offset = 0;
+
+        offset = history_sz - height - vwmterm_data->scroll_offset;
+        if(offset < 0) offset = 0;
+
+        vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
+            VTERM_WND_RENDER_ALL);
+        viper_window_redraw(vwmterm_data->vwnd);
+
+        return KMIO_HANDLED;
+    }
+
+    if(keystroke == KEY_ALT_PGDN)
+    {
+        if(vwmterm_data->scroll_offset == 0) return KMIO_HANDLED;
+
+        vterm_wnd_size(vterm, &width, &height);
+        history_sz = vterm_get_history_size(vterm);
+
+        vwmterm_data->scroll_offset -= height;
+        if(vwmterm_data->scroll_offset <= 0)
+        {
+            vwmterm_data->scroll_offset = 0;
+            vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
+            viper_window_redraw(vwmterm_data->vwnd);
+            return KMIO_HANDLED;
+        }
+
+        offset = history_sz - height - vwmterm_data->scroll_offset;
+        if(offset < 0) offset = 0;
+
+        vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
+            VTERM_WND_RENDER_ALL);
+        viper_window_redraw(vwmterm_data->vwnd);
+
+        return KMIO_HANDLED;
+    }
+
+    if(vwmterm_data->scroll_offset > 0)
+    {
+        vwmterm_data->scroll_offset = 0;
+        vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
+        viper_window_redraw(vwmterm_data->vwnd);
+    }
 
     vterm_write_pipe(vterm, keystroke);
-
-	// return 1;
 
     return KMIO_HANDLED;
 }
