@@ -30,10 +30,54 @@
 #include "private.h"
 #include "events.h"
 
+static void
+vwm_menu_scroll_info(vk_widget_t *child,
+    int *content_h, int *content_w,
+    int *scroll_y, int *scroll_x)
+{
+    vk_listbox_t *lb = VK_LISTBOX(child);
+    int metrics_w = 0;
+
+    vk_listbox_get_metrics(lb, &metrics_w, NULL);
+
+    if(content_h) *content_h = vk_listbox_get_item_count(lb);
+    if(content_w) *content_w = metrics_w;
+    if(scroll_y) *scroll_y = vk_listbox_get_scroll_pos(lb);
+    if(scroll_x) *scroll_x = 0;
+}
+
+static int
+vwm_menu_kmio(vk_object_t *object, int32_t keystroke)
+{
+    vk_listbox_t    *listbox = VK_LISTBOX(object);
+
+    switch(keystroke)
+    {
+        case KEY_UP:
+            vk_listbox_set_prev(listbox);
+            break;
+
+        case KEY_DOWN:
+            vk_listbox_set_next(listbox);
+            break;
+
+        case KEY_CRLF:
+            return vk_listbox_exec_curr(listbox);
+
+        default:
+            return -1;
+    }
+
+    vk_listbox_update(listbox);
+
+    return 0;
+}
+
 vwnd_t*
 vwm_main_menu(void)
 {
-    vk_menu_t       *menu;
+    vk_listbox_t    *listbox;
+    vk_frame_t      *frame;
     vwnd_t          *vwnd;
 	int			    width = 8, height = 10;
 
@@ -50,15 +94,15 @@ vwm_main_menu(void)
 
     getmaxyx(CURRENT_SCREEN, scr_height, scr_width);
     scr_width -= 4;
-    scr_height -= 4;
+    scr_height = (scr_height * 3) / 4;
 
-    menu = vk_menu_create(width, height);
-    vk_menu_set_frame(menu, VK_FRAME_SINGLE);
-    vk_listbox_set_highlight(VK_LISTBOX(menu), COLOR_BLACK, COLOR_RED);
-    vk_listbox_set_wrap(VK_LISTBOX(menu), TRUE);
+    listbox = vk_listbox_create(width, height);
+    vk_listbox_set_highlight(listbox, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_wrap(listbox, TRUE);
+    vk_object_set_kmio(VK_OBJECT(listbox), vwm_menu_kmio);
 
     // iterate through the categories defined in modules.def
-    for(i = 0;i < VWM_MOD_TYPE_MAX;i++)
+    for(i = 0; i < VWM_MOD_TYPE_MAX; i++)
     {
         vwm_module = NULL;
         category_found = FALSE;
@@ -68,55 +112,63 @@ vwm_main_menu(void)
             vwm_module = vwm_module_find_by_type(vwm_module, i);
             if(vwm_module == NULL) break;
 
-            // skip modules that are core modules
             if(vwm_module_get_zone(vwm_module) == MODULE_ZONE_CORE) continue;
 
             category_found = TRUE;
 
             vwm_module_get_title(vwm_module, buf, sizeof(buf) - 1);
 
-            vk_listbox_add_item(VK_LISTBOX(menu), buf,
+            vk_listbox_add_item(listbox, buf,
                 vwm_menu_helper, vwm_module);
         }
         while(vwm_module != NULL);
 
-        // add a separator whenever a new category of module is found
         if(category_found == TRUE)
-            vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);
+            vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     }
 
-    // add some items manually
-    vk_listbox_add_item(VK_LISTBOX(menu), "Toggle WM (alt + w)",
+    vk_listbox_add_item(listbox, "Toggle WM (alt + w)",
         vwm_toggle_winman, NULL);
-    vk_menu_add_separator(menu, VK_SEPARATOR_SINGLE);
-    vk_listbox_add_item(VK_LISTBOX(menu), "Exit", vwm_exit, NULL);
+    vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
+    vk_listbox_add_item(listbox, "Exit", vwm_exit, NULL);
 
-    vk_listbox_get_metrics(VK_LISTBOX(menu), &max_width, &max_height);
+    vk_listbox_update(listbox);
+    vk_listbox_get_metrics(listbox, &max_width, &max_height);
     if(max_width > scr_width) max_width = scr_width;
     if(max_height > scr_height) max_height = scr_height;
 
+    vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
+
+    frame = vk_frame_create(max_width + 2, max_height + 2);
+    vk_frame_set_border_style(frame, VK_FRAME_SINGLE);
+    vk_frame_set_child(frame, VK_WIDGET(listbox));
+
+    {
+        vk_scroller_t *scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
+        vk_scroller_set_border_style(scroller, VK_FRAME_SINGLE);
+        vk_scroller_set_border_colors(scroller, COLOR_RED, COLOR_WHITE);
+        vk_widget_set_attrs(VK_WIDGET(scroller), A_BOLD);
+        vk_scroller_set_scroll_source(scroller, VK_WIDGET(listbox));
+        vk_scroller_set_scroll_info(scroller, vwm_menu_scroll_info);
+        vk_widget_attach_scroller(VK_WIDGET(listbox), scroller);
+    }
+
 	vwnd = viper_window_create(CURRENT_SCREEN_ID, FALSE, " Menu ", 1, 1,
         max_width + 2, max_height + 2);
-    /*
-        todo:   it would be nice if the user could resize the menu
-                (especially in the horizonal direction) and add more
-                columns to the display.  right now, it's not a priority
-                (but it would be easy to implement).  just need a few
-                lines of code for the event window-resized.  for now,
-                just don't allow it
-    */
-    vk_widget_set_surface(VK_WIDGET(menu), VWINDOW(vwnd));
-    vk_widget_resize(VK_WIDGET(menu), max_width + 2, max_height + 2);
+
+    vk_widget_set_surface(VK_WIDGET(frame), VWINDOW(vwnd));
+    vk_widget_resize(VK_WIDGET(frame), max_width + 2, max_height + 2);
 
 	viper_window_set_key_func(vwnd, vwm_main_menu_ON_KEYSTROKE);
-	viper_window_set_userptr(vwnd, (void*)menu);
+	viper_window_set_userptr(vwnd, (void*)frame);
 
     viper_event_set(vwnd, "window-close", vwm_main_menu_ON_CLOSE, NULL);
     viper_event_set(vwnd, "term-resized",
-        vwm_main_menu_ON_TERM_RESIZED, (void*)menu);
+        vwm_main_menu_ON_TERM_RESIZED, (void*)frame);
 
-    vk_menu_update(menu);
-    vk_widget_draw(VK_WIDGET(menu));
+    vk_listbox_update(listbox);
+    vk_frame_update(frame);
+    vk_widget_draw(VK_WIDGET(frame));
     viper_window_set_focus(vwnd);
     viper_window_redraw(vwnd);
 
@@ -138,15 +190,18 @@ vwm_main_menu_hotkey(void)
 int
 vwm_main_menu_ON_CLOSE(vwnd_t *vwnd, void *anything)
 {
-    vk_menu_t   *menu;
+    vk_frame_t      *frame;
+    vk_listbox_t    *listbox;
 
     (void)anything;
 
     if(vwnd == NULL) return -1;
 
-    menu = (vk_menu_t *)viper_window_get_userptr(vwnd);
+    frame = (vk_frame_t *)viper_window_get_userptr(vwnd);
+    listbox = VK_LISTBOX(vk_frame_get_child(frame));
 
-    vk_menu_destroy(menu);
+    vk_listbox_destroy(listbox);
+    vk_frame_destroy(frame);
 
     return 0;
 }
@@ -156,12 +211,12 @@ int
 vwm_main_menu_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 {
     vwm_t           *vwm;
-    vk_listbox_t    *menu;
+    vk_frame_t      *frame;
     int             retval;
 
     vwm = vwm_get_instance();
 
-	menu = (vk_listbox_t*)viper_window_get_userptr(vwnd);
+    frame = (vk_frame_t *)viper_window_get_userptr(vwnd);
     if(keystroke == -1) return -1;
 
     if(keystroke == vwm->hotkey_menu)
@@ -170,20 +225,18 @@ vwm_main_menu_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
         return 0;
     }
 
-    retval = vk_object_push_keystroke(VK_OBJECT(menu), keystroke);
+    retval = vk_object_push_keystroke(VK_OBJECT(frame), keystroke);
 
-    // user pressed ENTER and something ran
     if(keystroke == 10 && retval == 0)
     {
         viper_window_close(vwnd);
-
-        // return -1 to inidcate keystroke was handled
         return KMIO_HANDLED;
     }
 
-    // vk_menu widget handled the key
     if(retval == 0)
     {
+        vk_frame_update(frame);
+        vk_widget_draw(VK_WIDGET(frame));
         viper_window_redraw(vwnd);
         return KMIO_HANDLED;
     }

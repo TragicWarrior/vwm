@@ -19,6 +19,7 @@
 
 #include <string.h>
 #include <time.h>
+#include <langinfo.h>
 
 #include <ncursesw/curses.h>
 
@@ -51,6 +52,7 @@ vwm_panel_init(void)
     static vwnd_t   *vwnd = NULL;
     VWM_PANEL       *vwm_panel;
     int             max_y, max_x;
+    int             has_utf8;
 
     if(vwnd != NULL) return vwnd;
 
@@ -58,8 +60,8 @@ vwm_panel_init(void)
     vwm_panel->tick_rate = 2;
     vwm_panel->thaw_rate = 3;
 
-	vwnd = viper_window_create(0, FALSE, "vwm panel", 0, 0, WSIZE_FULLSCREEN, 1);
-	wbkgdset(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
+    vwnd = viper_window_create(0, FALSE, "vwm panel", 0, 0,
+        WSIZE_FULLSCREEN, 1);
     viper_window_set_key_func(vwnd, vwm_panel_ON_KEYSTROKE);
     viper_event_set(vwnd, "vwm-clock-tick", vwm_panel_ON_CLOCK_TICK,
         (void*)vwm_panel);
@@ -68,21 +70,65 @@ vwm_panel_init(void)
     viper_window_set_userptr(vwnd, (void*)vwm_panel);
 
     getmaxyx(VWINDOW(vwnd), max_y, max_x);
-    if(max_x > 29) vwm_panel->display = (char*)calloc(1, max_x - 25);
-    vwm_panel->display_sz = max_x - 26;
+    has_utf8 = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0);
 
-    wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
-    mvwprintw(VWINDOW(vwnd), 0, 0, "%*c", vwm_panel->display_sz, ' ');
+    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 4);
+    vk_box_set_homogeneous(vwm_panel->box, false);
+    vk_widget_set_colors(VK_WIDGET(vwm_panel->box),
+        COLOR_BLACK, COLOR_WHITE);
+
+    vwm_panel->msg_label = vk_label_create(max_x - 26);
+    vk_widget_set_colors(VK_WIDGET(vwm_panel->msg_label),
+        COLOR_BLACK, COLOR_WHITE);
+    vk_widget_set_expand(VK_WIDGET(vwm_panel->msg_label));
+
+    vwm_panel->task_label = vk_label_create(4);
+    vk_widget_set_colors(VK_WIDGET(vwm_panel->task_label),
+        COLOR_WHITE, COLOR_MAGENTA);
+
+    vwm_panel->clock_label = vk_label_create(21);
+    vk_widget_set_colors(VK_WIDGET(vwm_panel->clock_label),
+        COLOR_BLACK, COLOR_CYAN);
+
+    vwm_panel->activity = vk_activity_create();
+    if(has_utf8)
+    {
+        vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
+            COLOR_WHITE, COLOR_CYAN);
+        vk_widget_set_attrs(VK_WIDGET(vwm_panel->activity), A_BOLD);
+        vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_DOTS);
+    }
+    else
+    {
+        vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
+            COLOR_BLACK, COLOR_CYAN);
+        vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_SPINNER);
+    }
+    vk_activity_set_speed(vwm_panel->activity, 2);
+    vk_activity_start(vwm_panel->activity);
+
+    vk_box_set_widget(vwm_panel->box, 0,
+        VK_WIDGET(vwm_panel->msg_label));
+    vk_box_set_widget(vwm_panel->box, 1,
+        VK_WIDGET(vwm_panel->task_label));
+    vk_box_set_widget(vwm_panel->box, 2,
+        VK_WIDGET(vwm_panel->clock_label));
+    vk_box_set_widget(vwm_panel->box, 3,
+        VK_WIDGET(vwm_panel->activity));
+
+    vk_widget_set_surface(VK_WIDGET(vwm_panel->box), VWINDOW(vwnd));
+
+    vk_box_update(vwm_panel->box);
+    vk_widget_draw(VK_WIDGET(vwm_panel->box));
 
     INIT_LIST_HEAD(&vwm_panel->msg_list);
 
     viper_window_set_visible(vwnd, TRUE);
-	viper_window_redraw(vwnd);
+    viper_window_redraw(vwnd);
 
-    // squelch compiler warning
     (void)max_y;
 
-	return vwnd;
+    return vwnd;
 }
 
 int
@@ -94,7 +140,6 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
 
     vwm = vwm_get_instance();
 
-    // check to see if window manager was invoked
     if(keystroke == VWM_HOTKEY_WM)
     {
         vwm->state ^= VWM_STATE_ACTIVE;
@@ -104,7 +149,6 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
         else
             vwm_default_VWM_STOP((void*)TOPMOST_MANAGED);
 
-        // indicate key was handled
         return KMIO_HANDLED;
     }
 
@@ -149,7 +193,6 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
         {
             vwm_main_menu_hotkey();
 
-            // indicate key was handled
             return KMIO_HANDLED;
         }
     }
@@ -167,24 +210,12 @@ vwm_panel_ON_TERM_RESIZED(vwnd_t *vwnd, void *arg)
     getmaxyx(CURRENT_SCREEN, max_y, max_x);
 
     viper_wresize_abs(vwnd, WSIZE_FULLSCREEN, WSIZE_UNCHANGED);
-    werase(VWINDOW(vwnd));
 
-    /* resize the marquee based on new metrics.  */
-    if(max_x < 29)
-    {
-        if(vwm_panel->display != NULL) free(vwm_panel->display);
-        vwm_panel->display_sz = max_x - 26;
-        vwm_panel->display = NULL;
-    }
-    else
-    {
-        vwm_panel->display = (char*)realloc(vwm_panel->display, max_x - 25);
-        vwm_panel->display_sz = max_x - 26;
-    }
-
+    vk_widget_resize(VK_WIDGET(vwm_panel->box), max_x, 1);
+    vk_box_update(vwm_panel->box);
+    vk_widget_draw(VK_WIDGET(vwm_panel->box));
     viper_window_redraw(vwnd);
 
-    // squelch compiler warnings
     (void)max_y;
 
     return 0;
@@ -198,141 +229,83 @@ vwm_panel_ON_CLOCK_TICK(vwnd_t *vwnd, void *arg)
     vwm_panel = (VWM_PANEL*)arg;
     vwm_panel->clock++;
 
-    /* update throbber on every tick (currently 1/10 sec). */
+    vwm_panel_update_throbber(vwm_panel);
+
     if((vwm_panel->clock % 5) == 0)
     {
-        vwm_panel_update_throbber(vwnd);
-        vwm_panel_update_taskcount(vwnd);
+        vwm_panel_update_taskcount(vwm_panel);
     }
 
-    /* update clock and marshall the panel once every second.  */
     if((vwm_panel->clock % VWM_CLOCK_TICKS_PER_SEC) == 0)
     {
-        vwm_panel_update_clock(vwnd);
+        vwm_panel_update_clock(vwm_panel);
     }
 
-    vwm_panel_display(vwm_panel, vwnd);
+    vwm_panel_display(vwm_panel);
 
+    vk_box_update(vwm_panel->box);
+    vk_widget_draw(VK_WIDGET(vwm_panel->box));
     viper_window_redraw(vwnd);
 
     return 0;
 }
 
 void
-vwm_panel_update_throbber(vwnd_t *vwnd)
+vwm_panel_update_throbber(VWM_PANEL *panel)
 {
-    int             throbber[] = {'-', '\\', '|', '/'};
-	static uint8_t	position = 0;
-    int             x, y;
-
-	position++;
-	position = position % 4;
-    getmaxyx(VWINDOW(vwnd), y, x);
-
-    wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK,COLOR_CYAN));
-    mvwaddch(VWINDOW(vwnd), 0, x - 1, throbber[position]);
-
-    (void)y;
-
-	return;
+    vk_activity_run(panel->activity);
 }
 
 void
-vwm_panel_update_taskcount(vwnd_t *vwnd)
+vwm_panel_update_taskcount(VWM_PANEL *panel)
 {
     extern vwm_sched_t  *sched;
-    int                 x, y;
+    char                buf[8];
     int                 n;
 
-    getmaxyx(VWINDOW(vwnd), y, x);
-
     n = vwm_sched_active_count(sched);
+    snprintf(buf, sizeof(buf), " %2d ", n);
 
-    wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_WHITE, COLOR_MAGENTA));
-    mvwprintw(VWINDOW(vwnd), 0, x - 26, " %2d ", n);
-
-    (void)y;
-
-    return;
+    vk_label_set_text(panel->task_label, buf);
+    vk_label_update(panel->task_label);
 }
 
 void
-vwm_panel_update_clock(vwnd_t *vwnd)
+vwm_panel_update_clock(VWM_PANEL *panel)
 {
-	time_t			clock;
-	struct tm		*local_time;
-    int             x, y;
+    time_t          clock;
+    struct tm       *local_time;
+    char            buf[80];
 
-	clock = time(NULL);
-	local_time = localtime((time_t*)&clock);
+    clock = time(NULL);
+    local_time = localtime((time_t*)&clock);
 
-    getmaxyx(VWINDOW(vwnd), y, x);
+    snprintf(buf, sizeof(buf), " %02d/%02d/%04d %02d:%02d:%02d ",
+        local_time->tm_mon + 1, local_time->tm_mday,
+        local_time->tm_year + 1900,
+        local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
 
-    wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK,COLOR_CYAN));
-    mvwprintw(VWINDOW(vwnd), 0, x - 22," %02d/%02d/%04d %02d:%02d:%02d ",
-		local_time->tm_mon + 1, local_time->tm_mday, local_time->tm_year + 1900,
-		local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
-
-    // squelch compiler warnings
-    (void)y;
-
-	return;
+    vk_label_set_text(panel->clock_label, buf);
+    vk_label_update(panel->clock_label);
 }
 
 void
-vwm_panel_display(VWM_PANEL *vwm_panel, vwnd_t *vwnd)
-{
-    VWM_PANEL_MSG       *vwm_panel_msg;
-    int                 i;
-
-    if(list_empty(&vwm_panel->msg_list) || vwm_panel->display == NULL)
-    {
-        if(vwm_panel->display_sz > 0)
-        {
-            wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
-            mvwprintw(VWINDOW(vwnd), 0, 0, "%*c", vwm_panel->display_sz, ' ');
-            return;
-        }
-    }
-
-    vwm_panel_msg = list_first_entry(&vwm_panel->msg_list, VWM_PANEL_MSG, list);
-
-    /* write to panel.  */
-    wattroff(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK,COLOR_WHITE));
-    mvwprintw(VWINDOW(vwnd), 0, 0, "%s", vwm_panel_msg->msg);
-    i = vwm_panel->display_sz - strlen(vwm_panel_msg->msg);
-    if(i > 0) wprintw(VWINDOW(vwnd), "%*c", i, ' ');
-
-    return;
-}
-
-void
-vwm_panel_scroll(VWM_PANEL *vwm_panel)
+vwm_panel_display(VWM_PANEL *vwm_panel)
 {
     VWM_PANEL_MSG       *vwm_panel_msg;
 
-    /*
-        don't do anything if there are no messages to display or the panel
-        is frozen.
-    */
     if(list_empty(&vwm_panel->msg_list))
     {
-        vwm_panel->pos = NULL;
+        vk_label_set_text(vwm_panel->msg_label, "");
+        vk_label_update(vwm_panel->msg_label);
         return;
     }
 
-    /* do nothing if panel is frozen.   */
-    if(vwm_panel->state & VWM_PANEL_STATE_FROZEN) return;
+    vwm_panel_msg = list_first_entry(&vwm_panel->msg_list,
+        VWM_PANEL_MSG, list);
 
-    // rotate the list and point the next entry
-    list_rotate_left(&vwm_panel->msg_list);
-
-    vwm_panel_msg = list_first_entry(&vwm_panel->msg_list, VWM_PANEL_MSG, list);
-    vwm_panel->pos = vwm_panel_msg->msg;
-    vwm_panel->thaw_timer = vwm_panel->thaw_rate;
-    vwm_panel->state |= VWM_PANEL_STATE_FROZEN;
-
-    return;
+    vk_label_set_text(vwm_panel->msg_label, vwm_panel_msg->msg);
+    vk_label_update(vwm_panel->msg_label);
 }
 
 uintmax_t
@@ -350,7 +323,6 @@ vwm_panel_message_add(char *msg, int timeout)
     if(timeout == 0 || timeout > VWM_PANEL_MSG_TTL_MAX)
         timeout = VWM_PANEL_MSG_TTL_MAX;
 
-    /* create new panel message object. */
     vwm_panel_msg = (VWM_PANEL_MSG*)calloc(1, sizeof(VWM_PANEL_MSG));
     vwm_panel_msg->msg = strdup_printf("%s",msg);
     vwm_panel_msg->msg_len = strlen(msg);
@@ -361,7 +333,6 @@ vwm_panel_message_add(char *msg, int timeout)
     list_add(&vwm_panel_msg->list, &vwm_panel->msg_list);
     vwm_panel->msg_count++;
 
-    /* always start the panel frozen.   */
     if(vwm_panel->msg_count == 1)
     {
         vwm_panel->state |= VWM_PANEL_STATE_FROZEN;
@@ -465,7 +436,6 @@ vwm_panel_message_promote(uintmax_t msg_id)
         list_move(pos, &vwm_panel->msg_list);
 
         vwm_panel->thaw_timer = vwm_panel->thaw_rate;
-        vwm_panel->pos = vwm_panel_msg->msg;
     }
 
     return 0;
@@ -495,6 +465,3 @@ vwm_panel_message_find(char *msg)
 
     return vwm_panel_msg->msg_id.msg_handle;
 }
-
-
-

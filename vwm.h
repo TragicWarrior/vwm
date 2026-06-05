@@ -34,15 +34,6 @@
 
 enum
 {
-    VWM_PANEL_FREEZE    =   0x1,
-    VWM_PANEL_THAW,
-    VWM_PANEL_REWIND,
-    VWM_PANEL_ADVANCE,
-    VWM_PANEL_CLEAR
-};
-
-enum
-{
     VWM_MSG_SHUTDOWN    =   0x1,
 };
 
@@ -60,17 +51,6 @@ void			vwm_hook_leave(ViperFunc func, void *arg);
 /* panel facilities  */
 vwnd_t*         vwm_panel_init(void);
 #define         vwm_panel_get_instance()         (vwm_panel_init())
-int16_t         vwm_panel_ctrl(uint32_t ctrl, int16_t val);
-#define         vwm_panel_freeze_set(timeout) \
-                    (vwm_panel_ctrl(VWM_PANEL_FREEZE, timeout))
-#define         vwm_panel_freeze_get() \
-                    (vwm_panel_ctrl(VWM_PANEL_FREEZE, -1))
-#define         vwm_panel_freeze_now() \
-                    (vwm_panel_ctrl(VWM_PANEL_FREEZE, 0))
-#define         vwm_panel_thaw_now() \
-                    (vwm_panel_ctrl(VWM_PANEL_THAW, 0))
-#define         vwm_panel_clear() \
-                    (vwm_panel_ctrl(VWM_PANEL_CLEAR,0))
 uintmax_t       vwm_panel_message_add(char *msg, int timeout);
 void            vwm_panel_message_del(uintmax_t msg_id);
 uintmax_t       vwm_panel_message_find(char *msg);

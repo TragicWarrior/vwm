@@ -5,33 +5,38 @@
 int
 vwm_main_menu_ON_TERM_RESIZED(vwnd_t *vwnd, void *arg)
 {
-    vk_menu_t   *menu;
-    int         width;
-    int         height;
-    int         scr_width;
-    int         scr_height;
+    vk_frame_t      *frame;
+    vk_listbox_t    *listbox;
+    int             content_width;
+    int             content_height;
+    int             width;
+    int             height;
+    int             scr_width;
+    int             scr_height;
 
     if(vwnd == NULL) return -1;
     if(arg == NULL) return -1;
 
-    menu = (vk_menu_t *)arg;
+    frame = (vk_frame_t *)arg;
+    listbox = VK_LISTBOX(vk_frame_get_child(frame));
 
-    vk_widget_get_metrics(VK_WIDGET(menu), &width, &height);
+    vk_listbox_get_metrics(listbox, &content_width, &content_height);
 
     getmaxyx(CURRENT_SCREEN, scr_height, scr_width);
-    scr_height -= 4;
     scr_width -= 4;
+    scr_height = (scr_height * 3) / 4;
 
-    if(width < scr_width && height < scr_height) return 0;
-
-    if(height > scr_height) height = scr_height;
+    width = content_width;
+    height = content_height;
     if(width > scr_width) width = scr_width;
+    if(height > scr_height) height = scr_height;
 
-    vk_widget_resize(VK_WIDGET(menu), width, height);
+    vk_widget_resize(VK_WIDGET(frame), width + 2, height + 2);
     viper_wresize_abs(vwnd, width + 2, height + 2);
 
-    vk_menu_update(menu);
-    vk_widget_draw(VK_WIDGET(menu));
+    vk_listbox_update(listbox);
+    vk_frame_update(frame);
+    vk_widget_draw(VK_WIDGET(frame));
 
     viper_screen_redraw(CURRENT_SCREEN_ID, REDRAW_ALL | REDRAW_BACKGROUND);
 
