@@ -323,7 +323,7 @@ build_printers(print_session_t *s)
     vk_widget_set_colors(VK_WIDGET(client), COLOR_BLACK, COLOR_CYAN);
 
     frame = vk_frame_create(W - 2, H - 5);
-    vk_frame_set_border_style(frame, VK_BORDER_SINGLE);
+    vk_frame_set_border_style(frame, VK_BORDER_SINGLE | VK_RELIEF_SUNKEN);
     vk_frame_set_border_colors(frame, COLOR_YELLOW, COLOR_CYAN);
     vk_frame_set_border_attrs(frame, A_BOLD);
     vk_widget_set_colors(VK_WIDGET(frame), COLOR_BLACK, COLOR_CYAN);
