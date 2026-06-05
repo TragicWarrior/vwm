@@ -64,6 +64,9 @@ vwm_cursor_overlay(vk_screen_t *screen, int surface_id, WINDOW *canvas);
 static int
 vwm_on_surface_change(vk_object_t *object, int event, void *anything);
 
+static int
+vwm_on_teleport(vk_object_t *object, int event, void *anything);
+
 vwm_sched_t             *sched = NULL;
 int                     shutdown = 0;
 
@@ -167,6 +170,9 @@ int main(int argc,char **argv)
 
 	// ignore terminal interrupt signal
     vwm_sigset(SIGINT, SIG_IGN);
+
+    // unwind cleanly on SIGTERM so the terminal gets restored
+    vwm_sigset(SIGTERM, vwm_SIGTERM);
     vwm_sigset(SIGPIPE, SIG_IGN);
 
 #ifdef _DEBUG
@@ -197,6 +203,20 @@ int main(int argc,char **argv)
     vwm_sched_run(sched, &shutdown);
 
     vwm_sched_deinit(sched);
+
+    /* disable any-event mouse tracking on the active SCREEN's fd before
+       vk_kmio_shutdown runs -- shutdown writes \033[?1003l to stdout
+       (still the original TTY post-teleport), so without this the
+       destination PTY keeps mouse-tracking on and the shell that
+       takes over echoes raw mouse-report bytes (\033[M...). */
+    {
+        int fd = vk_screen_get_fd(vwm->screen);
+        if(fd >= 0)
+        {
+            const char *esc = "\033[?1003l";
+            (void)!write(fd, esc, strlen(esc));
+        }
+    }
 
     vk_kmio_shutdown();
     vk_screen_destroy(vwm->screen);
@@ -248,6 +268,9 @@ vwm_init(void)
 
         vk_object_register_event(VK_OBJECT(vwm->screen),
             VK_EVENT_ON_SURFACE_CHANGE, vwm_on_surface_change, NULL);
+
+        vk_object_register_event(VK_OBJECT(vwm->screen),
+            VK_EVENT_ON_TELEPORT, vwm_on_teleport, NULL);
 
         INIT_LIST_HEAD(&vwm->module_list);
 
@@ -384,4 +407,48 @@ vwm_cursor_overlay(vk_screen_t *screen, int surface_id, WINDOW *canvas)
 
     colors = COLOR_PAIR(vdk_color_pair(COLOR_YELLOW, COLOR_YELLOW));
     mvwaddch(canvas, vwm->cursor_y, vwm->cursor_x, ' ' | colors);
+}
+
+/*
+    teleport gives us a brand-new ncurses SCREEN -- color pairs, mouse
+    mask, and the non-blocking flag we set at startup all live in the
+    old SCREEN.  Re-arm them on the new one, then trigger the existing
+    resize cascade so the panel / status bar / open dialogs match the
+    new geometry.
+*/
+static int
+vwm_on_teleport(vk_object_t *object, int event, void *anything)
+{
+    vwm_t   *vwm;
+
+    (void)object;
+    (void)event;
+    (void)anything;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL) return 0;
+
+    vdk_color_init();
+    mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+    mouseinterval(0);
+    nodelay(stdscr, TRUE);
+
+    /* re-arm any-event mouse tracking on the destination PTY -- the
+       \033[?1003h escape vk_kmio_init emits at startup goes to stdout,
+       which still points at the original TTY, so we have to write it
+       directly to the new SCREEN's fd here */
+    {
+        int fd = vk_screen_get_fd(vwm->screen);
+        if(fd >= 0)
+        {
+            const char *esc = "\033[?1003h";
+            (void)!write(fd, esc, strlen(esc));
+        }
+    }
+
+    /* queue a KEY_RESIZE so the poll loop runs the same cascade it does
+       for a real terminal resize (panel + status bar + dialogs) */
+    ungetch(KEY_RESIZE);
+
+    return 0;
 }

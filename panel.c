@@ -284,6 +284,85 @@ vwm_desktop_prompt_close(void)
     vk_box_update(vwm_panel->box);
 }
 
+static void
+vwm_teleport_prompt_redraw(void)
+{
+    VWM_PANEL   *vwm_panel;
+    char        text[160];
+
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel->teleport_prompt == NULL) return;
+
+    snprintf(text, sizeof(text), " Teleport to: %s",
+        vwm_panel->teleport_text);
+    vk_label_set_text(vwm_panel->teleport_prompt, text);
+    vk_label_update(vwm_panel->teleport_prompt);
+}
+
+void
+vwm_teleport_prompt_show(void)
+{
+    vwm_t       *vwm;
+    VWM_PANEL   *vwm_panel;
+    vk_label_t  *prompt;
+    int          max_y, max_x;
+    int          surface;
+
+    vwm = vwm_get_instance();
+    vwm_panel = vwm_panel_get_data();
+
+    if(vwm_panel->teleport_prompt != NULL) return;
+
+    vwm_menubar_close_dropdown();
+    vk_menubar_set_focused(vwm->menubar, false);
+    vk_menubar_update(vwm->menubar);
+    vwm_calendar_close();
+
+    getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
+    (void)max_y;
+
+    vwm_panel->teleport_text[0] = '\0';
+    vwm_panel->teleport_pos = 0;
+
+    prompt = vk_label_create(max_x);
+    vk_widget_set_colors(VK_WIDGET(prompt), COLOR_WHITE, COLOR_BLUE);
+    vk_widget_set_attrs(VK_WIDGET(prompt), A_BOLD);
+    vk_label_set_text(prompt, " Teleport to: ");
+    vk_label_update(prompt);
+
+    surface = vk_screen_get_active_surface(vwm->screen);
+    vk_screen_detach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->box));
+    vk_screen_attach_widget(vwm->screen, surface, VK_WIDGET(prompt));
+
+    vwm_panel->teleport_prompt = prompt;
+}
+
+static void
+vwm_teleport_prompt_close(void)
+{
+    vwm_t       *vwm;
+    VWM_PANEL   *vwm_panel;
+    int          surface;
+
+    vwm = vwm_get_instance();
+    vwm_panel = vwm_panel_get_data();
+
+    if(vwm_panel->teleport_prompt == NULL) return;
+
+    surface = vk_screen_get_active_surface(vwm->screen);
+    vk_screen_detach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->teleport_prompt));
+    vk_label_destroy(vwm_panel->teleport_prompt);
+    vwm_panel->teleport_prompt = NULL;
+    vwm_panel->teleport_text[0] = '\0';
+    vwm_panel->teleport_pos = 0;
+
+    vk_screen_attach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->box));
+    vk_box_update(vwm_panel->box);
+}
+
 int
 vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
 {
@@ -308,6 +387,60 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
 
             vwm_desktop_prompt_close();
             vk_screen_set_surface(vwm->screen, target);
+            vk_screen_refresh(vwm->screen);
+            return KMIO_HANDLED;
+        }
+
+        return KMIO_HANDLED;
+    }
+
+    if(panel_data->teleport_prompt != NULL)
+    {
+        if(keystroke == 27)
+        {
+            vwm_teleport_prompt_close();
+            vk_screen_refresh(vwm->screen);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke == '\n' || keystroke == '\r' || keystroke == KEY_ENTER)
+        {
+            char path[128];
+
+            if(panel_data->teleport_pos == 0)
+            {
+                vwm_teleport_prompt_close();
+                vk_screen_refresh(vwm->screen);
+                return KMIO_HANDLED;
+            }
+
+            snprintf(path, sizeof(path), "%s", panel_data->teleport_text);
+            vwm_teleport_prompt_close();
+            vk_screen_teleport(vwm->screen, path);
+            vk_screen_refresh(vwm->screen);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke == KEY_BACKSPACE || keystroke == 127 || keystroke == 8)
+        {
+            if(panel_data->teleport_pos > 0)
+            {
+                panel_data->teleport_pos--;
+                panel_data->teleport_text[panel_data->teleport_pos] = '\0';
+                vwm_teleport_prompt_redraw();
+                vk_screen_refresh(vwm->screen);
+            }
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke >= 32 && keystroke < 127
+            && panel_data->teleport_pos
+                < (int)sizeof(panel_data->teleport_text) - 1)
+        {
+            panel_data->teleport_text[panel_data->teleport_pos++] =
+                (char)keystroke;
+            panel_data->teleport_text[panel_data->teleport_pos] = '\0';
+            vwm_teleport_prompt_redraw();
             vk_screen_refresh(vwm->screen);
             return KMIO_HANDLED;
         }
@@ -417,6 +550,9 @@ vwm_panel_ON_TERM_RESIZED(VWM_PANEL *vwm_panel)
 
     if(vwm_panel->desktop_prompt != NULL)
         vwm_desktop_prompt_close();
+
+    if(vwm_panel->teleport_prompt != NULL)
+        vwm_teleport_prompt_close();
 
     vwm = vwm_get_instance();
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);

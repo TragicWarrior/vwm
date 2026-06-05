@@ -119,6 +119,17 @@ vwm_switch_desktop(vk_widget_t *widget, void *anything)
 }
 
 static int
+vwm_teleport(vk_widget_t *widget, void *anything)
+{
+    (void)widget;
+    (void)anything;
+
+    vwm_teleport_prompt_show();
+
+    return 0;
+}
+
+static int
 vwm_reload_apps(vk_widget_t *widget, void *anything)
 {
     (void)widget;
@@ -219,6 +230,9 @@ create_file_dropdown(vwm_t *vwm)
         vwm_toggle_winman, NULL);
     vk_listbox_add_item(listbox, "Switch desktop (Alt d)",
         vwm_switch_desktop, NULL);
+    vk_listbox_add_item(listbox, "Teleport",
+        vwm_teleport, NULL);
+    vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Lock screen",
         vwm_lock_screen, NULL);
     vk_listbox_add_item(listbox, "Capture screenshot",
