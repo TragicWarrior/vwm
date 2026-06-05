@@ -70,7 +70,12 @@ vwm_panel_init(void)
     viper_window_set_userptr(vwnd, (void*)vwm_panel);
 
     getmaxyx(VWINDOW(vwnd), max_y, max_x);
-    has_utf8 = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0);
+    {
+        const char *term = getenv("TERM");
+        has_utf8 = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0);
+        if(term != NULL && strcmp(term, "linux") == 0)
+            has_utf8 = 0;
+    }
 
     vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 4);
     vk_box_set_homogeneous(vwm_panel->box, false);

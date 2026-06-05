@@ -202,10 +202,17 @@ vwm_init(void)
         INIT_LIST_HEAD(&vwm->module_list);
 
         vwm->hotkey_menu = VWM_HOTKEY_MENU;
-        if(strcmp(nl_langinfo(CODESET), "UTF-8") == 0)
-            vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP;
-        else
-            vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP_ASCII;
+        {
+            const char *term = getenv("TERM");
+            int has_utf8 = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0);
+            if(term != NULL && strcmp(term, "linux") == 0)
+                has_utf8 = 0;
+
+            if(has_utf8)
+                vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP;
+            else
+                vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP_ASCII;
+        }
 
         // load user profile
         vwm_profile_init(vwm);
