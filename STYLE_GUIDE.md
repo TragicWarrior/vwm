@@ -200,3 +200,36 @@ vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
 child widget (labels, buttons, dropdowns) must be explicitly updated
 to restore content and colors. Call `refresh_dialog()` after
 recreation.
+
+## Managed vs. Unmanaged Windows
+
+VWM draws two kinds of windows:
+
+- **Managed (app) windows** live on the per-desktop `vk_deck_t`
+  (`vk_deck_add_widget`). The window manager owns them: they can be
+  raised, cycled (Alt+w), moved, resized, and closed, and they cast a
+  shadow. App modules (e.g. vwmterm) return their window from
+  `module->main()`, and `vwm_menu_helper()` adds it to the deck.
+
+- **Unmanaged (system tool) windows** are *not* on the deck. They attach
+  to the active `vk_surface_t` as an overlay (`vk_screen_attach_widget`),
+  draw above the deck and the panel, and are not WM-managed (no move /
+  resize / cycle / shadow). The Manage Apps / Hotkeys / Settings dialogs,
+  the screensaver, and the print tool all work this way.
+
+Only the deck-top window and a few core dialogs receive input, so a
+system-tool **module** cannot rely on the deck. Instead it sets
+`vwm->tool_window` to its overlay window; while that is non-NULL,
+`poll_input` routes every keystroke (including `KEY_MOUSE`) to it,
+modally, ahead of the deck. Such a `main()`:
+
+```c
+win = build_window(...);
+s->surface = vk_screen_get_active_surface(vwm->screen);
+vk_screen_attach_widget(vwm->screen, s->surface, VK_WIDGET(win));
+vwm->tool_window = win;          /* grab input while open */
+return NULL;                     /* so the launcher does not deck us */
+```
+
+Detach from the surface and clear `vwm->tool_window` when the tool
+closes.

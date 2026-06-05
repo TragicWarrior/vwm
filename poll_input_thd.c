@@ -487,6 +487,17 @@ vwm_poll_input(void * const env)
             continue;
         }
 
+        /* a surface-attached system tool (e.g. the print dialog) grabs all
+           input while open; its kmio handles KEY_MOUSE itself */
+        if(vwm->tool_window != NULL)
+        {
+            vk_object_push_keystroke(VK_OBJECT(vwm->tool_window), keystroke);
+            vk_screen_refresh(vwm->screen);
+            ctx_poll_input->did_work = 1;
+            pt_yield(ctx_poll_input);
+            continue;
+        }
+
         if(keystroke == KEY_MOUSE)
         {
             vk_widget_t     *hit = NULL;

@@ -49,6 +49,10 @@ struct _vwm_s
     vk_window_t             *manage_hotkeys_popup;
     vk_window_t             *manage_settings_popup;
 
+    /* a surface-attached modal system tool (e.g. the print dialog);
+       poll_input routes all input here while it is set */
+    vk_window_t             *tool_window;
+
     char                    task_indicator_action[NAME_MAX];
     char                    date_click_action[NAME_MAX];
 
