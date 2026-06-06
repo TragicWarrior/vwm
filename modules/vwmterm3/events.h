@@ -3,17 +3,17 @@
 
 #include <inttypes.h>
 
-#ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
-#else
-#include <curses.h>
-#endif
 
-#include <viper.h>
+#include <vdk.h>
 
-int     vwmterm_ON_RESIZE(vwnd_t *vwnd, void *anything);
-int     vwmterm_ON_SCREEN_RESIZED(vwnd_t *vwnd, void *anything);
-int	    vwmterm_ON_CLOSE(vwnd_t *vwnd, void *anything);
-int	    vwmterm_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd);
+void    vwmterm_init_keycodes(void);
+
+int     vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke);
+
+int     vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything);
+int     vwmterm_ON_RECREATE(vk_object_t *object, int event, void *anything);
+int     vwmterm_ON_SCREEN_RESIZED(vk_object_t *object, int event, void *anything);
+int	    vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything);
 
 #endif

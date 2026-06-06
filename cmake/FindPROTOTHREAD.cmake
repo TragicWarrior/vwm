@@ -23,21 +23,21 @@
 # (See accompanying file LICENSE_1_0.txt or copy at
 # http://www.boost.org/LICENSE_1_0.txt)
 
-find_library(VIPER_LIBRARY
-    NAMES viper)
+find_library(PROTOTHREAD_LIBRARY
+    NAMES protothread)
 
-find_path(VIPER_INCLUDE_DIR
-    NAMES viper.h)
+find_path(PROTOTHREAD_INCLUDE_DIR
+    NAMES protothread.h)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(VIPER
+find_package_handle_standard_args(PROTOTHREAD
     DEFAULT_MSG
-    VIPER_LIBRARY
-    VIPER_INCLUDE_DIR)
+    PROTOTHREAD_LIBRARY
+    PROTOTHREAD_INCLUDE_DIR)
 
-if(VIPER_FOUND)
-    set(VIPER_LIBRARIES "${VIPER_LIBRARY}")
+if(PROTOTHREAD_FOUND)
+    set(PROTOTHREAD_LIBRARIES "${PROTOTHREAD_LIBRARY}")
 
-    set(VIPER_INCLUDE_DIRS "${VIPER_INCLUDE_DIR}")
+    set(PROTOTHREAD_INCLUDE_DIRS "${PROTOTHREAD_INCLUDE_DIR}")
 endif()
 

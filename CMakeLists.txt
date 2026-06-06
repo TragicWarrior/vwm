@@ -30,7 +30,10 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 find_package(VTERM REQUIRED)
 
-find_package(VIPER REQUIRED)
+# use libviper source tree (headers + library not yet installed)
+set(LIBVIPER_SOURCE_DIR "/home/bryanc/devel/repos-git/libviper")
+include_directories(BEFORE ${LIBVIPER_SOURCE_DIR}/vdk ${LIBVIPER_SOURCE_DIR}/vkmio)
+set(VDK_LIBRARY "${LIBVIPER_SOURCE_DIR}/libvdk.so")
 
 find_package(GPM)
 
@@ -38,7 +41,9 @@ if (!GPM_FOUND)
 add_definitions("-D_NO_GPM")
 endif()
 
-find_package(CONFIG)
+find_package(Freetype REQUIRED)
+
+find_package(Cups REQUIRED)
 
 add_library(vwmterm SHARED
     modules/vwmterm3/events.c
@@ -48,8 +53,26 @@ add_library(vwmterm SHARED
     modules/vwmterm3/signals.c
     )
 
+add_library(vwmscrshot SHARED
+    modules/vwmscrshot/init.c
+    modules/vwmscrshot/capture.c
+    modules/vwmscrshot/render.c
+    modules/vwmscrshot/pngwrite.c
+    )
+target_include_directories(vwmscrshot PRIVATE ${FREETYPE_INCLUDE_DIRS})
+target_link_libraries(vwmscrshot ${FREETYPE_LIBRARIES})
+
+add_library(vwmprint SHARED
+    modules/vwmprint/init.c
+    modules/vwmprint/cups.c
+    )
+target_include_directories(vwmprint PRIVATE ${CUPS_INCLUDE_DIRS})
+target_link_libraries(vwmprint ${CUPS_LIBRARIES})
+
 add_executable(vwm
     bkgd.c
+    cJSON.c
+    config.c
     clock.c
     winman.c
     mainmenu.c
@@ -59,7 +82,12 @@ add_executable(vwm
     profile.c
     sched.c
     settings.c
+    screensaver.c
     programs.c
+    manage_apps.c
+    manage_hotkeys.c
+    manage_settings.c
+    manage_windows.c
     signals.c
     strings.c
     vwm.c
@@ -69,22 +97,25 @@ add_executable(vwm
     )
 
 if (GPM_FOUND)
-target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VTERM_LIBRARY}" )
+target_link_libraries(vwm -lutil -lm -lrt ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}" )
 else()
-target_link_libraries(vwm -lutil -lm -lrt ${CONFIG_LIBRARY} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VIPER_LIBRARY}" "${VTERM_LIBRARY}")
+target_link_libraries(vwm -lutil -lm -lrt ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}")
 endif()
+
+# "make core" builds only the window manager and the terminal module.
+# "make" / "make all" additionally builds the screen-capture module.
+add_custom_target(core)
+add_dependencies(core vwm vwmterm)
 
 # set the subst vars that configure_file() will use
 set(PROJECT_VERSION 1.0)
 
-#set(PKG_CONFIG_LIBS
-#    "-lviper -lprotothread"
-#)
-
 set(PKG_CONFIG_LIBS
-    "-lviper"
+    "-lvdk"
 )
 
 
 install (TARGETS vwm DESTINATION bin)
 install (TARGETS vwmterm DESTINATION lib/vwm/)
+install (TARGETS vwmscrshot DESTINATION lib/vwm/)
+install (TARGETS vwmprint DESTINATION lib/vwm/)

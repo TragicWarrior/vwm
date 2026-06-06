@@ -5,5 +5,6 @@
 #include "profile.h"
 
 int vwm_programs_load(vwm_t *vwm);
+int vwm_programs_reload(void);
 
 #endif

@@ -2,33 +2,81 @@
 #define _H_VWM_PRIVATE_
 
 #include <inttypes.h>
+#include <limits.h>
+#include <stdbool.h>
 #include <signal.h>
 
 #include <ncursesw/curses.h>
 
-#include <libconfig.h>
 #include "protothread.h"
 #include "sched.h"
 
-#include "viper.h"
+#include <vdk.h>
 #include "list.h"
 #include "profile.h"
 #include "vwm.h"
 
+/* matches the 2..6 desktop-count range enforced by the Settings dialog */
+#define VWM_MAX_DESKTOPS    6
+
 struct _vwm_s
 {
-    config_t                config;
     vwm_profile_t           *profile;
 
     int32_t                 hotkey_menu;
-    char                    *hotkey_menu_msg;
+    int32_t                 hotkey_wm;
+    int32_t                 hotkey_close;
+    int32_t                 hotkey_cycle;
+    int32_t                 hotkey_move_up;
+    int32_t                 hotkey_move_down;
+    int32_t                 hotkey_move_left;
+    int32_t                 hotkey_move_right;
+    int32_t                 hotkey_grow_h;
+    int32_t                 hotkey_shrink_h;
+    int32_t                 hotkey_grow_w;
+    int32_t                 hotkey_shrink_w;
+    int32_t                 hotkey_desktop;
 
     struct list_head        module_list;
 
-    WINDOW                  *wallpaper[4];
-    int                     (*wallpaper_agent)  (WINDOW *, void *);
+    vk_screen_t             *screen;
+    vk_deck_t               **decks;
+    vk_deck_t               *deck;
+    int                     surface_count;
+    vk_window_t             *menu;
+    vk_menubar_t            *menubar;
+    int                     menu_item_idx;
+
+    vk_window_t             *calendar_popup;
+    vk_window_t             *manage_apps_popup;
+    vk_window_t             *manage_hotkeys_popup;
+    vk_window_t             *manage_settings_popup;
+
+    /* a surface-attached modal system tool (e.g. the print dialog);
+       poll_input routes all input here while it is set */
+    vk_window_t             *tool_window;
+
+    char                    task_indicator_action[NAME_MAX];
+    char                    date_click_action[NAME_MAX];
+
+    char                    screensaver_cmd[NAME_MAX];
+    int                     screensaver_timeout;        /* idle minutes; 0=off */
+
+    /* per-surface ANSI color (0..15).  index by surface id; up to
+       VWM_MAX_DESKTOPS entries -- only [0..surface_count-1] are live */
+    short                   desktop_color[VWM_MAX_DESKTOPS];
+
+    /* per-surface wallpaper pattern (VWM_WALLPAPER_*) */
+    short                   desktop_wallpaper[VWM_MAX_DESKTOPS];
+
+    /* VWM_CLIPBOARD_* -- how SELECT-mode copy reaches the host clipboard */
+    short                   clipboard_mode;
 
     uint32_t                state;
+
+    int                     cursor_x;
+    int                     cursor_y;
+    bool                    show_cursor;
 };
 
 
@@ -37,9 +85,8 @@ struct _vwm_s
 
 struct sigaction* vwm_sigset(int signum, sighandler_t handler);
 
-/* default borders and controls callbacks */
-int     vwm_default_border_agent_focus(vwnd_t *vwnd, void *anything);
-int     vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything);
+/* border decoration callback for vk_window_t */
+void    vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *data);
 
 /*	default events	*/
 int     vwm_hook_wm_start(WINDOW *window, void *arg);

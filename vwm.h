@@ -7,8 +7,8 @@
 
 #include <ncursesw/curses.h>
 
-#include "protothread.h"
-#include <viper.h>
+#include <vdk.h>
+#include <vkmio.h>
 
 
 #define VWM_VERSION					"3.3.2"
@@ -18,11 +18,7 @@
 #endif
 
 #ifndef _VWM_SHARED_MODULES
-#ifdef  _VIPER_WIDE
-#define _VWM_SHARED_MODULES         "/usr/lib/vwm/modules_wide/"
-#else
 #define _VWM_SHARED_MODULES         "/usr/local/lib/vwm/"
-#endif
 #endif
 
 #define VWM_CLOCK_TICK              (0.1F)
@@ -32,14 +28,30 @@
 #define VMW_STATE_ASLEEP            (1 << 1)    // screensaver active
 #define VWM_STATE_ACTIVE            (1 << 2)    // indiates WM mode
 
-enum
-{
-    VWM_PANEL_FREEZE    =   0x1,
-    VWM_PANEL_THAW,
-    VWM_PANEL_REWIND,
-    VWM_PANEL_ADVANCE,
-    VWM_PANEL_CLEAR
-};
+/* VWM-specific event types */
+#define VWM_EVENT_ON_CLOSE          100
+
+/* desktop wallpaper patterns (per-surface, picked in Settings) */
+#define VWM_WALLPAPER_NONE          0
+#define VWM_WALLPAPER_STIPLE        1
+#define VWM_WALLPAPER_SMALL_BRICKS  2
+#define VWM_WALLPAPER_LARGE_BRICKS  3
+#define VWM_WALLPAPER_DOTS_1        4
+#define VWM_WALLPAPER_DOTS_2        5
+#define VWM_WALLPAPER_COUNT         6
+
+/* host clipboard sync mode (picked in Settings).  Controls whether a
+   SELECT-mode copy is also pushed to the host clipboard, and by what
+   transport. */
+#define VWM_CLIPBOARD_NEVER         0
+#define VWM_CLIPBOARD_OSC52         1
+#define VWM_CLIPBOARD_XCLIP         2
+#define VWM_CLIPBOARD_BOTH          3
+#define VWM_CLIPBOARD_COUNT         4
+
+extern const char *vwm_wallpaper_names[VWM_WALLPAPER_COUNT];
+extern const char *vwm_color_names[16];
+extern const char *vwm_clipboard_mode_names[VWM_CLIPBOARD_COUNT];
 
 enum
 {
@@ -54,23 +66,11 @@ typedef struct _vwm_profile_s   vwm_profile_t;
 /*	startup functions	*/
 vwm_t*          vwm_init(void);
 #define			vwm_get_instance()	            (vwm_init())
-void 			vwm_hook_enter(ViperFunc func, void *arg);
-void			vwm_hook_leave(ViperFunc func, void *arg);
+
+void            vwm_apply_surface_count(int new_count);
 
 /* panel facilities  */
-vwnd_t*         vwm_panel_init(void);
-#define         vwm_panel_get_instance()         (vwm_panel_init())
-int16_t         vwm_panel_ctrl(uint32_t ctrl, int16_t val);
-#define         vwm_panel_freeze_set(timeout) \
-                    (vwm_panel_ctrl(VWM_PANEL_FREEZE, timeout))
-#define         vwm_panel_freeze_get() \
-                    (vwm_panel_ctrl(VWM_PANEL_FREEZE, -1))
-#define         vwm_panel_freeze_now() \
-                    (vwm_panel_ctrl(VWM_PANEL_FREEZE, 0))
-#define         vwm_panel_thaw_now() \
-                    (vwm_panel_ctrl(VWM_PANEL_THAW, 0))
-#define         vwm_panel_clear() \
-                    (vwm_panel_ctrl(VWM_PANEL_CLEAR,0))
+void            vwm_panel_init(vwm_t *vwm);
 uintmax_t       vwm_panel_message_add(char *msg, int timeout);
 void            vwm_panel_message_del(uintmax_t msg_id);
 uintmax_t       vwm_panel_message_find(char *msg);
@@ -90,7 +90,7 @@ void            vwm_module_get_title(vwm_module_t *mod, char *buf, int buf_sz);
 void            vwm_module_set_userptr(vwm_module_t *mod, void *anything);
 void*           vwm_module_get_userptr(vwm_module_t *mod);
 int 		    vwm_module_add(vwm_module_t *mod);
-vwnd_t*         vwm_module_exec(vwm_module_t *mod);
+vk_window_t*    vwm_module_exec(vwm_module_t *mod);
 
 int             vwm_module_type_value(char *string);
 const char*     vwm_module_type_string(int value);

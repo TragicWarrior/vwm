@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <string.h>
+#include <errno.h>
 
 #include <fcntl.h>
 #include <sys/types.h>
@@ -9,6 +10,8 @@
 #include "strings.h"
 #include "private.h"
 #include "vwm.h"
+#include "cJSON.h"
+#include "config.h"
 
 static int
 _vwm_create_rc_file(vwm_profile_t *profile);
@@ -46,8 +49,8 @@ vwm_profile_init(vwm_t *vwm)
     }
     while(profile->home[i - 1] == '/');
 
-    /* check to see if ~/.vwm/vwmrc config exists. */
-    buffer = strdup_printf("%s/.vwm/vwmrc", profile->home);
+    /* check to see if ~/.config/vwm/config.json exists. */
+    buffer = strdup_printf("%s/.config/vwm/config.json", profile->home);
     if(stat(buffer, &stat_info) == 0)
     {
         // if it exists, make sure its readable
@@ -112,49 +115,38 @@ vwm_profile_rc_file_get(vwm_t *vwm)
 static int
 _vwm_create_rc_file(vwm_profile_t *profile)
 {
-    config_t            config;
-    config_setting_t    *root;
-    config_setting_t    *programs;
-    config_setting_t    *entry;
-    config_setting_t    *setting;
-    char                *buf;
-    int                 retval = 0;
+    cJSON   *root;
+    char    *dir;
+    char    *path;
+    int     retval;
 
     if(profile == NULL) return -1;
     if(profile->home == NULL) return -1;
 
-    buf = strdup_printf("%s/.vwm", profile->home);
+    /* ensure ~/.config exists, then ~/.config/vwm */
+    dir = strdup_printf("%s/.config", profile->home);
+    if(mkdir(dir, 0755) == -1 && errno != EEXIST)
+    {
+        free(dir);
+        return -1;
+    }
+    free(dir);
 
-    retval = mkdir(buf, 0755);
-    free(buf);
+    dir = strdup_printf("%s/.config/vwm", profile->home);
+    if(mkdir(dir, 0755) == -1 && errno != EEXIST)
+    {
+        free(dir);
+        return -1;
+    }
+    free(dir);
 
-    // couldn't create config dir
-    if(retval == -1) return -1;
+    path = strdup_printf("%s/.config/vwm/config.json", profile->home);
 
-    buf = strdup_printf("%s/.vwm/vwmrc", profile->home);
+    root = vwm_config_defaults();
+    retval = vwm_config_store(path, root);
+    cJSON_Delete(root);
 
-    config_init(&config);
-    root = config_root_setting(&config);
-    programs = config_setting_add(root, "programs", CONFIG_TYPE_LIST);
+    free(path);
 
-    entry = config_setting_add(programs, NULL, CONFIG_TYPE_GROUP);
-
-    setting = config_setting_add(entry, "requires", CONFIG_TYPE_STRING);
-    config_setting_set_string(setting, "vterm-color");
-
-    setting = config_setting_add(entry, "title", CONFIG_TYPE_STRING);
-    config_setting_set_string(setting, "VTerm Color");
-
-    setting = config_setting_add(entry, "bin", CONFIG_TYPE_STRING);
-    config_setting_set_string(setting, "/bin/bash");
-
-    setting = config_setting_add(entry, "type", CONFIG_TYPE_STRING);
-    config_setting_set_string(setting, "Tool");
-
-    config_write_file(&config, buf);
-    free(buf);
-
-    config_destroy(&config);
-
-    return 0;
+    return retval;
 }

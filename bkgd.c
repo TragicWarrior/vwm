@@ -17,200 +17,445 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *----------------------------------------------------------------------*/
 
-#include <string.h>
 #include <inttypes.h>
-
+#include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <wchar.h>
+#include <langinfo.h>
 
 #include "vwm.h"
-#include "bkgd.h"
-#include "mainmenu.h"
 #include "private.h"
+#include "bkgd.h"
 
-#define  BRICK    (' ' | A_REVERSE)
-#define  MORTAR   (' ' | A_NORMAL)
-
-void
-vwm_bkgd_simple_normal(int screen_id)
+/*
+    Cheap, cached "does the terminal speak UTF-8?" check.  Used to fall
+    back the brick wallpapers (WACS box drawing) to Stiple (ACS_CKBOARD)
+    when the term can't render wide characters.  Mirrors the detection
+    in vwm_panel_init: locale CODESET must be UTF-8 and TERM must not
+    be "linux" (the bare console).
+*/
+static bool
+_bkgd_has_utf8(void)
 {
-    WINDOW      *wallpaper;
-    WINDOW      *screen_wnd;
-    short       color = 0;
-	int		    width, height;
-	char		version_str[32];
+    static int cached = -1;
+    const char *term;
 
-#ifdef _VIPER_WIDE
-	cchar_t		bg_char;
-	wchar_t		ch[][2] = { {0x0020,0x0000},
-						    {0x002e,0x0000} };
-#else
-    chtype		    ch =        ACS_CKBOARD;
-    chtype          attr =      A_ALTCHARSET;
-    unsigned int    fg =        COLOR_BLACK;
-    unsigned int    bg =        COLOR_BLUE;
-#endif
+    if(cached >= 0) return cached != 0;
 
-    if(screen_id == -1) screen_id = CURRENT_SCREEN_ID;
+    cached = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0) ? 1 : 0;
+    term = getenv("TERM");
+    if(term != NULL && strcmp(term, "linux") == 0) cached = 0;
 
-    wallpaper = viper_screen_get_wallpaper(screen_id);
-    if(wallpaper == NULL) return;
-
-    screen_wnd = viper_get_screen_window(screen_id);
-
-    getmaxyx(screen_wnd, height, width);
-
-    // viper_wresize_abs(bkgd_window, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
-    wresize(wallpaper, height, width);
-
-    color = viper_color_pair(fg, bg);
-
-#ifdef _VIPER_WIDE
-	setcchar(&bg_char, ch, 0, 0, NULL);
-	window_fill(wallpaper, &bg_char, color, A_NORMAL);
-#else
-    window_fill(wallpaper, ch, color, attr);
-#endif
-
-    getmaxyx(wallpaper, height, width);
-    color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
-	sprintf(version_str, " VWM %s ", VWM_VERSION);
-	wattron(wallpaper, COLOR_PAIR(color));
-	mvwprintw(wallpaper, height - 1, width - (strlen(version_str)),
-        version_str);
-	wattron(wallpaper, A_NORMAL);
-
-    overwrite(wallpaper, screen_wnd);
-
-	return;
+    return cached != 0;
 }
 
-void
-vwm_bkgd_simple_winman(int screen_id)
+const char *vwm_wallpaper_names[VWM_WALLPAPER_COUNT] =
 {
-    WINDOW      *wallpaper;
-    WINDOW      *screen_wnd;
-    short       color = 0;
-	int		    width, height;
-	char		version_str[32];
+    "None",
+    "Stiple",
+    "Small Bricks",
+    "Large Bricks",
+    "Dots 1",
+    "Dots 2",
+};
 
-#ifdef _VIPER_WIDE
-	cchar_t		bg_char;
-	wchar_t		ch[][2] = { {0x0020,0x0000},
-						    {0x002e,0x0000} };
-#else
-    chtype		    ch =        '.';
-    chtype          attr =      A_NORMAL;
-    unsigned int    fg =        COLOR_BLACK;
-    unsigned int    bg =        COLOR_WHITE;
-#endif
+/* host clipboard sync mode names (parallel to VWM_CLIPBOARD_* values) */
+const char *vwm_clipboard_mode_names[VWM_CLIPBOARD_COUNT] =
+{
+    "Never",
+    "OSC 52",
+    "xclip",
+    "Both",
+};
 
-    if(screen_id == -1) screen_id = CURRENT_SCREEN_ID;
+/* ANSI color names exposed for Settings + JSON persistence */
+const char *vwm_color_names[16] =
+{
+    "Black",    "Red",        "Green",     "Yellow",
+    "Blue",     "Magenta",    "Cyan",      "White",
+    "Br Black", "Br Red",     "Br Green",  "Br Yellow",
+    "Br Blue",  "Br Magenta", "Br Cyan",   "Br White"
+};
 
-    wallpaper = viper_screen_get_wallpaper(screen_id);
-    if(wallpaper == NULL) return;
+/*
+    Build a cchar_t from a WACS_* source using the given color pair.
+    The source's own wide chars are preserved; only the pair is
+    swapped in (so e.g. WACS_HLINE keeps its '─' glyph but renders
+    with our chosen fg/bg).
+*/
+static void
+_bkgd_make_cc(cchar_t *dest, const cchar_t *src, short pair)
+{
+    wchar_t     wch[CCHARW_MAX];
+    attr_t      attrs;
+    short       dummy;
 
-    screen_wnd = viper_get_screen_window(screen_id);
-
-    getmaxyx(screen_wnd, height, width);
-
-    // viper_wresize_abs(bkgd_window, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
-    wresize(wallpaper, height, width);
-
-    color = viper_color_pair(fg, bg);
-
-#ifdef _VIPER_WIDE
-	setcchar(&bg_char, ch, 0, 0, NULL);
-	window_fill(wallpaper, &bg_char, color, A_NORMAL);
-#else
-    window_fill(wallpaper, ch, color, attr);
-#endif
-
-    getmaxyx(wallpaper, height, width);
-    color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
-	sprintf(version_str, " VWM %s ", VWM_VERSION);
-	wattron(wallpaper, COLOR_PAIR(color));
-	mvwprintw(wallpaper, height - 1, width - (strlen(version_str)),
-        version_str);
-	wattron(wallpaper, A_NORMAL);
-
-    overwrite(wallpaper, screen_wnd);
-
-	return;
+    getcchar(src, wch, &attrs, &dummy, NULL);
+    setcchar(dest, wch, attrs, pair, NULL);
 }
 
-int
-vwm_bkgd_bricks(WINDOW *bkgd_window, void *arg)
+static void
+_bkgd_render_stiple(WINDOW *canvas, int width, int height, short pair)
 {
-    uintmax_t       idx;
-    char            version_str[32];
-    short           color = 0;
-    int             width, height;
-    int             cell_count;
-    int             x, y;
-    int             i;
-    static chtype   brick[6][10] = {
-    {MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR},
-    {BRICK,BRICK,MORTAR,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK},
-    {BRICK,BRICK,MORTAR,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK},
-    {MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR,MORTAR},
-    {BRICK,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK,MORTAR,BRICK,BRICK},
-    {BRICK,BRICK,BRICK,BRICK,BRICK,BRICK,BRICK,MORTAR,BRICK,BRICK}};
+    int i;
+    int colors = COLOR_PAIR(pair);
 
-#ifdef _VIPER_WIDE
-    cchar_t          bg_char;
-    wchar_t          ch[][2] = { {0x0020, 0x0000},
-                                {0x002e, 0x0000} };
-#else
-    chtype           ch[] = {' ', '.'};
-#endif
+    wattron(canvas, colors | A_ALTCHARSET);
+    wmove(canvas, 0, 0);
+    for(i = 0; i < width * height; i++)
+        waddch(canvas, ACS_CKBOARD);
+    wattroff(canvas, colors | A_ALTCHARSET);
+}
 
-    /*
-        TODO:  gcc warning...
-        warning: cast from pointer to integer of different size
-    */
-    idx = (uintmax_t)arg;
+static void
+_bkgd_render_dots_1(WINDOW *canvas, int width, int height, short pair)
+{
+    int i;
+    int colors = COLOR_PAIR(pair);
 
-    getmaxyx(CURRENT_SCREEN, height, width);
-    wresize(bkgd_window, height, width);
+    wattron(canvas, colors);
+    wmove(canvas, 0, 0);
+    for(i = 0; i < width * height; i++)
+        waddch(canvas, '.');
+    wattroff(canvas, colors);
+}
 
-    // viper_wresize_abs(bkgd_window, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
-    wattroff(bkgd_window, A_REVERSE);
+/*
+    Dots 2 -- 2x2 tile of (space, period) / (period, space).
+    Effectively a dot where (x + y) is odd.
+*/
+static void
+_bkgd_render_dots_2(WINDOW *canvas, int width, int height, short pair)
+{
+    int colors = COLOR_PAIR(pair);
+    int x, y;
 
-    getmaxyx(bkgd_window, height, width);
-    cell_count = width * height;
-
-    if(idx == 0)
+    wattron(canvas, colors);
+    for(y = 0; y < height; y++)
     {
-        color = viper_color_pair(COLOR_RED,COLOR_WHITE);
-
-        for(i = 0;i < cell_count;i++)
+        for(x = 0; x < width; x++)
         {
-            x = i % width;
-            y = (int)(i / width);
-
-            wmove(bkgd_window, y, x);
-            waddch(bkgd_window,
-            brick[y % SPRITE_ROWS(brick)][x % SPRITE_COLS(brick)] | COLOR_PAIR(color));
+            chtype ch = ((y + x) & 1) ? '.' : ' ';
+            mvwaddch(canvas, y, x, ch);
         }
     }
+    wattroff(canvas, colors);
+}
 
-    if(idx == 1)
+/*
+    Small Bricks -- 2x2 tile of alternating tees:
+        row 0: BTEE TTEE  ('tee up' then 'tee down')
+        row 1: TTEE BTEE  (inverted)
+    Generalized: BTEE when (y%2) == (x%2), else TTEE.
+*/
+static void
+_bkgd_render_small_bricks(WINDOW *canvas, int width, int height, short pair)
+{
+    cchar_t     cc_btee, cc_ttee;
+    int         x, y;
+
+    _bkgd_make_cc(&cc_btee, WACS_BTEE, pair);
+    _bkgd_make_cc(&cc_ttee, WACS_TTEE, pair);
+
+    for(y = 0; y < height; y++)
     {
-        color = viper_color_pair(COLOR_BLACK,COLOR_WHITE);
-#ifdef _VIPER_WIDE
-        setcchar(&bg_char, ch[idx], 0, 0, NULL);
-        window_fill(bkgd_window, &bg_char, color, A_NORMAL);
-#else
-        window_fill(bkgd_window, ch[idx], color, A_NORMAL);
-#endif
+        for(x = 0; x < width; x++)
+        {
+            cchar_t *cc = ((y & 1) == (x & 1)) ? &cc_btee : &cc_ttee;
+            mvwadd_wch(canvas, y, x, cc);
+        }
+    }
+}
+
+/*
+    Large Bricks -- 6x4 tile (each brick is 3 cells wide):
+
+        ┴ ─ ─ ┬ ─ ─
+        . . . │ . .
+        ┬ ─ ─ ┴ ─ ─
+        │ . . . . .
+
+    Tees mirror Small Bricks's rhythm but offset by 3 columns instead
+    of 2.  Horizontal lines connect tees on a row.  Vertical lines
+    only appear between tees whose pips face each other: at (1,3)
+    inside the tile (┬ over ┴), and at (3,0) across the seam (this
+    tile's ┬ over the next-row tile's ┴).
+*/
+static void
+_bkgd_render_large_bricks(WINDOW *canvas, int width, int height, short pair)
+{
+    /* per-cell tile lookup -- 0 = space, 1 = HLINE, 2 = VLINE,
+       3 = BTEE, 4 = TTEE */
+    static const unsigned char tile[4][6] =
+    {
+        { 3, 1, 1, 4, 1, 1 },
+        { 0, 0, 0, 2, 0, 0 },
+        { 4, 1, 1, 3, 1, 1 },
+        { 2, 0, 0, 0, 0, 0 },
+    };
+    cchar_t     cc_h, cc_v, cc_btee, cc_ttee, cc_sp;
+    wchar_t     space[2] = { L' ', L'\0' };
+    int         colors = COLOR_PAIR(pair);
+    int         x, y;
+
+    _bkgd_make_cc(&cc_h,    WACS_HLINE, pair);
+    _bkgd_make_cc(&cc_v,    WACS_VLINE, pair);
+    _bkgd_make_cc(&cc_btee, WACS_BTEE,  pair);
+    _bkgd_make_cc(&cc_ttee, WACS_TTEE,  pair);
+    setcchar(&cc_sp, space, 0, pair, NULL);
+
+    wattron(canvas, colors);
+    for(y = 0; y < height; y++)
+    {
+        for(x = 0; x < width; x++)
+        {
+            const cchar_t *cc;
+            switch(tile[y & 3][x % 6])
+            {
+                case 1:  cc = &cc_h;    break;
+                case 2:  cc = &cc_v;    break;
+                case 3:  cc = &cc_btee; break;
+                case 4:  cc = &cc_ttee; break;
+                default: cc = &cc_sp;   break;
+            }
+            mvwadd_wch(canvas, y, x, cc);
+        }
+    }
+    wattroff(canvas, colors);
+}
+
+/*
+    Wallpaper backing-WINDOW cache, one slot per possible desktop.
+
+    The wallpaper is static between user-driven changes (color, pattern,
+    or terminal resize), but the libviper refresh loop calls our
+    callback on every vk_screen_refresh.  Pre-render each desktop's
+    wallpaper into its own off-screen WINDOW once and just blit it onto
+    the surface canvas per refresh, replacing ~width*height per-cell
+    ncurses calls with a single bulk copywin.
+
+    Lifetime:
+      - Lazy create:    the callback fills NULL slots on first use.
+      - Resize:         geometry mismatch in the callback delwin's +
+                        rebuilds.
+      - Color/pattern:  vwm_invalidate_wallpaper_cache() called from
+                        Settings change paths.
+      - Surface remove: vwm_invalidate_wallpaper_cache() in the
+                        vwm_apply_surface_count shrink branch.
+      - Teleport:       vwm_invalidate_wallpaper_cache_all_orphan()
+                        nulls without delwin (the WINDOWs are bound to
+                        a SCREEN that's about to die; same intentional
+                        leak as libviper's canvases -- see KLASSES.md
+                        "Old ncurses WINDOWs are intentionally leaked
+                        during teleport").
+*/
+static WINDOW *g_wallpaper_cache[VWM_MAX_DESKTOPS];
+
+static void
+_bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
+{
+    vwm_t       *vwm;
+    short       bg;
+    short       pattern;
+    short       pair;
+
+    vwm = vwm_get_instance();
+
+    bg = COLOR_BLUE;
+    pattern = VWM_WALLPAPER_STIPLE;
+    if(vwm != NULL && surface_id >= 0 && surface_id < VWM_MAX_DESKTOPS)
+    {
+        bg = vwm->desktop_color[surface_id];
+        pattern = vwm->desktop_wallpaper[surface_id];
+    }
+    pair = vdk_color_pair(COLOR_BLACK, bg);
+
+    /* fall back to Stiple if the saved pattern needs wide-char box
+       drawing but the terminal doesn't support UTF-8 */
+    if(!_bkgd_has_utf8())
+    {
+        if(pattern == VWM_WALLPAPER_SMALL_BRICKS ||
+           pattern == VWM_WALLPAPER_LARGE_BRICKS)
+            pattern = VWM_WALLPAPER_STIPLE;
     }
 
-    getmaxyx(bkgd_window, height, width);
-    color = viper_color_pair(COLOR_BLACK, COLOR_WHITE);
-    sprintf(version_str, " VWM %s ", VWM_VERSION);
-    wattron(bkgd_window, COLOR_PAIR(color));
-    mvwprintw(bkgd_window, height - 1, width - (strlen(version_str)),
-        version_str);
-    wattron(bkgd_window, A_NORMAL);
+    switch(pattern)
+    {
+        case VWM_WALLPAPER_NONE:
+        {
+            /* solid fill: just the desktop color, no overlay glyph */
+            int colors = COLOR_PAIR(pair);
+            int i;
+            wattron(target, colors);
+            wmove(target, 0, 0);
+            for(i = 0; i < width * height; i++) waddch(target, ' ');
+            wattroff(target, colors);
+            break;
+        }
+        case VWM_WALLPAPER_SMALL_BRICKS:
+            _bkgd_render_small_bricks(target, width, height, pair);
+            break;
+        case VWM_WALLPAPER_LARGE_BRICKS:
+            _bkgd_render_large_bricks(target, width, height, pair);
+            break;
+        case VWM_WALLPAPER_DOTS_1:
+            _bkgd_render_dots_1(target, width, height, pair);
+            break;
+        case VWM_WALLPAPER_DOTS_2:
+            _bkgd_render_dots_2(target, width, height, pair);
+            break;
+        case VWM_WALLPAPER_STIPLE:
+        default:
+            _bkgd_render_stiple(target, width, height, pair);
+            break;
+    }
+}
 
-    return 0;
+void
+vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
+{
+    int         width, height;
+    int         cw, ch;
+
+    (void)screen;
+
+    if(surface_id < 0 || surface_id >= VWM_MAX_DESKTOPS)
+    {
+        /* out-of-range slot -- paint directly, no caching */
+        getmaxyx(canvas, height, width);
+        _bkgd_paint_into(canvas, surface_id, width, height);
+        return;
+    }
+
+    getmaxyx(canvas, height, width);
+
+    /* resize check: if the cached window's size doesn't match the
+       current canvas, drop it and rebuild at the new size.  same-SCREEN
+       so delwin is safe. */
+    if(g_wallpaper_cache[surface_id] != NULL)
+    {
+        getmaxyx(g_wallpaper_cache[surface_id], ch, cw);
+        if(ch != height || cw != width)
+            vwm_invalidate_wallpaper_cache(surface_id);
+    }
+
+    if(g_wallpaper_cache[surface_id] == NULL)
+    {
+        g_wallpaper_cache[surface_id] = newwin(height, width, 0, 0);
+        if(g_wallpaper_cache[surface_id] == NULL)
+        {
+            /* newwin failed -- paint directly so we don't lose a frame */
+            _bkgd_paint_into(canvas, surface_id, width, height);
+            return;
+        }
+        _bkgd_paint_into(g_wallpaper_cache[surface_id],
+            surface_id, width, height);
+    }
+
+    /* copywin in overwrite mode (FALSE) replaces every cell of the
+       destination rectangle, blanks included -- identical effect to
+       overwrite() but explicit about the rectangle and the mode. */
+    overwrite(g_wallpaper_cache[surface_id], canvas);
+}
+
+/*
+    Drop a single surface's cached wallpaper.  delwin is safe -- callers
+    invoke this only from the SCREEN that owns the WINDOW (Settings
+    change, surface shrink, geometry-mismatch rebuild).
+*/
+void
+vwm_invalidate_wallpaper_cache(int surface_id)
+{
+    if(surface_id < 0 || surface_id >= VWM_MAX_DESKTOPS) return;
+
+    if(g_wallpaper_cache[surface_id] != NULL)
+    {
+        delwin(g_wallpaper_cache[surface_id]);
+        g_wallpaper_cache[surface_id] = NULL;
+    }
+}
+
+void
+vwm_invalidate_wallpaper_cache_all(void)
+{
+    int i;
+    for(i = 0; i < VWM_MAX_DESKTOPS; i++)
+        vwm_invalidate_wallpaper_cache(i);
+}
+
+/*
+    Teleport variant: the cached WINDOWs are bound to a SCREEN that's
+    about to be torn down.  delwin on a different-SCREEN window
+    corrupts ncurses internal state (same reason libviper leaks
+    surface canvases during teleport -- see KLASSES.md).  Null the
+    slots and let the WINDOWs leak with the dying SCREEN; next refresh
+    after the new SCREEN is established lazily allocates fresh ones.
+*/
+void
+vwm_invalidate_wallpaper_cache_all_orphan(void)
+{
+    int i;
+    for(i = 0; i < VWM_MAX_DESKTOPS; i++)
+        g_wallpaper_cache[i] = NULL;
+}
+
+void
+vwm_bkgd_simple_winman(vk_screen_t *screen, int surface_id, WINDOW *canvas)
+{
+    short       color;
+    int         width, height;
+    int         i;
+
+    (void)screen;
+    (void)surface_id;
+
+    getmaxyx(canvas, height, width);
+
+    color = vdk_color_pair(COLOR_BLACK, COLOR_WHITE);
+    wattron(canvas, COLOR_PAIR(color));
+    wmove(canvas, 0, 0);
+    for(i = 0; i < width * height; i++)
+        waddch(canvas, '.');
+    wattroff(canvas, COLOR_PAIR(color));
+}
+
+/*
+    Persist a wbkgdset value on the given surface so transient erases
+    (between werase() and the next wallpaper/widget composite) show the
+    desktop's color instead of black.  Uses just COLOR_PAIR with no
+    attribute bits so the ncurses bkgd-OR doesn't bleed bold/reverse
+    into any cell written to the surface.  libviper reapplies after
+    teleport automatically (vk_screen_set_surface_bkgd persists the
+    value).
+*/
+void
+vwm_apply_desktop_bkgd(int surface_id)
+{
+    vwm_t   *vwm;
+    short   bg;
+    short   pair;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL || vwm->screen == NULL) return;
+    if(surface_id < 0 || surface_id >= vwm->surface_count) return;
+
+    bg   = vwm->desktop_color[surface_id];
+    pair = vdk_color_pair(COLOR_BLACK, bg);
+
+    vk_screen_set_surface_bkgd(vwm->screen, surface_id,
+        ' ' | COLOR_PAIR(pair));
+}
+
+void
+vwm_apply_desktop_bkgd_all(void)
+{
+    vwm_t   *vwm;
+    int     i;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL) return;
+
+    for(i = 0; i < vwm->surface_count; i++)
+        vwm_apply_desktop_bkgd(i);
 }

@@ -1,40 +1,45 @@
-#include <viper.h>
+#include <vdk.h>
 
+#include "vwm.h"
+#include "private.h"
+#include "mainmenu.h"
 #include "events.h"
 
-int
-vwm_main_menu_ON_TERM_RESIZED(vwnd_t *vwnd, void *arg)
+void
+vwm_dropdown_ON_TERM_RESIZED(void)
 {
-    vk_menu_t   *menu;
-    int         width;
-    int         height;
-    int         scr_width;
-    int         scr_height;
+    vwm_t           *vwm;
+    vk_window_t     *menu;
+    vk_listbox_t    *listbox;
+    int             content_width;
+    int             content_height;
+    int             width;
+    int             height;
+    int             scr_width;
+    int             scr_height;
 
-    if(vwnd == NULL) return -1;
-    if(arg == NULL) return -1;
+    vwm = vwm_get_instance();
+    menu = vwm->menu;
 
-    menu = (vk_menu_t *)arg;
+    if(menu == NULL) return;
 
-    vk_widget_get_metrics(VK_WIDGET(menu), &width, &height);
+    listbox = VK_LISTBOX(vk_window_get_child(menu));
+    vk_listbox_get_metrics(listbox, &content_width, &content_height);
 
-    getmaxyx(CURRENT_SCREEN, scr_height, scr_width);
-    scr_height -= 4;
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
     scr_width -= 4;
+    scr_height = (scr_height * 3) / 4;
 
-    if(width < scr_width && height < scr_height) return 0;
-
-    if(height > scr_height) height = scr_height;
+    width = content_width;
+    height = content_height;
     if(width > scr_width) width = scr_width;
+    if(height > scr_height) height = scr_height;
 
-    vk_widget_resize(VK_WIDGET(menu), width, height);
-    viper_wresize_abs(vwnd, width + 2, height + 2);
+    vk_widget_resize(VK_WIDGET(listbox), width, height);
+    vk_widget_resize(VK_WIDGET(menu), width + 2, height + 2);
 
-    vk_menu_update(menu);
-    vk_widget_draw(VK_WIDGET(menu));
+    vk_listbox_update(listbox);
+    vk_window_update(menu);
 
-    viper_screen_redraw(CURRENT_SCREEN_ID, REDRAW_ALL | REDRAW_BACKGROUND);
-
-    return 0;
+    vk_screen_refresh(vwm->screen);
 }
-

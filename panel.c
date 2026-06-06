@@ -19,10 +19,11 @@
 
 #include <string.h>
 #include <time.h>
+#include <langinfo.h>
 
 #include <ncursesw/curses.h>
 
-#include <viper.h>
+#include <vdk.h>
 
 #include "vwm.h"
 #include "panel.h"
@@ -45,312 +46,628 @@
 #define     KEY_LESS_THAN       '<'
 #define     KEY_CTRL_LEFT       545
 
-vwnd_t*
-vwm_panel_init(void)
+#define     VWM_HOTKEY_DESKTOP  (27 | (100 << 8))
+
+static VWM_PANEL    *panel_data = NULL;
+
+VWM_PANEL*
+vwm_panel_get_data(void)
 {
-    static vwnd_t   *vwnd = NULL;
+    return panel_data;
+}
+
+void
+vwm_panel_init(vwm_t *vwm)
+{
     VWM_PANEL       *vwm_panel;
     int             max_y, max_x;
+    int             has_utf8;
 
-    if(vwnd != NULL) return vwnd;
+    if(panel_data != NULL) return;
 
     vwm_panel = (VWM_PANEL*)calloc(1, sizeof(VWM_PANEL));
     vwm_panel->tick_rate = 2;
     vwm_panel->thaw_rate = 3;
+    panel_data = vwm_panel;
 
-	vwnd = viper_window_create(0, FALSE, "vwm panel", 0, 0, WSIZE_FULLSCREEN, 1);
-	wbkgdset(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
-    viper_window_set_key_func(vwnd, vwm_panel_ON_KEYSTROKE);
-    viper_event_set(vwnd, "vwm-clock-tick", vwm_panel_ON_CLOCK_TICK,
-        (void*)vwm_panel);
-    viper_event_set(vwnd, "term-resized", vwm_panel_ON_TERM_RESIZED,
-        (void*)vwm_panel);
-    viper_window_set_userptr(vwnd, (void*)vwm_panel);
+    getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
+    {
+        const char *term = getenv("TERM");
+        has_utf8 = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0);
+        if(term != NULL && strcmp(term, "linux") == 0)
+            has_utf8 = 0;
+    }
 
-    getmaxyx(VWINDOW(vwnd), max_y, max_x);
-    if(max_x > 29) vwm_panel->display = (char*)calloc(1, max_x - 25);
-    vwm_panel->display_sz = max_x - 26;
+    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 7);
+    vk_box_set_homogeneous(vwm_panel->box, false);
+    vk_widget_set_colors(VK_WIDGET(vwm_panel->box),
+        COLOR_BLACK, COLOR_WHITE);
 
-    wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
-    mvwprintw(VWINDOW(vwnd), 0, 0, "%*c", vwm_panel->display_sz, ' ');
+    if(has_utf8)
+        vwm_panel->msg_default = "  \xe2\x98\xb0";
+    else
+        vwm_panel->msg_default = " [=]";
+
+    vwm_panel->msg_label = vk_label_create(5);
+    vk_widget_set_colors(VK_WIDGET(vwm_panel->msg_label),
+        COLOR_WHITE, COLOR_BLUE);
+    vk_widget_set_attrs(VK_WIDGET(vwm_panel->msg_label), A_BOLD);
+    vk_label_set_text(vwm_panel->msg_label, vwm_panel->msg_default);
+    vk_label_update(vwm_panel->msg_label);
+
+    vwm_panel->menubar = vk_menubar_create(1);
+    vk_widget_set_colors(VK_WIDGET(vwm_panel->menubar),
+        COLOR_BLACK, COLOR_WHITE);
+    vk_menubar_set_highlight(vwm_panel->menubar,
+        COLOR_WHITE, COLOR_BLUE);
+    vwm->menubar = vwm_panel->menubar;
+
+    {
+        vk_filler_t *spacer = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(spacer), COLOR_BLACK, COLOR_WHITE);
+        vk_box_set_widget(vwm_panel->box, 2, VK_WIDGET(spacer));
+    }
+
+    vwm_panel->task_label = vk_label_create(4);
+    vk_widget_set_colors(VK_WIDGET(vwm_panel->task_label),
+        COLOR_WHITE, COLOR_MAGENTA);
+    vwm_panel_update_taskcount(vwm_panel);
+
+    vwm_panel->clock_label = vk_label_create(21);
+    vk_widget_set_colors(VK_WIDGET(vwm_panel->clock_label),
+        COLOR_BLACK, COLOR_CYAN);
+    vwm_panel_update_clock(vwm_panel);
+
+    vwm_panel->activity = vk_activity_create();
+    if(has_utf8)
+    {
+        vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
+            COLOR_WHITE, COLOR_CYAN);
+        vk_widget_set_attrs(VK_WIDGET(vwm_panel->activity), A_BOLD);
+        vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_DOTS);
+    }
+    else
+    {
+        vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
+            COLOR_BLACK, COLOR_CYAN);
+        vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_SPINNER);
+    }
+    vk_activity_set_speed(vwm_panel->activity, 2);
+    vk_activity_start(vwm_panel->activity);
+
+    vk_box_set_widget(vwm_panel->box, 0,
+        VK_WIDGET(vwm_panel->msg_label));
+    vk_box_set_widget(vwm_panel->box, 1,
+        VK_WIDGET(vwm_panel->menubar));
+    vk_box_set_widget(vwm_panel->box, 3,
+        VK_WIDGET(vwm_panel->task_label));
+    vk_box_set_widget(vwm_panel->box, 4,
+        VK_WIDGET(vwm_panel->clock_label));
+    vk_box_set_widget(vwm_panel->box, 5,
+        VK_WIDGET(vwm_panel->activity));
+
+    {
+        vk_label_t *pad = vk_label_create(1);
+        vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_CYAN);
+        vk_label_set_text(pad, " ");
+        vk_label_update(pad);
+        vk_box_set_widget(vwm_panel->box, 6, VK_WIDGET(pad));
+    }
+
+    vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm_panel->box));
+
+    vk_box_update(vwm_panel->box);
+    vk_widget_draw(VK_WIDGET(vwm_panel->box));
+
+    {
+        char version_str[32];
+        int  version_len;
+
+        snprintf(version_str, sizeof(version_str), " VWM %s ", VWM_VERSION);
+        version_len = strlen(version_str);
+
+        vwm_panel->status_box = vk_box_create(max_x, 1,
+            VK_BOX_HORIZONTAL, 3);
+        vk_box_set_homogeneous(vwm_panel->status_box, false);
+        vk_widget_set_colors(VK_WIDGET(vwm_panel->status_box),
+            COLOR_BLACK, COLOR_WHITE);
+
+        {
+            vk_label_t *pad = vk_label_create(1);
+            vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_WHITE);
+            vk_label_set_text(pad, " ");
+            vk_label_update(pad);
+            vk_box_set_widget(vwm_panel->status_box, 0, VK_WIDGET(pad));
+        }
+
+        vwm_panel->status_marquee = vk_marquee_create(1);
+        vk_widget_set_expand(VK_WIDGET(vwm_panel->status_marquee));
+        vk_widget_set_colors(VK_WIDGET(vwm_panel->status_marquee),
+            COLOR_BLACK, COLOR_WHITE);
+        vk_marquee_set_direction(vwm_panel->status_marquee, VK_SCROLL_LEFT);
+        vk_marquee_set_repeat(vwm_panel->status_marquee, true);
+        vk_marquee_set_speed(vwm_panel->status_marquee, 3);
+        vk_marquee_set_pause(vwm_panel->status_marquee, 50);
+        vk_marquee_set_text(vwm_panel->status_marquee,
+            "Alt ~ Menu | Alt d Switch Desktop");
+
+        vwm_panel->version_label = vk_label_create(version_len);
+        vk_widget_set_colors(VK_WIDGET(vwm_panel->version_label),
+            COLOR_BLACK, COLOR_CYAN);
+        vk_label_set_text(vwm_panel->version_label, version_str);
+        vk_label_update(vwm_panel->version_label);
+
+        vk_box_set_widget(vwm_panel->status_box, 1,
+            VK_WIDGET(vwm_panel->status_marquee));
+        vk_box_set_widget(vwm_panel->status_box, 2,
+            VK_WIDGET(vwm_panel->version_label));
+
+        vk_widget_move(VK_WIDGET(vwm_panel->status_box), 0, max_y - 1);
+        vk_screen_attach_widget(vwm->screen, 0,
+            VK_WIDGET(vwm_panel->status_box));
+
+        vk_box_update(vwm_panel->status_box);
+        vk_widget_draw(VK_WIDGET(vwm_panel->status_box));
+    }
 
     INIT_LIST_HEAD(&vwm_panel->msg_list);
+}
 
-    viper_window_set_visible(vwnd, TRUE);
-	viper_window_redraw(vwnd);
+void
+vwm_desktop_prompt_show(void)
+{
+    vwm_t       *vwm;
+    VWM_PANEL   *vwm_panel;
+    vk_label_t  *prompt;
+    int          max_y, max_x;
+    char         text[64];
+    int          pos;
+    int          surface;
 
-    // squelch compiler warning
+    vwm = vwm_get_instance();
+    vwm_panel = vwm_panel_get_data();
+
+    if(vwm_panel->desktop_prompt != NULL) return;
+
+    vwm_menubar_close_dropdown();
+    vk_menubar_set_focused(vwm->menubar, false);
+    vk_menubar_update(vwm->menubar);
+    vwm_calendar_close();
+
+    getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
     (void)max_y;
 
-	return vwnd;
+    pos = 0;
+    pos += snprintf(text + pos, sizeof(text) - pos, " Switch desktop (");
+    for(int i = 0; i < vwm->surface_count; i++)
+    {
+        if(i > 0)
+            pos += snprintf(text + pos, sizeof(text) - pos, ", ");
+        pos += snprintf(text + pos, sizeof(text) - pos, "%d", i + 1);
+    }
+    snprintf(text + pos, sizeof(text) - pos, "): ");
+
+    prompt = vk_label_create(max_x);
+    vk_widget_set_colors(VK_WIDGET(prompt), COLOR_WHITE, COLOR_BLUE);
+    vk_widget_set_attrs(VK_WIDGET(prompt), A_BOLD);
+    vk_label_set_text(prompt, text);
+    vk_label_update(prompt);
+
+    surface = vk_screen_get_active_surface(vwm->screen);
+    vk_screen_detach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->box));
+    vk_screen_attach_widget(vwm->screen, surface, VK_WIDGET(prompt));
+
+    vwm_panel->desktop_prompt = prompt;
+}
+
+static void
+vwm_desktop_prompt_close(void)
+{
+    vwm_t       *vwm;
+    VWM_PANEL   *vwm_panel;
+    int          surface;
+
+    vwm = vwm_get_instance();
+    vwm_panel = vwm_panel_get_data();
+
+    if(vwm_panel->desktop_prompt == NULL) return;
+
+    surface = vk_screen_get_active_surface(vwm->screen);
+    vk_screen_detach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->desktop_prompt));
+    vk_label_destroy(vwm_panel->desktop_prompt);
+    vwm_panel->desktop_prompt = NULL;
+
+    vk_screen_attach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->box));
+    vk_box_update(vwm_panel->box);
+}
+
+static void
+vwm_teleport_prompt_redraw(void)
+{
+    VWM_PANEL   *vwm_panel;
+    char        text[160];
+
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel->teleport_prompt == NULL) return;
+
+    snprintf(text, sizeof(text), " Teleport to: %s",
+        vwm_panel->teleport_text);
+    vk_label_set_text(vwm_panel->teleport_prompt, text);
+    vk_label_update(vwm_panel->teleport_prompt);
+}
+
+void
+vwm_teleport_prompt_show(void)
+{
+    vwm_t       *vwm;
+    VWM_PANEL   *vwm_panel;
+    vk_label_t  *prompt;
+    int          max_y, max_x;
+    int          surface;
+
+    vwm = vwm_get_instance();
+    vwm_panel = vwm_panel_get_data();
+
+    if(vwm_panel->teleport_prompt != NULL) return;
+
+    vwm_menubar_close_dropdown();
+    vk_menubar_set_focused(vwm->menubar, false);
+    vk_menubar_update(vwm->menubar);
+    vwm_calendar_close();
+
+    getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
+    (void)max_y;
+
+    vwm_panel->teleport_text[0] = '\0';
+    vwm_panel->teleport_pos = 0;
+
+    prompt = vk_label_create(max_x);
+    vk_widget_set_colors(VK_WIDGET(prompt), COLOR_WHITE, COLOR_BLUE);
+    vk_widget_set_attrs(VK_WIDGET(prompt), A_BOLD);
+    vk_label_set_text(prompt, " Teleport to: ");
+    vk_label_update(prompt);
+
+    surface = vk_screen_get_active_surface(vwm->screen);
+    vk_screen_detach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->box));
+    vk_screen_attach_widget(vwm->screen, surface, VK_WIDGET(prompt));
+
+    vwm_panel->teleport_prompt = prompt;
+}
+
+static void
+vwm_teleport_prompt_close(void)
+{
+    vwm_t       *vwm;
+    VWM_PANEL   *vwm_panel;
+    int          surface;
+
+    vwm = vwm_get_instance();
+    vwm_panel = vwm_panel_get_data();
+
+    if(vwm_panel->teleport_prompt == NULL) return;
+
+    surface = vk_screen_get_active_surface(vwm->screen);
+    vk_screen_detach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->teleport_prompt));
+    vk_label_destroy(vwm_panel->teleport_prompt);
+    vwm_panel->teleport_prompt = NULL;
+    vwm_panel->teleport_text[0] = '\0';
+    vwm_panel->teleport_pos = 0;
+
+    vk_screen_attach_widget(vwm->screen, surface,
+        VK_WIDGET(vwm_panel->box));
+    vk_box_update(vwm_panel->box);
 }
 
 int
-vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd)
+vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
 {
     vwm_t       *vwm;
 
-    (void)vwnd;
+    (void)anything;
 
     vwm = vwm_get_instance();
 
-    // check to see if window manager was invoked
-    if(keystroke == VWM_HOTKEY_WM)
+    if(panel_data->desktop_prompt != NULL)
+    {
+        if(keystroke == 27)
+        {
+            vwm_desktop_prompt_close();
+            vk_screen_refresh(vwm->screen);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke >= '1' && keystroke <= '0' + vwm->surface_count)
+        {
+            int target = keystroke - '1';
+
+            vwm_desktop_prompt_close();
+            vk_screen_set_surface(vwm->screen, target);
+            vk_screen_refresh(vwm->screen);
+            return KMIO_HANDLED;
+        }
+
+        return KMIO_HANDLED;
+    }
+
+    if(panel_data->teleport_prompt != NULL)
+    {
+        if(keystroke == 27)
+        {
+            vwm_teleport_prompt_close();
+            vk_screen_refresh(vwm->screen);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke == '\n' || keystroke == '\r' || keystroke == KEY_ENTER)
+        {
+            char path[128];
+
+            if(panel_data->teleport_pos == 0)
+            {
+                vwm_teleport_prompt_close();
+                vk_screen_refresh(vwm->screen);
+                return KMIO_HANDLED;
+            }
+
+            snprintf(path, sizeof(path), "%s", panel_data->teleport_text);
+            vwm_teleport_prompt_close();
+            vk_screen_teleport(vwm->screen, path);
+            vk_screen_refresh(vwm->screen);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke == KEY_BACKSPACE || keystroke == 127 || keystroke == 8)
+        {
+            if(panel_data->teleport_pos > 0)
+            {
+                panel_data->teleport_pos--;
+                panel_data->teleport_text[panel_data->teleport_pos] = '\0';
+                vwm_teleport_prompt_redraw();
+                vk_screen_refresh(vwm->screen);
+            }
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke >= 32 && keystroke < 127
+            && panel_data->teleport_pos
+                < (int)sizeof(panel_data->teleport_text) - 1)
+        {
+            panel_data->teleport_text[panel_data->teleport_pos++] =
+                (char)keystroke;
+            panel_data->teleport_text[panel_data->teleport_pos] = '\0';
+            vwm_teleport_prompt_redraw();
+            vk_screen_refresh(vwm->screen);
+            return KMIO_HANDLED;
+        }
+
+        return KMIO_HANDLED;
+    }
+
+    if(keystroke == vwm->hotkey_wm)
     {
         vwm->state ^= VWM_STATE_ACTIVE;
 
         if(vwm->state & VWM_STATE_ACTIVE)
-            vwm_default_VWM_START((void*)TOPMOST_MANAGED);
+            vwm_default_VWM_START();
         else
-            vwm_default_VWM_STOP((void*)TOPMOST_MANAGED);
+            vwm_default_VWM_STOP();
 
-        // indicate key was handled
         return KMIO_HANDLED;
     }
 
     if(vwm->state & VWM_STATE_ACTIVE)
     {
-        switch(keystroke)
+        vk_widget_t *top = vk_deck_get_top(vwm->deck);
+
+        if(keystroke == vwm->hotkey_close)
         {
-            case 17:
-                vwm_default_WINDOW_CLOSE(TOPMOST_MANAGED); return -1;
-            case KEY_TAB:
-                vwm_default_WINDOW_CYCLE(); return -1;
-            case KEY_UP:
-                vwm_default_WINDOW_MOVE_UP(TOPMOST_MANAGED); return -1;
-            case KEY_DOWN:
-                vwm_default_WINDOW_MOVE_DOWN(TOPMOST_MANAGED); return -1;
-            case KEY_LEFT:
-                vwm_default_WINDOW_MOVE_LEFT(TOPMOST_MANAGED); return -1;
-            case KEY_RIGHT:
-                vwm_default_WINDOW_MOVE_RIGHT(TOPMOST_MANAGED); return -1;
-
-            case KEY_PLUS:
-            case KEY_CTRL_DOWN:
-                vwm_default_WINDOW_INCREASE_HEIGHT(TOPMOST_MANAGED); return -1;
-            case KEY_MINUS:
-            case KEY_CTRL_UP:
-                vwm_default_WINDOW_DECREASE_HEIGHT(TOPMOST_MANAGED); return -1;
-            case KEY_GREATER_THAN:
-            case KEY_CTRL_RIGHT:
-                vwm_default_WINDOW_INCREASE_WIDTH(TOPMOST_MANAGED); return -1;
-            case KEY_LESS_THAN:
-            case KEY_CTRL_LEFT:
-                vwm_default_WINDOW_DECREASE_WIDTH(TOPMOST_MANAGED); return -1;
-
-            default:
-                return keystroke;
+            vwm_default_WINDOW_CLOSE(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_cycle)
+        {
+            vwm_default_WINDOW_CYCLE();
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_move_up)
+        {
+            vwm_default_WINDOW_MOVE_UP(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_move_down)
+        {
+            vwm_default_WINDOW_MOVE_DOWN(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_move_left)
+        {
+            vwm_default_WINDOW_MOVE_LEFT(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_move_right)
+        {
+            vwm_default_WINDOW_MOVE_RIGHT(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_grow_h
+            || keystroke == KEY_CTRL_DOWN)
+        {
+            vwm_default_WINDOW_INCREASE_HEIGHT(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_shrink_h
+            || keystroke == KEY_CTRL_UP)
+        {
+            vwm_default_WINDOW_DECREASE_HEIGHT(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_grow_w
+            || keystroke == KEY_CTRL_RIGHT)
+        {
+            vwm_default_WINDOW_INCREASE_WIDTH(top);
+            return KMIO_HANDLED;
+        }
+        else if(keystroke == vwm->hotkey_shrink_w
+            || keystroke == KEY_CTRL_LEFT)
+        {
+            vwm_default_WINDOW_DECREASE_WIDTH(top);
+            return KMIO_HANDLED;
+        }
+        else
+        {
+            return keystroke;
         }
     }
 
-    if(!(vwm->state & VWM_STATE_ACTIVE))
+    if(keystroke == vwm->hotkey_menu)
     {
-        if(keystroke == vwm->hotkey_menu)
-        {
-            vwm_main_menu_hotkey();
+        vwm_menubar_hotkey();
+        return KMIO_HANDLED;
+    }
 
-            // indicate key was handled
-            return KMIO_HANDLED;
-        }
+    if(keystroke == vwm->hotkey_desktop)
+    {
+        vwm_desktop_prompt_show();
+        vk_screen_refresh(vwm->screen);
+        return KMIO_HANDLED;
     }
 
     return keystroke;
 }
 
-int
-vwm_panel_ON_TERM_RESIZED(vwnd_t *vwnd, void *arg)
+void
+vwm_panel_ON_TERM_RESIZED(VWM_PANEL *vwm_panel)
 {
-    VWM_PANEL       *vwm_panel;
-    int             max_y, max_x;
+    vwm_t       *vwm;
+    int         max_y, max_x;
 
-    vwm_panel = (VWM_PANEL*)arg;
-    getmaxyx(CURRENT_SCREEN, max_y, max_x);
+    if(vwm_panel == NULL) return;
 
-    viper_wresize_abs(vwnd, WSIZE_FULLSCREEN, WSIZE_UNCHANGED);
-    werase(VWINDOW(vwnd));
+    if(vwm_panel->desktop_prompt != NULL)
+        vwm_desktop_prompt_close();
 
-    /* resize the marquee based on new metrics.  */
-    if(max_x < 29)
-    {
-        if(vwm_panel->display != NULL) free(vwm_panel->display);
-        vwm_panel->display_sz = max_x - 26;
-        vwm_panel->display = NULL;
-    }
-    else
-    {
-        vwm_panel->display = (char*)realloc(vwm_panel->display, max_x - 25);
-        vwm_panel->display_sz = max_x - 26;
-    }
+    if(vwm_panel->teleport_prompt != NULL)
+        vwm_teleport_prompt_close();
 
-    viper_window_redraw(vwnd);
+    vwm = vwm_get_instance();
+    getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
 
-    // squelch compiler warnings
+    vk_widget_resize(VK_WIDGET(vwm_panel->box), max_x, 1);
+    vk_box_update(vwm_panel->box);
+
+    vk_widget_resize(VK_WIDGET(vwm_panel->status_box), max_x, 1);
+    vk_widget_move(VK_WIDGET(vwm_panel->status_box), 0, max_y - 1);
+    vk_box_update(vwm_panel->status_box);
+
+    vwm_calendar_close();
+
     (void)max_y;
-
-    return 0;
 }
 
-int
-vwm_panel_ON_CLOCK_TICK(vwnd_t *vwnd, void *arg)
+void
+vwm_panel_ON_CLOCK_TICK(VWM_PANEL *vwm_panel)
 {
-    VWM_PANEL   *vwm_panel;
+    if(vwm_panel == NULL) return;
 
-    vwm_panel = (VWM_PANEL*)arg;
     vwm_panel->clock++;
 
-    /* update throbber on every tick (currently 1/10 sec). */
+    vwm_panel_update_throbber(vwm_panel);
+
     if((vwm_panel->clock % 5) == 0)
     {
-        vwm_panel_update_throbber(vwnd);
-        vwm_panel_update_taskcount(vwnd);
+        vwm_panel_update_taskcount(vwm_panel);
     }
 
-    /* update clock and marshall the panel once every second.  */
     if((vwm_panel->clock % VWM_CLOCK_TICKS_PER_SEC) == 0)
     {
-        vwm_panel_update_clock(vwnd);
+        vwm_panel_update_clock(vwm_panel);
     }
 
-    vwm_panel_display(vwm_panel, vwnd);
+    vwm_panel_display(vwm_panel);
 
-    viper_window_redraw(vwnd);
+    vk_box_update(vwm_panel->box);
 
-    return 0;
+    vk_marquee_run(vwm_panel->status_marquee);
+    vk_box_update(vwm_panel->status_box);
 }
 
 void
-vwm_panel_update_throbber(vwnd_t *vwnd)
+vwm_panel_update_throbber(VWM_PANEL *panel)
 {
-    int             throbber[] = {'-', '\\', '|', '/'};
-	static uint8_t	position = 0;
-    int             x, y;
-
-	position++;
-	position = position % 4;
-    getmaxyx(VWINDOW(vwnd), y, x);
-
-    wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK,COLOR_CYAN));
-    mvwaddch(VWINDOW(vwnd), 0, x - 1, throbber[position]);
-
-    (void)y;
-
-	return;
+    vk_activity_run(panel->activity);
 }
 
 void
-vwm_panel_update_taskcount(vwnd_t *vwnd)
+vwm_panel_update_taskcount(VWM_PANEL *panel)
 {
     extern vwm_sched_t  *sched;
-    int                 x, y;
+    char                buf[8];
     int                 n;
 
-    getmaxyx(VWINDOW(vwnd), y, x);
-
     n = vwm_sched_active_count(sched);
+    snprintf(buf, sizeof(buf), " %2d ", n);
 
-    wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_WHITE, COLOR_MAGENTA));
-    mvwprintw(VWINDOW(vwnd), 0, x - 26, " %2d ", n);
-
-    (void)y;
-
-    return;
+    vk_label_set_text(panel->task_label, buf);
+    vk_label_update(panel->task_label);
 }
 
 void
-vwm_panel_update_clock(vwnd_t *vwnd)
+vwm_panel_update_clock(VWM_PANEL *panel)
 {
-	time_t			clock;
-	struct tm		*local_time;
-    int             x, y;
+    time_t          clock;
+    struct tm       *local_time;
+    char            buf[80];
 
-	clock = time(NULL);
-	local_time = localtime((time_t*)&clock);
+    clock = time(NULL);
+    local_time = localtime((time_t*)&clock);
 
-    getmaxyx(VWINDOW(vwnd), y, x);
+    snprintf(buf, sizeof(buf), " %02d/%02d/%04d %02d:%02d:%02d ",
+        local_time->tm_mon + 1, local_time->tm_mday,
+        local_time->tm_year + 1900,
+        local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
 
-    wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK,COLOR_CYAN));
-    mvwprintw(VWINDOW(vwnd), 0, x - 22," %02d/%02d/%04d %02d:%02d:%02d ",
-		local_time->tm_mon + 1, local_time->tm_mday, local_time->tm_year + 1900,
-		local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
-
-    // squelch compiler warnings
-    (void)y;
-
-	return;
+    vk_label_set_text(panel->clock_label, buf);
+    vk_label_update(panel->clock_label);
 }
 
 void
-vwm_panel_display(VWM_PANEL *vwm_panel, vwnd_t *vwnd)
-{
-    VWM_PANEL_MSG       *vwm_panel_msg;
-    int                 i;
-
-    if(list_empty(&vwm_panel->msg_list) || vwm_panel->display == NULL)
-    {
-        if(vwm_panel->display_sz > 0)
-        {
-            wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK, COLOR_WHITE));
-            mvwprintw(VWINDOW(vwnd), 0, 0, "%*c", vwm_panel->display_sz, ' ');
-            return;
-        }
-    }
-
-    vwm_panel_msg = list_first_entry(&vwm_panel->msg_list, VWM_PANEL_MSG, list);
-
-    /* write to panel.  */
-    wattroff(VWINDOW(vwnd), VIPER_COLORS(COLOR_BLACK,COLOR_WHITE));
-    mvwprintw(VWINDOW(vwnd), 0, 0, "%s", vwm_panel_msg->msg);
-    i = vwm_panel->display_sz - strlen(vwm_panel_msg->msg);
-    if(i > 0) wprintw(VWINDOW(vwnd), "%*c", i, ' ');
-
-    return;
-}
-
-void
-vwm_panel_scroll(VWM_PANEL *vwm_panel)
+vwm_panel_display(VWM_PANEL *vwm_panel)
 {
     VWM_PANEL_MSG       *vwm_panel_msg;
 
-    /*
-        don't do anything if there are no messages to display or the panel
-        is frozen.
-    */
     if(list_empty(&vwm_panel->msg_list))
     {
-        vwm_panel->pos = NULL;
+        vk_label_set_text(vwm_panel->msg_label, vwm_panel->msg_default);
+        vk_label_update(vwm_panel->msg_label);
         return;
     }
 
-    /* do nothing if panel is frozen.   */
-    if(vwm_panel->state & VWM_PANEL_STATE_FROZEN) return;
+    vwm_panel_msg = list_first_entry(&vwm_panel->msg_list,
+        VWM_PANEL_MSG, list);
 
-    // rotate the list and point the next entry
-    list_rotate_left(&vwm_panel->msg_list);
-
-    vwm_panel_msg = list_first_entry(&vwm_panel->msg_list, VWM_PANEL_MSG, list);
-    vwm_panel->pos = vwm_panel_msg->msg;
-    vwm_panel->thaw_timer = vwm_panel->thaw_rate;
-    vwm_panel->state |= VWM_PANEL_STATE_FROZEN;
-
-    return;
+    vk_label_set_text(vwm_panel->msg_label, vwm_panel_msg->msg);
+    vk_label_update(vwm_panel->msg_label);
 }
 
 uintmax_t
 vwm_panel_message_add(char *msg, int timeout)
 {
-    vwnd_t          *vwnd;
     VWM_PANEL       *vwm_panel;
     VWM_PANEL_MSG   *vwm_panel_msg;
 
     if(msg == NULL) return 0;
 
-    vwnd = vwm_panel_get_instance();
-    vwm_panel = viper_window_get_userptr(vwnd);
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return 0;
 
     if(timeout == 0 || timeout > VWM_PANEL_MSG_TTL_MAX)
         timeout = VWM_PANEL_MSG_TTL_MAX;
 
-    /* create new panel message object. */
     vwm_panel_msg = (VWM_PANEL_MSG*)calloc(1, sizeof(VWM_PANEL_MSG));
     vwm_panel_msg->msg = strdup_printf("%s",msg);
     vwm_panel_msg->msg_len = strlen(msg);
@@ -361,7 +678,6 @@ vwm_panel_message_add(char *msg, int timeout)
     list_add(&vwm_panel_msg->list, &vwm_panel->msg_list);
     vwm_panel->msg_count++;
 
-    /* always start the panel frozen.   */
     if(vwm_panel->msg_count == 1)
     {
         vwm_panel->state |= VWM_PANEL_STATE_FROZEN;
@@ -374,15 +690,14 @@ vwm_panel_message_add(char *msg, int timeout)
 void
 vwm_panel_message_del(uintmax_t msg_id)
 {
-    vwnd_t              *vwnd;
     VWM_PANEL           *vwm_panel;
     VWM_PANEL_MSG       *vwm_panel_msg;
     struct list_head    *pos;
 
     if(msg_id == 0) return;
 
-    vwnd = vwm_panel_get_instance();
-    vwm_panel = viper_window_get_userptr(vwnd);
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return;
 
     list_for_each(pos, &vwm_panel->msg_list)
     {
@@ -410,15 +725,14 @@ vwm_panel_message_del(uintmax_t msg_id)
 int
 vwm_panel_message_touch(uintmax_t msg_id)
 {
-    vwnd_t              *vwnd;
     VWM_PANEL           *vwm_panel;
     VWM_PANEL_MSG       *vwm_panel_msg;
     struct list_head    *pos;
 
     if(msg_id == 0) return -1;
 
-    vwnd = vwm_panel_get_instance();
-    vwm_panel = viper_window_get_userptr(vwnd);
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return -1;
 
     list_for_each(pos, &vwm_panel->msg_list)
     {
@@ -441,15 +755,14 @@ vwm_panel_message_touch(uintmax_t msg_id)
 int
 vwm_panel_message_promote(uintmax_t msg_id)
 {
-    vwnd_t              *vwnd;
     VWM_PANEL           *vwm_panel;
     VWM_PANEL_MSG       *vwm_panel_msg;
     struct list_head    *pos;
 
     if(msg_id == 0) return -1;
 
-    vwnd= vwm_panel_get_instance();
-    vwm_panel = viper_window_get_userptr(vwnd);
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return -1;
 
     list_for_each(pos, &vwm_panel->msg_list)
     {
@@ -465,7 +778,6 @@ vwm_panel_message_promote(uintmax_t msg_id)
         list_move(pos, &vwm_panel->msg_list);
 
         vwm_panel->thaw_timer = vwm_panel->thaw_rate;
-        vwm_panel->pos = vwm_panel_msg->msg;
     }
 
     return 0;
@@ -474,15 +786,14 @@ vwm_panel_message_promote(uintmax_t msg_id)
 uintmax_t
 vwm_panel_message_find(char *msg)
 {
-    vwnd_t              *vwnd;
     VWM_PANEL           *vwm_panel;
     VWM_PANEL_MSG       *vwm_panel_msg;
     struct list_head    *pos;
 
     if(msg == NULL) return 0;
 
-    vwnd = vwm_panel_get_instance();
-    vwm_panel = viper_window_get_userptr(vwnd);
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return 0;
 
     list_for_each(pos, &vwm_panel->msg_list)
     {
@@ -493,8 +804,144 @@ vwm_panel_message_find(char *msg)
         vwm_panel_msg = NULL;
     }
 
+    if(vwm_panel_msg == NULL) return 0;
+
     return vwm_panel_msg->msg_id.msg_handle;
 }
 
+void
+vwm_panel_set_status(const char *text)
+{
+    VWM_PANEL   *vwm_panel;
 
+    vwm_panel = vwm_panel_get_data();
+    if(vwm_panel == NULL) return;
 
+    vk_marquee_set_text(vwm_panel->status_marquee, text);
+}
+
+static int
+vwm_calendar_kmio(vk_object_t *object, int32_t keystroke)
+{
+    vk_calendar_t   *calendar = VK_CALENDAR(object);
+
+    switch(keystroke)
+    {
+        case KEY_LEFT:
+            vk_calendar_prev_month(calendar);
+            break;
+
+        case KEY_RIGHT:
+            vk_calendar_next_month(calendar);
+            break;
+
+        case 27:
+            vwm_calendar_close();
+            return 0;
+
+        default:
+            return -1;
+    }
+
+    vk_calendar_update(calendar);
+
+    {
+        vwm_t *vwm = vwm_get_instance();
+        if(vwm->calendar_popup != NULL)
+            vk_window_update(vwm->calendar_popup);
+    }
+
+    return 0;
+}
+
+void
+vwm_calendar_toggle(void)
+{
+    vwm_t           *vwm;
+    VWM_PANEL       *vwm_panel;
+
+    vwm = vwm_get_instance();
+    vwm_panel = vwm_panel_get_data();
+
+    if(vwm->calendar_popup != NULL)
+    {
+        vwm_calendar_close();
+        return;
+    }
+
+    {
+        vk_calendar_t   *calendar;
+        vk_window_t     *window;
+        int             clock_x, clock_y;
+        int             clock_w, clock_h;
+        int             cal_w = 22;
+        int             cal_h = 8;
+        int             win_w = cal_w + 2;
+        int             win_h = cal_h + 2;
+        int             pos_x, pos_y;
+        int             scr_w, scr_h;
+
+        calendar = vk_calendar_create();
+        vk_widget_set_colors(VK_WIDGET(calendar), COLOR_BLUE, COLOR_CYAN);
+        vk_calendar_set_highlight(calendar, COLOR_BLACK, COLOR_RED);
+        vk_calendar_set_dimmed(calendar, COLOR_BLACK, COLOR_CYAN);
+        vk_calendar_set_dimmed_attrs(calendar, A_BOLD);
+        vk_calendar_set_header_colors(calendar, COLOR_WHITE, COLOR_CYAN);
+        vk_calendar_set_header_attrs(calendar, A_BOLD);
+        vk_object_set_kmio(VK_OBJECT(calendar), vwm_calendar_kmio);
+
+        window = vk_window_create(win_w, win_h);
+        vk_window_set_border_style(window, VK_BORDER_SINGLE);
+        vk_window_set_border_colors(window, COLOR_BLACK, COLOR_CYAN);
+        vk_window_set_child(window, VK_WIDGET(calendar));
+
+        vk_widget_get_position(VK_WIDGET(vwm_panel->clock_label),
+            &clock_x, &clock_y);
+        vk_widget_get_metrics(VK_WIDGET(vwm_panel->clock_label),
+            &clock_w, &clock_h);
+        getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+        (void)scr_h;
+
+        pos_x = clock_x + clock_w - win_w;
+        if(pos_x < 0) pos_x = 0;
+        if(pos_x + win_w > scr_w) pos_x = scr_w - win_w;
+
+        pos_y = 1;
+
+        vk_widget_move(VK_WIDGET(window), pos_x, pos_y);
+        vk_screen_attach_widget(vwm->screen,
+            vk_screen_get_active_surface(vwm->screen), VK_WIDGET(window));
+
+        vk_calendar_update(calendar);
+        vk_window_update(window);
+
+        vwm->calendar_popup = window;
+    }
+}
+
+void
+vwm_calendar_close(void)
+{
+    vwm_t           *vwm;
+    vk_window_t     *popup;
+    vk_calendar_t   *calendar;
+
+    vwm = vwm_get_instance();
+    popup = vwm->calendar_popup;
+
+    if(popup == NULL) return;
+
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen), VK_WIDGET(popup));
+
+    calendar = VK_CALENDAR(vk_window_get_child(popup));
+
+    /* detach the child while both are still valid: otherwise the window
+       dtor list_del()s a freed calendar node and corrupts the heap */
+    vk_window_set_child(popup, NULL);
+
+    vk_calendar_destroy(calendar);
+    vk_window_destroy(popup);
+
+    vwm->calendar_popup = NULL;
+}

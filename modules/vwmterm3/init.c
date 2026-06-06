@@ -21,9 +21,8 @@
 #include <fcntl.h>
 #include <dlfcn.h>
 
-#include <viper.h>
+#include <vdk.h>
 #include <vterm.h>
-//#include <protothread.h>
 
 #include "vwmterm.h"
 #include "events.h"
@@ -34,16 +33,24 @@
 #include "../../vwm.h"
 #include "../../modules.h"
 #include "../../private.h"
+#include "../../panel.h"
+#include "../../winman.h"
 #include "../../protothread.h"
 #include "../../sched.h"
 
 int
 vwm_mod_init(const char *modpath);
 
-static vwnd_t*
+static vk_window_t*
 vwmterm_main(vwm_module_t *mod);
 
-// constructor
+static short
+vwmterm_pair_selector(vterm_t *vterm, short fg, short bg)
+{
+    (void)vterm;
+    return vdk_color_pair(fg, bg);
+}
+
 int
 vwm_mod_init(const char *modpath)
 {
@@ -52,7 +59,8 @@ vwm_mod_init(const char *modpath)
 
     (void)modpath;
 
-	// preload libutil for use with this module.
+    vwmterm_init_keycodes();
+
 	dynlib = dlopen("libutil.so", RTLD_LAZY | RTLD_GLOBAL);
     if(dynlib == NULL)
     {
@@ -60,7 +68,6 @@ vwm_mod_init(const char *modpath)
         return -1;
     }
 
-    // preload libvterm for use with this module
     dynlib = dlopen("libvterm.so", RTLD_LAZY | RTLD_GLOBAL);
     if(dynlib == NULL)
     {
@@ -68,7 +75,6 @@ vwm_mod_init(const char *modpath)
         return -1;
     }
 
-	// configure and register module for color instance
     mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
 
     VWM_MODULE(mod)->main = vwmterm_main;
@@ -77,11 +83,10 @@ vwm_mod_init(const char *modpath)
     vwm_module_set_name(VWM_MODULE(mod), "vterm-color");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (color)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
-    mod->flags = VTERM_FLAG_RXVT;
+    mod->flags = VTERM_FLAG_XTERM;
 
 	vwm_module_add(VWM_MODULE(mod));
 
-	// allloc, configure, and register module for vt100 instance
     mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
 
     VWM_MODULE(mod)->main = vwmterm_main;
@@ -94,7 +99,6 @@ vwm_mod_init(const char *modpath)
 
 	vwm_module_add(VWM_MODULE(mod));
 
-	// allloc, configure, and register module for fullscreen  instance
     mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
 
     VWM_MODULE(mod)->main = vwmterm_main;
@@ -108,7 +112,6 @@ vwm_mod_init(const char *modpath)
 
 	vwm_module_add(VWM_MODULE(mod));
 
-	// allloc, configure, and register module for xterm instance
     mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
 
     VWM_MODULE(mod)->main = vwmterm_main;
@@ -121,7 +124,6 @@ vwm_mod_init(const char *modpath)
 
 	vwm_module_add(VWM_MODULE(mod));
 
-	// allloc, configure, and register module for vt100 instance
     mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
 
     VWM_MODULE(mod)->main = vwmterm_main;
@@ -134,100 +136,157 @@ vwm_mod_init(const char *modpath)
 
 	vwm_module_add(VWM_MODULE(mod));
 
+    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
+
+    VWM_MODULE(mod)->main = vwmterm_main;
+    VWM_MODULE(mod)->clone = vwmterm_module_clone;
+    VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    vwm_module_set_name(VWM_MODULE(mod), "vterm-truecolor");
+    vwm_module_set_title(VWM_MODULE(mod), "VTerm (truecolor)");
+    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
+    mod->flags = VTERM_FLAG_TRUECOLOR;
+
+	vwm_module_add(VWM_MODULE(mod));
+
 	return 0;
 }
 
-vwnd_t*
+vk_window_t*
 vwmterm_main(vwm_module_t *mod)
 {
+    vwm_t                   *vwm;
     vwmterm_mod_t           *vwmterm_mod;
     vwmterm_data_t          *vwmterm_data;
     vterm_t                 *vterm;
-	vwnd_t	      	        *vwnd;
+    vk_window_t             *window;
+    vk_widget_t             *content;
 	int		      	        width, height;
+    int                     scr_width, scr_height;
 
     extern vwm_sched_t      *sched;
     vwm_sched_ctx_t         *ctx_vwmterm;
     extern int              shutdown;
 
+    vwm = vwm_get_instance();
     vwmterm_mod = (vwmterm_mod_t *)mod;
 
-    getmaxyx(CURRENT_SCREEN, height, width);
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
 
-    // if the term is not fullscreen, calculate a sane window size
     if(vwmterm_mod->fullscreen == FALSE)
     {
-        if(height > 30 && width > 84)
+        if(scr_height > 30 && scr_width > 84)
         {
             height = 25;
             width = 80;
         }
         else
         {
-            // calculate scaled window size
-	        window_get_size_scaled(NULL, &width, &height, 0.85, 0.65);
-	        if(width > 80) width = 80;
-	        if(height > 25) height = 25;
+            width = (int)((scr_width + 1) * 0.85);
+            height = (int)((scr_height + 1) * 0.65);
+		    if(width > 80) width = 80;
+		    if(height > 25) height = 25;
         }
-    }
-
-    // vterm = vterm_create(width, height, vwmterm_mod->flags);
-    vterm = vterm_alloc();
-    vterm_set_exec(vterm, vwmterm_mod->bin_path, vwmterm_mod->exec_args);
-    vterm_init(vterm, width, height, vwmterm_mod->flags);
-    vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
-
-    // setup SIGIO responsiveness
-    vterm_init_sigio(vterm);
-
-    // create window
-    if(vwmterm_mod->fullscreen == FALSE)
-    {
-	    vwnd = viper_window_create(CURRENT_SCREEN_ID, TRUE, " VTerm ",
-            0.5, 0.5, width, height);
-        viper_window_set_resizable(vwnd, TRUE);
-	    viper_window_set_limits(vwnd, 15, 2, WSIZE_UNCHANGED, WSIZE_UNCHANGED);
     }
     else
     {
-        vwnd = viper_window_create(CURRENT_SCREEN_ID, FALSE, " VTerm ",
-            0, 0, WSIZE_FULLSCREEN, WSIZE_FULLSCREEN);
-        viper_window_set_resizable(vwnd, FALSE);
+        width = scr_width;
+        height = scr_height;
     }
 
-    // libviper set the default bkgd OR to WHITE on BLACK.  undo it.
-    wbkgdset(VWINDOW(vwnd), 0);
-	wattron(VWINDOW(vwnd), VIPER_COLORS(COLOR_WHITE,COLOR_BLACK));
+    vterm = vterm_alloc();
+    vterm_set_exec(vterm, vwmterm_mod->bin_path, vwmterm_mod->exec_args);
+    vterm_init(vterm, width, height, vwmterm_mod->flags);
+    vterm_set_pair_selector(vterm, vwmterm_pair_selector);
+    vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
 
-    // init terminal
-    vterm_wnd_set(vterm, VWINDOW(vwnd));
+    vterm_init_sigio(vterm);
+
+    if(vwmterm_mod->fullscreen == FALSE)
+    {
+        char raw_title[64];
+        char title[68];
+        vwm_module_get_title(mod, raw_title, sizeof(raw_title));
+        snprintf(title, sizeof(title), " %s ", raw_title);
+
+        window = vk_window_create(width + 2, height + 2);
+        vk_window_set_title(window, title);
+        vk_window_set_border_style(window, VK_BORDER_SINGLE);
+        vk_window_set_decorate(window, vwm_window_decorate, NULL);
+
+        content = vk_widget_create(width, height);
+        vk_widget_set_state(content,
+            vk_widget_get_state(content) | VK_STATE_EXPAND);
+    }
+    else
+    {
+        window = vk_window_create(width, height);
+        vk_window_set_border_style(window, VK_BORDER_NONE);
+
+        uint32_t state = vk_widget_get_state(VK_WIDGET(window));
+        vk_widget_set_state(VK_WIDGET(window), state | VK_STATE_NORESIZE);
+
+        content = vk_widget_create(width, height);
+    }
+
+    wbkgdset(vk_widget_get_canvas(content), 0);
+    wattron(vk_widget_get_canvas(content),
+        COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLACK)));
+
+    vterm_wnd_set(vterm, vk_widget_get_canvas(content));
     vterm_erase(vterm, -1, ' ');
 
-    // allocate thread context and stateful data
+    vk_window_set_child(window, content);
+    vk_object_set_kmio(VK_OBJECT(window), vwmterm_ON_KEYSTROKE);
+
     vwmterm_data = (vwmterm_data_t*)calloc(1, sizeof(vwmterm_data_t));
     ctx_vwmterm = calloc(1, sizeof(vwm_sched_ctx_t));
 
-    // initialize stateful data
-    vwmterm_data->vwnd = vwnd;
+    vwmterm_data->window = window;
     vwmterm_data->vterm = vterm;
+    vwmterm_data->mod = mod;
     vwmterm_data->state = VWMTERM_STATE_RUNNING;
+
+    vk_widget_set_userptr(VK_WIDGET(window), (void *)vwmterm_data);
 
     ctx_vwmterm->anything = (void *)vwmterm_data;
     ctx_vwmterm->shutdown = &shutdown;
 
-    // attach event handlers
-    viper_event_set(vwnd, "term-resized",
-        vwmterm_ON_SCREEN_RESIZED,
-            vwmterm_mod->fullscreen ? (void *)"fullscreen" : NULL);
-	viper_event_set(vwnd, "window-resized",
-        vwmterm_ON_RESIZE, (void *)vterm);
-	viper_event_set(vwnd, "window-close",
+    vk_object_register_event(VK_OBJECT(window), VWM_EVENT_ON_CLOSE,
         vwmterm_ON_CLOSE, (void *)vwmterm_data);
-	viper_window_set_key_func(vwnd,
-        vwmterm_ON_KEYSTROKE);
-	viper_window_set_userptr(vwnd, (void*)vterm);
+    /*
+        Register ON_RESIZE with vwmterm_data, not the raw vterm pointer.
+        Capturing vterm here makes the handler's payload dangle as soon
+        as vterm_destroy runs in ON_CLOSE -- the very UAF that crashed
+        the active-buffer realloc.  Routing through vwmterm_data lets
+        the handler read vwmterm_data->vterm fresh and bail when it is
+        NULL (set by ON_CLOSE after destroy).
+    */
+    vk_object_register_event(VK_OBJECT(window), VK_EVENT_ON_RESIZE,
+        vwmterm_ON_RESIZE, (void *)vwmterm_data);
+
+    /*
+        ON_RECREATE fires after a teleport, when libviper rebuilds the
+        widget's underlying ncurses WINDOW in the new SCREEN.  the cached
+        WINDOW pointer in libvterm is then dead -- rebind to the fresh
+        canvas and force a full redraw.
+    */
+    vk_object_register_event(VK_OBJECT(window), VK_EVENT_ON_RECREATE,
+        vwmterm_ON_RECREATE, (void *)vwmterm_data);
+
+    if(vwmterm_mod->fullscreen == FALSE)
+    {
+        int pos_x = (scr_width - (width + 2)) / 2;
+        int pos_y = (scr_height - (height + 2)) / 2;
+        vk_widget_move(VK_WIDGET(window), pos_x, pos_y);
+    }
+    else
+    {
+        vk_widget_move(VK_WIDGET(window), 0, 0);
+    }
 
     vwm_sched_task_create(sched, ctx_vwmterm, vwmterm_thd, VWM_SCHED_NORMAL);
 
-	return vwnd;
+    vwm_panel_set_status(VWM_WINDOW_HELP);
+
+	return window;
 }

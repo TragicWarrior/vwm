@@ -2,19 +2,13 @@
 #define _H_VWM_MENU_
 
 #include <ncursesw/curses.h>
-// #include <ncursesw/menu.h>
 
 #define VWM_HOTKEY_MENU     (27 | (96 << 8))
 
-#define VWM_MAIN_MENU_HELP \
-"Press [alt ~] for Main Menu"
-
-vwnd_t* vwm_main_menu(void);
-int	    vwm_main_menu_hotkey(void);
-
-/*	viper events	*/
-int 	vwm_main_menu_ON_CLOSE(vwnd_t *vwnd, void *arg);
-
-int 	vwm_main_menu_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd);
+void            vwm_menubar_init(void);
+int             vwm_menubar_hotkey(void);
+void            vwm_menubar_close_dropdown(void);
+int             vwm_menubar_ON_KEYSTROKE(int32_t keystroke);
+int             vwm_dropdown_mouse(MEVENT *mouse_event);
 
 #endif

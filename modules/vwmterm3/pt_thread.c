@@ -19,17 +19,12 @@
 
 #include <unistd.h>
 
-#ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
-#else
-#include <curses.h>
-#endif
 
 #include <sys/types.h>
 
-#include <viper.h>
+#include <vdk.h>
 #include <vterm.h>
-// #include <protothread.h>
 
 #include "vwmterm.h"
 #include "events.h"
@@ -37,6 +32,7 @@
 
 #include "../../vwm.h"
 #include "../../private.h"
+#include "../../winman.h"
 #include "../../protothread.h"
 #include "../../sched.h"
 
@@ -49,44 +45,64 @@
 
 pt_t vwmterm_thd(void * const env)
 {
-    vwnd_t              *vwnd;
+    vwm_t               *vwm;
+    vk_window_t         *window;
     vterm_t             *vterm;
     ssize_t             bytes_read;
     int                 i;
+    int                 history_sz;
+    int                 width, height;
+    int                 offset;
 
     vwm_sched_ctx_t     *ctx_vwmterm;
     vwmterm_data_t      *vwmterm_data;
 
-    // the stack gets lost on every iteration so we need to copy
     ctx_vwmterm = (vwm_sched_ctx_t *)env;
     vwmterm_data = (vwmterm_data_t *)ctx_vwmterm->anything;
-    vwnd = vwmterm_data->vwnd;
+    window = vwmterm_data->window;
     vterm = vwmterm_data->vterm;
+    vwm = vwm_get_instance();
 
     pt_resume(ctx_vwmterm);
 
     do
     {
-        // check to see if thread is exiting
         if(vwmterm_data->state == VWMTERM_STATE_EXITING) break;
 
-        /* drain up to VWMTERM_DRAIN_CHUNKS chunks per dispatch */
+        if(vwmterm_data->frozen)
+        {
+            pt_yield(ctx_vwmterm);
+            continue;
+        }
+
         bytes_read = 0;
         for(i = 0; i < VWMTERM_DRAIN_CHUNKS; i++)
         {
             bytes_read = vterm_read_pipe(vterm, 10);
             if(bytes_read <= 0) break;
 
-            vterm_wnd_update(vterm, -1, 0, 0);
+            if(vwmterm_data->scroll_offset > 0)
+            {
+                vterm_wnd_size(vterm, &width, &height);
+                history_sz = vterm_get_history_size(vterm);
+                offset = history_sz - height - vwmterm_data->scroll_offset;
+                if(offset < 0) offset = 0;
+                vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
+                    VTERM_WND_RENDER_ALL);
+            }
+            else
+            {
+                vterm_wnd_update(vterm, -1, 0, 0);
+            }
             vwmterm_data->redraw_pending = 1;
         }
 
-        // pipe empty: flush any pending redraw, then yield
         if(bytes_read == 0)
         {
             if(vwmterm_data->redraw_pending)
             {
-                viper_window_redraw(vwnd);
+                vk_window_update(window);
+                vk_screen_refresh(vwm->screen);
                 vwmterm_data->redraw_pending = 0;
             }
 
@@ -95,29 +111,24 @@ pt_t vwmterm_thd(void * const env)
             continue;
         }
 
-        // handle pipe error condition
         if(bytes_read == -1)
         {
             vwmterm_data->state = VWMTERM_STATE_EPIPE;
             break;
         }
 
-        // chunk budget exhausted; mark busy and yield
         ctx_vwmterm->did_work = 1;
         pt_yield(ctx_vwmterm);
     }
     while(!(*ctx_vwmterm->shutdown));
 
-    /*
-        call for a window close *only* if VWM is shutting down
-        or there was a pipe error.
-    */
     if(*ctx_vwmterm->shutdown || bytes_read == -1)
     {
-        viper_window_close(vwnd);
+        vwm_default_WINDOW_CLOSE(VK_WIDGET(window));
     }
 
-    vterm_destroy(vwmterm_data->vterm);
+    if(vwmterm_data->vterm != NULL)
+        vterm_destroy(vwmterm_data->vterm);
 
     free(vwmterm_data);
     free(ctx_vwmterm);

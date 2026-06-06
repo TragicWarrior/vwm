@@ -1,10 +1,11 @@
 #ifndef _VWM_MODULES_H_
 #define _VWM_MODULES_H_
 
+#include <stdbool.h>
 #include <stdarg.h>
 #include <limits.h>
 
-#include <viper.h>
+#include <vdk.h>
 
 // ensure that x-macro for modules.def is not already defined
 #ifdef  X_MOD
@@ -38,19 +39,22 @@ struct _vwm_module_s
     int                     type;               // classificaton of module
 
     int                     zone;               // built-in, or user loaded
+    bool                    hidden;
 
     vwm_module_t*           (*clone)            (vwm_module_t *);
     int                     (*configure)        (vwm_module_t *, va_list *);
 
     struct list_head        list;
 
-    vwnd_t*                 (*main)             (vwm_module_t *);
+    vk_window_t*            (*main)             (vwm_module_t *);
     void                    *anything;
 };
 
 // this is the standard callback which clones a module
 vwm_module_t*   vwm_module_simple_clone(vwm_module_t *mod);
 int             vwm_module_set_zone(vwm_module_t *mod, int zone);
+void            vwm_module_set_hidden(vwm_module_t *mod, bool hidden);
+bool            vwm_module_is_hidden(vwm_module_t *mod);
 
 int vwm_menu_helper(vk_widget_t *widget, void *anything);
 

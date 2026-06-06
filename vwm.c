@@ -30,6 +30,7 @@
 #include <signal.h>
 #include <time.h>
 
+#include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/select.h>
 #include <sys/time.h>
@@ -38,7 +39,8 @@
 #include <sys/klog.h>
 #endif
 
-#include <viper.h>
+#include <vdk.h>
+#include <vkmio.h>
 #include "protothread.h"
 #include "sched.h"
 
@@ -56,12 +58,14 @@
 #include "poll_input_thd.h"
 #include "programs.h"
 
-/*
-   According to GNU libc documentation. sig_atomic_t "is always atomic...
-   Reading and writing this data type is guaranteed to happen in a single
-   instruction.  The volatile qualifier appears to be implied for C99
-   but not necessarily true otherwise.
-*/
+static void
+vwm_cursor_overlay(vk_screen_t *screen, int surface_id, WINDOW *canvas);
+
+static int
+vwm_on_surface_change(vk_object_t *object, int event, void *anything);
+
+static int
+vwm_on_teleport(vk_object_t *object, int event, void *anything);
 
 vwm_sched_t             *sched = NULL;
 int                     shutdown = 0;
@@ -105,6 +109,39 @@ int main(int argc,char **argv)
     vwm_argc = argc;
     vwm_argv = argv;
 
+    {
+        bool ignore_tty_size = false;
+        int i;
+
+        for(i = 1; i < argc; i++)
+        {
+            if(strcmp(argv[i], "--ignore-tty-size") == 0)
+            {
+                ignore_tty_size = true;
+                break;
+            }
+        }
+
+        if(!ignore_tty_size)
+        {
+            struct winsize ws;
+
+            if(ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == 0)
+            {
+                if(ws.ws_col < 80 || ws.ws_row < 25)
+                {
+                    fprintf(stderr,
+                        "vwm: terminal too small (%dx%d). "
+                        "Minimum size is 80x25.\n"
+                        "Use --ignore-tty-size to bypass "
+                        "this check.\n",
+                        ws.ws_col, ws.ws_row);
+                    return 1;
+                }
+            }
+        }
+    }
+
 	/*
         set the locale to the default settings (as configured by env).
 		this is required for ncurses to work properly.
@@ -133,6 +170,9 @@ int main(int argc,char **argv)
 
 	// ignore terminal interrupt signal
     vwm_sigset(SIGINT, SIG_IGN);
+
+    // unwind cleanly on SIGTERM so the terminal gets restored
+    vwm_sigset(SIGTERM, vwm_SIGTERM);
     vwm_sigset(SIGPIPE, SIG_IGN);
 
 #ifdef _DEBUG
@@ -146,32 +186,28 @@ int main(int argc,char **argv)
 	flags = fcntl(STDIN_FILENO, F_GETFL);
 	fcntl(STDIN_FILENO,F_SETFL, flags | FASYNC);
 
-    viper_init(VIPER_GPM_SIGIO);
-    viper_set_border_agent(vwm_default_border_agent_unfocus, 0);
-    viper_set_border_agent(vwm_default_border_agent_focus, 1);
-
 	// use the integrated window manager
 	vwm = vwm_init();
-    vwm_panel_init();
+    vwm_panel_init(vwm);
 
-    // set hook to trap and filter keystrokes for window-management
-    // viper_kmio_dispatch_set_hook(KMIO_HOOK_ENTER,
-        // vwm_kmio_dispatch_hook_enter);
-
-    viper_screen_redraw(0, REDRAW_BACKGROUND);
-	viper_screen_redraw(0, REDRAW_ALL);
+    vk_screen_refresh(vwm->screen);
 
     vwm_modules_preload(vwm);
+    vwm_menubar_init();
     vwm_settings_load(vwm);
+    vwm_apply_surface_count(vwm->surface_count);
+    /* settings + surfaces are now both live; seed each desktop's bkgd */
+    vwm_apply_desktop_bkgd_all();
     vwm_programs_load(vwm);
 
-    vwm_panel_message_add(VWM_MAIN_MENU_HELP,-1);
+    vk_screen_refresh(vwm->screen);
 
     vwm_sched_run(sched, &shutdown);
 
     vwm_sched_deinit(sched);
 
-    viper_end();
+    vk_kmio_shutdown(vk_screen_get_fd(vwm->screen));
+    vk_screen_destroy(vwm->screen);
     fsync(fd);
 	close(fd);
 
@@ -182,33 +218,248 @@ vwm_t*
 vwm_init(void)
 {
 	static vwm_t    *vwm = NULL;
-    int             width;
-    int             height;
-    int             screen_id;
 
 	if(vwm == NULL)
 	{
-        screen_id = CURRENT_SCREEN_ID;
-        getmaxyx(CURRENT_SCREEN, height, width);
-
  		vwm = (vwm_t*)calloc(1, sizeof(vwm_t));
 
-        vwm->wallpaper[screen_id] = newwin(height, width, 0, 0);
+        vwm->screen = vk_screen_create();
+        vdk_color_init();
+        vk_kmio_init(vk_screen_get_fd(vwm->screen),
+            VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO);
+        nodelay(stdscr, TRUE);
 
-        viper_screen_set_wallpaper(screen_id, vwm->wallpaper[screen_id],
-            vwm_bkgd_simple_normal);
+        vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
+
+        strncpy(vwm->task_indicator_action, "none", NAME_MAX - 1);
+        strncpy(vwm->date_click_action, "calendar", NAME_MAX - 1);
+        vwm->screensaver_cmd[0] = '\0';
+        vwm->screensaver_timeout = 0;
+        vwm->clipboard_mode = VWM_CLIPBOARD_BOTH;
+        {
+            /* sensible defaults per desktop -- diverse colors so a
+               fresh vwm still has the original per-surface identity */
+            short defaults[VWM_MAX_DESKTOPS] = {
+                COLOR_BLUE, COLOR_RED, COLOR_CYAN,
+                COLOR_GREEN, COLOR_MAGENTA, COLOR_YELLOW
+            };
+            int   k;
+            for(k = 0; k < VWM_MAX_DESKTOPS; k++)
+            {
+                vwm->desktop_color[k] = defaults[k];
+                vwm->desktop_wallpaper[k] = VWM_WALLPAPER_STIPLE;
+            }
+        }
+        vwm->surface_count = 3;
+
+        vwm->decks = calloc(vwm->surface_count, sizeof(vk_deck_t *));
+
+        vwm->decks[0] = vk_deck_create();
+        vk_deck_set_shadow(vwm->decks[0], true);
+        vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm->decks[0]));
+
+        vk_screen_add_surface(vwm->screen);
+        vwm->decks[1] = vk_deck_create();
+        vk_deck_set_shadow(vwm->decks[1], true);
+        vk_screen_attach_widget(vwm->screen, 1, VK_WIDGET(vwm->decks[1]));
+
+        vk_screen_add_surface(vwm->screen);
+        vwm->decks[2] = vk_deck_create();
+        vk_deck_set_shadow(vwm->decks[2], true);
+        vk_screen_attach_widget(vwm->screen, 2, VK_WIDGET(vwm->decks[2]));
+
+        vwm->deck = vwm->decks[0];
+
+        vk_object_register_event(VK_OBJECT(vwm->screen),
+            VK_EVENT_ON_SURFACE_CHANGE, vwm_on_surface_change, NULL);
+
+        vk_object_register_event(VK_OBJECT(vwm->screen),
+            VK_EVENT_ON_TELEPORT, vwm_on_teleport, NULL);
 
         INIT_LIST_HEAD(&vwm->module_list);
 
         vwm->hotkey_menu = VWM_HOTKEY_MENU;
-        vwm->hotkey_menu_msg = VWM_MAIN_MENU_HELP;
+        vwm->hotkey_wm = VWM_HOTKEY_WM;
+        vwm->hotkey_close = 17;
+        vwm->hotkey_cycle = KEY_TAB;
+        vwm->hotkey_move_up = KEY_UP;
+        vwm->hotkey_move_down = KEY_DOWN;
+        vwm->hotkey_move_left = KEY_LEFT;
+        vwm->hotkey_move_right = KEY_RIGHT;
+        vwm->hotkey_grow_h = '+';
+        vwm->hotkey_shrink_h = '-';
+        vwm->hotkey_grow_w = '>';
+        vwm->hotkey_shrink_w = '<';
+        vwm->hotkey_desktop = (27 | (100 << 8));
+        {
+            const char *term = getenv("TERM");
+            if(term != NULL && strcmp(term, "linux") == 0)
+            {
+                vwm->show_cursor = true;
+                vk_screen_set_overlay(vwm->screen, vwm_cursor_overlay);
+            }
+        }
 
         // load user profile
         vwm_profile_init(vwm);
-
-        // todo:  move more init stuff here
     }
 
 	return vwm;
 }
 
+void
+vwm_apply_surface_count(int new_count)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     old_count = vwm->surface_count;
+    int     i;
+
+    if(new_count < 2) new_count = 2;
+    if(new_count > 6) new_count = 6;
+    if(new_count == old_count) return;
+
+    if(new_count > old_count)
+    {
+        vwm->decks = realloc(vwm->decks, new_count * sizeof(vk_deck_t *));
+
+        for(i = old_count; i < new_count; i++)
+        {
+            vk_screen_add_surface(vwm->screen);
+            vwm->decks[i] = vk_deck_create();
+            vk_deck_set_shadow(vwm->decks[i], true);
+            vk_screen_attach_widget(vwm->screen, i,
+                VK_WIDGET(vwm->decks[i]));
+        }
+
+        vwm->surface_count = new_count;
+
+        /* push bkgd onto the freshly-created surfaces */
+        for(i = old_count; i < new_count; i++)
+            vwm_apply_desktop_bkgd(i);
+
+        return;
+    }
+
+    int target = new_count - 1;
+
+    for(i = old_count - 1; i >= new_count; i--)
+    {
+        while(vk_deck_get_top(vwm->decks[i]) != NULL)
+        {
+            vk_widget_t *w = vk_deck_get_top(vwm->decks[i]);
+            vk_deck_remove_widget(vwm->decks[i], w);
+            vk_deck_add_widget(vwm->decks[target], w, VK_DECK_BOTTOM);
+        }
+
+        vk_screen_detach_widget(vwm->screen, i,
+            VK_WIDGET(vwm->decks[i]));
+        vk_deck_destroy(vwm->decks[i]);
+        vk_screen_del_surface(vwm->screen, i);
+
+        /* release the cached wallpaper for the surface we just dropped */
+        vwm_invalidate_wallpaper_cache(i);
+    }
+
+    vwm->decks = realloc(vwm->decks, new_count * sizeof(vk_deck_t *));
+    vwm->surface_count = new_count;
+
+    if(vk_screen_get_active_surface(vwm->screen) >= new_count)
+        vk_screen_set_surface(vwm->screen, target);
+
+    vwm->deck = vwm->decks[vk_screen_get_active_surface(vwm->screen)];
+}
+
+static int
+vwm_on_surface_change(vk_object_t *object, int event, void *anything)
+{
+    vwm_t       *vwm;
+    VWM_PANEL   *panel;
+    int         old_surface;
+    int         new_surface;
+
+    (void)object;
+    (void)event;
+    (void)anything;
+
+    vwm = vwm_get_instance();
+    panel = vwm_panel_get_data();
+
+    new_surface = vk_screen_get_active_surface(vwm->screen);
+
+    for(old_surface = 0; old_surface < vwm->surface_count; old_surface++)
+    {
+        if(old_surface == new_surface) continue;
+
+        vk_screen_detach_widget(vwm->screen, old_surface,
+            VK_WIDGET(panel->box));
+        vk_screen_detach_widget(vwm->screen, old_surface,
+            VK_WIDGET(panel->status_box));
+    }
+
+    vk_screen_attach_widget(vwm->screen, new_surface,
+        VK_WIDGET(panel->box));
+    vk_screen_attach_widget(vwm->screen, new_surface,
+        VK_WIDGET(panel->status_box));
+
+    vwm->deck = vwm->decks[new_surface];
+
+    return 0;
+}
+
+static void
+vwm_cursor_overlay(vk_screen_t *screen, int surface_id, WINDOW *canvas)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     colors;
+
+    (void)screen;
+    (void)surface_id;
+
+    if(!vwm->show_cursor) return;
+
+    colors = COLOR_PAIR(vdk_color_pair(COLOR_YELLOW, COLOR_YELLOW));
+    mvwaddch(canvas, vwm->cursor_y, vwm->cursor_x, ' ' | colors);
+}
+
+/*
+    teleport gives us a brand-new ncurses SCREEN -- color pairs, mouse
+    mask, and the non-blocking flag we set at startup all live in the
+    old SCREEN.  Re-arm them on the new one, then trigger the existing
+    resize cascade so the panel / status bar / open dialogs match the
+    new geometry.
+*/
+static int
+vwm_on_teleport(vk_object_t *object, int event, void *anything)
+{
+    vwm_t   *vwm;
+
+    (void)object;
+    (void)event;
+    (void)anything;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL) return 0;
+
+    vdk_color_init();
+
+    /* the wallpaper-cache WINDOWs belong to the OLD SCREEN that's about
+       to be torn down.  delwin across a different SCREEN corrupts
+       ncurses state (same reason libviper leaks the surface canvases on
+       teleport), so null the slots without freeing -- next refresh in
+       the new SCREEN lazily allocates fresh caches. */
+    vwm_invalidate_wallpaper_cache_all_orphan();
+
+    /* re-arm everything kmio set up at startup against the new SCREEN:
+       mousemask + mouseinterval are SCREEN-local ncurses state, and
+       the \033[?1003h hover escape has to land on the new fd (kmio
+       writes it directly to whatever fd we hand it) */
+    vk_kmio_init(vk_screen_get_fd(vwm->screen),
+        VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO);
+    nodelay(stdscr, TRUE);
+
+    /* queue a KEY_RESIZE so the poll loop runs the same cascade it does
+       for a real terminal resize (panel + status bar + dialogs) */
+    ungetch(KEY_RESIZE);
+
+    return 0;
+}

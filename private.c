@@ -20,7 +20,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include <viper.h>
+#include <vdk.h>
 
 #include "profile.h"
 #include "vwm.h"
@@ -31,70 +31,84 @@
 #include "bkgd.h"
 #include "panel.h"
 
-int
-vwm_default_border_agent_focus(vwnd_t *vwnd, void *anything)
+void
+vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
 {
-	const char		*title;
-	uint32_t		window_state;
-    char            buf[16];
-    int             len;
- 	int		   	    y, x;
+    vwm_t       *vwm;
+    vk_widget_t *top;
+    bool        focused;
+    char        buf[32];
+    int         len;
+    int         y, x;
+    uint32_t    state;
+    short       pair;
+    attr_t      extra;
+    cchar_t     cc;
+    wchar_t     wch[CCHARW_MAX];
+    attr_t      attrs;
+    short       dummy;
+    int         row, col;
 
     (void)anything;
 
-	title = viper_window_get_title(vwnd);
+    vwm = vwm_get_instance();
+    top = vk_deck_get_top(vwm->deck);
+    focused = (top == VK_WIDGET(window));
 
-    window_decorate(WINDOW_FRAME(vwnd), (char*)title,TRUE);
-    getmaxyx(WINDOW_FRAME(vwnd), y, x);
-	mvwprintw(WINDOW_FRAME(vwnd), 0, x - sizeof("[X]") + 1,"[X]");
+    getmaxyx(canvas, y, x);
 
-    // display window size (minus the border)
-    snprintf(buf, sizeof(buf), "[%d x %d]", x - 2, y -2 );
-    len = strlen(buf);
-    mvwprintw(WINDOW_FRAME(vwnd), y - 1, (x / 2) - (len / 2), "%s", buf);
+    if(focused)
+    {
+        pair = vdk_color_pair(COLOR_WHITE, COLOR_MAGENTA);
+        extra = A_BOLD;
+        vk_window_set_border_colors(window, COLOR_WHITE, COLOR_MAGENTA);
+    }
+    else
+    {
+        pair = vdk_color_pair(COLOR_BLACK, COLOR_CYAN);
+        extra = A_NORMAL;
+        vk_window_set_border_colors(window, COLOR_BLACK, COLOR_CYAN);
+    }
 
-    // show resize indicator
-	window_state = viper_window_get_state(vwnd);
-    if(!(window_state & STATE_NORESIZE))
-        mvwaddch(WINDOW_FRAME(vwnd), y - 1, x - 1, '*');
+    for(col = 0; col < x; col++)
+    {
+        mvwin_wch(canvas, 0, col, &cc);
+        getcchar(&cc, wch, &attrs, &dummy, NULL);
+        setcchar(&cc, wch, (attrs & A_ALTCHARSET) | extra, pair, NULL);
+        mvwadd_wch(canvas, 0, col, &cc);
 
-    window_modify_border(WINDOW_FRAME(vwnd), A_BOLD,
-        viper_color_pair(COLOR_WHITE, COLOR_MAGENTA));
+        mvwin_wch(canvas, y - 1, col, &cc);
+        getcchar(&cc, wch, &attrs, &dummy, NULL);
+        setcchar(&cc, wch, (attrs & A_ALTCHARSET) | extra, pair, NULL);
+        mvwadd_wch(canvas, y - 1, col, &cc);
+    }
 
-    return 0;
-}
+    for(row = 1; row < y - 1; row++)
+    {
+        mvwin_wch(canvas, row, 0, &cc);
+        getcchar(&cc, wch, &attrs, &dummy, NULL);
+        setcchar(&cc, wch, (attrs & A_ALTCHARSET) | extra, pair, NULL);
+        mvwadd_wch(canvas, row, 0, &cc);
 
-int
-vwm_default_border_agent_unfocus(vwnd_t *vwnd, void *anything)
-{
-	const char	    *title;
-	uint32_t	    window_state;
-    char            buf[16];
-    int             len;
- 	int		        y, x;
+        mvwin_wch(canvas, row, x - 1, &cc);
+        getcchar(&cc, wch, &attrs, &dummy, NULL);
+        setcchar(&cc, wch, (attrs & A_ALTCHARSET) | extra, pair, NULL);
+        mvwadd_wch(canvas, row, x - 1, &cc);
+    }
 
-    (void)anything;
+    wattron(canvas, COLOR_PAIR(pair) | extra);
 
-	title = viper_window_get_title(vwnd);
+    mvwprintw(canvas, 0, x - (int)sizeof("[X]") + 1, "[X]");
 
-    window_decorate(WINDOW_FRAME(vwnd), (char*)title, TRUE);
-    getmaxyx(WINDOW_FRAME(vwnd), y, x);
-	mvwprintw(WINDOW_FRAME(vwnd), 0, x - sizeof("[X]") + 1, "[X]");
-
-    // display window size (minus the border)
     snprintf(buf, sizeof(buf), "[%d x %d]", x - 2, y - 2);
     len = strlen(buf);
-    mvwprintw(WINDOW_FRAME(vwnd), y - 1, (x / 2) - (len / 2), "%s", buf);
+    mvwprintw(canvas, y - 1, (x / 2) - (len / 2), "%s", buf);
 
-    // show resize indicator
-	window_state = viper_window_get_state(vwnd);
-    if(!(window_state & STATE_NORESIZE))
-        mvwaddch(WINDOW_FRAME(vwnd), y - 1, x - 1, '*');
+    state = vk_widget_get_state(VK_WIDGET(window));
+    if(!(state & VK_STATE_NORESIZE))
+        mvwaddch(canvas, y - 1, x - 1, '*');
 
-    window_modify_border(WINDOW_FRAME(vwnd), A_NORMAL,
-	    viper_color_pair(COLOR_BLACK,COLOR_CYAN));
-
-    return 0;
+    wattroff(canvas, COLOR_PAIR(pair) | extra);
 }
 
 void
@@ -144,7 +158,6 @@ vwm_toggle_winman(vk_widget_t *widget, void *anything)
     (void)widget;
     (void)anything;
 
-    // push window management hotkey into panel
     vwm_panel_ON_KEYSTROKE(VWM_HOTKEY_WM, NULL);
 
     return 0;

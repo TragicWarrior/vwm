@@ -5,21 +5,37 @@
 
 #include <ncursesw/curses.h>
 
+#include <vdk.h>
+
 #include "list.h"
 
 #define  VWM_PANEL_STATE_FROZEN  (1<<1)
 
-/* maximum seconds a message can live on the panel before needing
-   be touched. */
-#define  VWM_PANEL_MSG_TTL_MAX   30       
+#define  VWM_PANEL_MSG_TTL_MAX   30
 
 typedef struct
 {
     struct list_head    msg_list;
     int8_t              msg_count;
-    char                *display;
-    int16_t             display_sz;
-    char                *pos;
+
+    vk_box_t            *box;
+    vk_menubar_t        *menubar;
+    vk_label_t          *msg_label;
+    const char          *msg_default;
+    vk_label_t          *task_label;
+    vk_label_t          *clock_label;
+    vk_activity_t       *activity;
+
+    vk_label_t          *desktop_prompt;
+
+    vk_label_t          *teleport_prompt;
+    char                teleport_text[128];
+    int                 teleport_pos;
+
+    vk_box_t            *status_box;
+    vk_marquee_t        *status_marquee;
+    vk_label_t          *version_label;
+
     int32_t             tick_rate;
     int32_t             freeze_time;
     int32_t             thaw_timer;
@@ -46,16 +62,25 @@ typedef struct
 VWM_PANEL_MSG;
 
 /* panel events   */
-int     vwm_panel_ON_TERM_RESIZED(vwnd_t *vwnd, void *arg);
-int     vwm_panel_ON_CLOCK_TICK(vwnd_t *vwnd, void *arg);
-int     vwm_panel_ON_KEYSTROKE(int32_t keystroke, vwnd_t *vwnd);
+void    vwm_panel_ON_TERM_RESIZED(VWM_PANEL *panel);
+void    vwm_panel_ON_CLOCK_TICK(VWM_PANEL *panel);
+int     vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything);
+
+/* panel data access */
+VWM_PANEL*  vwm_panel_get_data(void);
 
 /* helpers  */
-void	vwm_panel_update_throbber(vwnd_t *vwnd);
-void    vwm_panel_update_taskcount(vwnd_t *vwnd);
-void    vwm_panel_update_clock(vwnd_t *vwnd);
-void    vwm_panel_marshall(vwnd_t *vwnd);
-void    vwm_panel_display(VWM_PANEL *vwm_panel, vwnd_t *vwnd);
-void    vwm_panel_scroll(VWM_PANEL *vwm_panel);
+void    vwm_panel_update_throbber(VWM_PANEL *panel);
+void    vwm_panel_update_taskcount(VWM_PANEL *panel);
+void    vwm_panel_update_clock(VWM_PANEL *panel);
+void    vwm_panel_display(VWM_PANEL *panel);
+void    vwm_panel_set_status(const char *text);
+
+void    vwm_desktop_prompt_show(void);
+
+void    vwm_teleport_prompt_show(void);
+
+void    vwm_calendar_toggle(void);
+void    vwm_calendar_close(void);
 
 #endif

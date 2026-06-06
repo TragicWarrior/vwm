@@ -1,3 +1,35 @@
+Version 4.0.0 (in progress)
+
+*  [Bryan Christ] Per-desktop wallpaper patterns in Settings (None,
+   Stiple, Small Bricks, Large Bricks, Dots 1, Dots 2).  Each desktop
+   gets its own "Desktop N Wallpaper" row alongside the color row.
+   Render dispatcher in bkgd.c; brick patterns fall back to Stiple at
+   render time on non-UTF-8 terminals.
+*  [Bryan Christ] Persist per-desktop colors and wallpapers to the
+   JSON config (settings.desktop_colors, settings.desktop_wallpapers)
+   so picks survive across restarts.  Sized to VWM_MAX_DESKTOPS so
+   shrinking then growing surface_count preserves earlier picks.
+*  [Bryan Christ] Port Edit App and Load Config popups to vk_popup_t.
+*  [Bryan Christ] Add Manage Apps Menu dialog with app list, dropdown
+   controls, edit/load popups, and mouse support.
+*  [Bryan Christ] Add Teleport menu entry: prompts for a PTY path and
+   migrates the active ncurses SCREEN to it via vk_screen_teleport.
+   Recovers from teleport by re-arming colors, mouse mask (incl. hover
+   tracking), and non-blocking input on the new SCREEN; queues a
+   synthetic KEY_RESIZE so the panel + dialogs reflow to the
+   destination's geometry.
+*  [Bryan Christ] SIGTERM handler sets shutdown so the main loop
+   unwinds through vk_screen_destroy -- the terminal is now restored
+   instead of left in raw mode.
+*  [Bryan Christ] Clock driver polls TIOCGWINSZ on the active SCREEN's
+   fd every tick.  After teleport, SIGWINCH no longer reaches vwm
+   (controlling TTY is still the launch terminal); the poll catches
+   destination-PTY resizes and ungetches KEY_RESIZE.
+*  [Bryan Christ] Per-desktop Settings: "Desktop N Color" rows
+   dynamically populate from surface_count.  Each opens a vk_color
+   picker (2x8, single-line dividers, 1x1 cells); on Save, each row's
+   choice writes to vwm->desktop_color[N] and the wallpaper refreshes.
+
 Version 3.3.2
 
 *  [Bryan Christ] Use header only version of protothreads.

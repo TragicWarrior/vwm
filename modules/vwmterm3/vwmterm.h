@@ -3,26 +3,27 @@
 
 #include <inttypes.h>
 
-#include <viper.h>
+#include <vdk.h>
 #include <vterm.h>
 
-#ifdef _VIPER_WIDE
 #include <ncursesw/curses.h>
-#else
-#include <curses.h>
-#endif
-
-#include <viper.h>
 
 #include "../../modules.h"
 #include "../../vwm.h"
 
 struct _vwmterm_data_s
 {
-    vwnd_t          *vwnd;
+    vk_window_t     *window;
     vterm_t         *vterm;
+    vwm_module_t    *mod;
     unsigned int    state;
     int             redraw_pending;
+    int             scroll_offset;
+    int             frozen;
+    int             sel_anchor_row;
+    int             sel_anchor_col;
+    int             sel_end_row;
+    int             sel_end_col;
 };
 
 enum

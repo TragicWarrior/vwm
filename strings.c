@@ -161,9 +161,9 @@ strcatv(char **array, char *string)
         pos++;
     }
 
-    array = (char **)realloc(array, sizeof(char*) * (i + 1));
-    pos[0] = strdup(string);
-    pos[1] = '\0';
+    array = (char **)realloc(array, sizeof(char*) * (i + 2));
+    array[i] = strdup(string);
+    array[i + 1] = NULL;
 
     return array;
 }

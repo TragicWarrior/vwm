@@ -90,4 +90,17 @@ vwm_SIGIO(int signum)
     (void)signum;
 }
 
+void
+vwm_SIGTERM(int signum)
+{
+    extern int  shutdown;
+
+    (void)signum;
+
+    /* let the main loop unwind so vk_screen_destroy can endwin() the
+       active SCREEN -- the terminal would otherwise be left in raw
+       mode (especially noticeable after teleport) */
+    shutdown = 1;
+}
+
 
