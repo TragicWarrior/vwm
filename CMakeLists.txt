@@ -30,8 +30,20 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 find_package(VTERM REQUIRED)
 
-# use libviper source tree (headers + library not yet installed)
-set(LIBVIPER_SOURCE_DIR "/home/bryanc/devel/repos-git/libviper")
+# use libviper source tree (headers + library not yet installed).
+# Defaults to a sibling checkout (../libviper); override with
+# -DLIBVIPER_SOURCE_DIR=/path/to/libviper at configure time.
+set(LIBVIPER_SOURCE_DIR "${PROJECT_SOURCE_DIR}/../libviper"
+    CACHE PATH "Path to the libviper source tree (contains vdk/, vkmio/, libvdk.so)")
+get_filename_component(LIBVIPER_SOURCE_DIR "${LIBVIPER_SOURCE_DIR}" ABSOLUTE)
+
+if(NOT EXISTS "${LIBVIPER_SOURCE_DIR}/libvdk.so")
+  message(FATAL_ERROR
+    "libvdk.so not found at ${LIBVIPER_SOURCE_DIR}/libvdk.so. "
+    "Build libviper first, or pass -DLIBVIPER_SOURCE_DIR=<path> "
+    "to point at your libviper checkout.")
+endif()
+
 include_directories(BEFORE ${LIBVIPER_SOURCE_DIR}/vdk ${LIBVIPER_SOURCE_DIR}/vkmio)
 set(VDK_LIBRARY "${LIBVIPER_SOURCE_DIR}/libvdk.so")
 
