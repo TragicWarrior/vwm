@@ -195,7 +195,12 @@ vwmterm_main(vwm_module_t *mod)
 
     vterm = vterm_alloc();
     vterm_set_exec(vterm, vwmterm_mod->bin_path, vwmterm_mod->exec_args);
-    vterm_init(vterm, width, height, vwmterm_mod->flags);
+    /* VTERM_FLAG_EXTMOUSE: vwm owns the real terminal's mouse (vk_kmio
+       enables SGR tracking with raw escapes + mousemask(0) so it can parse
+       reports itself).  Without this, libvterm's mouse driver sees
+       has_mouse()==FALSE and seizes mousemask(ALL) when a child app (e.g.
+       mc) enables mouse, re-cooking events and breaking vk_kmio's parser. */
+    vterm_init(vterm, width, height, vwmterm_mod->flags | VTERM_FLAG_EXTMOUSE);
     vterm_set_pair_selector(vterm, vwmterm_pair_selector);
     vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
 
