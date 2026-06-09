@@ -37,6 +37,18 @@
 #include "manage_windows.h"
 #include "screensaver.h"
 
+/* Has BUTTON1_PRESSED landed inside the open dropdown since it opened?
+   The menubar opens the dropdown on its OWN press, and the matching
+   release of that press lands at the mouse's current position -- which,
+   over SSH where the latency between press and release is enough that
+   the user has already moved off the menubar, is some random item in
+   the just-opened dropdown.  Without this flag the dropdown would
+   interpret that release as a click and exec the wrong item.
+
+   Reset on open_dropdown / close_dropdown so we never carry state
+   across two separate dropdown lifecycles. */
+static bool g_dropdown_press_armed = false;
+
 static void
 vwm_menu_scroll_info(vk_widget_t *child,
     int *content_h, int *content_w,
@@ -385,6 +397,9 @@ open_dropdown(vwm_t *vwm, int idx)
 
     vwm->menu = window;
     vwm->menu_item_idx = idx;
+
+    /* a brand-new dropdown has seen no presses yet */
+    g_dropdown_press_armed = false;
 }
 
 int
@@ -396,6 +411,9 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
     int             beg_y, beg_x;
     int             w, h;
     int             row;
+    mmask_t         bs;
+    bool            inside;
+    bool            was_armed;
 
     vwm = vwm_get_instance();
     menu = vwm->menu;
@@ -404,28 +422,33 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
     vk_widget_get_position(VK_WIDGET(menu), &beg_x, &beg_y);
     vk_widget_get_metrics(VK_WIDGET(menu), &w, &h);
 
-    if(mouse_event->y < beg_y || mouse_event->y >= beg_y + h
-        || mouse_event->x < beg_x || mouse_event->x >= beg_x + w)
-        return -1;
+    bs = mouse_event->bstate;
+    inside = !(mouse_event->y < beg_y || mouse_event->y >= beg_y + h
+        || mouse_event->x < beg_x || mouse_event->x >= beg_x + w);
 
-    listbox = VK_LISTBOX(vk_window_get_child(menu));
-    row = (mouse_event->y - beg_y - 1) + vk_listbox_get_scroll_pos(listbox);
-
-    if((mouse_event->bstate & REPORT_MOUSE_POSITION)
-        || (mouse_event->bstate & BUTTON1_PRESSED))
+    /* Any release (CLICKED is press+release atomic; RELEASED is the
+       trailing half of a long press) ends the press sequence.  Capture
+       the arm-state and clear it before we branch -- this guarantees
+       the flag never lingers past the release that's supposed to
+       resolve it, regardless of where the release lands. */
+    if(bs & (BUTTON1_CLICKED | BUTTON1_RELEASED))
     {
-        if(row >= 0 && row < vk_listbox_get_item_count(listbox)
-            && !vk_listbox_item_is_separator(listbox, row))
-        {
-            vk_listbox_set_curr(listbox, row);
-            vk_listbox_update(listbox);
-            vk_window_update(menu);
-        }
-        return 0;
-    }
+        was_armed = g_dropdown_press_armed;
+        g_dropdown_press_armed = false;
 
-    if(mouse_event->bstate & (BUTTON1_CLICKED | BUTTON1_RELEASED))
-    {
+        if(!inside) return -1;
+
+        /* CLICKED is atomic -- ncurses synthesizes it only when press
+           and release happened at the same position within
+           mouseinterval, so we trust it on its own.  RELEASED only
+           counts as a click when the dropdown also saw the matching
+           press (the menubar's release would arrive here unarmed). */
+        if(!(bs & BUTTON1_CLICKED) && !was_armed) return 0;
+
+        listbox = VK_LISTBOX(vk_window_get_child(menu));
+        row = (mouse_event->y - beg_y - 1)
+            + vk_listbox_get_scroll_pos(listbox);
+
         if(row >= 0 && row < vk_listbox_get_item_count(listbox)
             && !vk_listbox_item_is_separator(listbox, row))
         {
@@ -434,6 +457,25 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
             vwm_menubar_close_dropdown();
             vk_menubar_set_focused(vwm->menubar, false);
             vk_menubar_update(vwm->menubar);
+        }
+        return 0;
+    }
+
+    if(!inside) return -1;
+
+    listbox = VK_LISTBOX(vk_window_get_child(menu));
+    row = (mouse_event->y - beg_y - 1) + vk_listbox_get_scroll_pos(listbox);
+
+    if((bs & REPORT_MOUSE_POSITION) || (bs & BUTTON1_PRESSED))
+    {
+        if(bs & BUTTON1_PRESSED) g_dropdown_press_armed = true;
+
+        if(row >= 0 && row < vk_listbox_get_item_count(listbox)
+            && !vk_listbox_item_is_separator(listbox, row))
+        {
+            vk_listbox_set_curr(listbox, row);
+            vk_listbox_update(listbox);
+            vk_window_update(menu);
         }
         return 0;
     }
@@ -527,6 +569,8 @@ vwm_menubar_close_dropdown(void)
 
     vwm->menu = NULL;
     vwm->menu_item_idx = -1;
+
+    g_dropdown_press_armed = false;
 }
 
 int

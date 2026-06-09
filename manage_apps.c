@@ -361,24 +361,44 @@ static void
 commit_dropdowns_to_entry(int idx)
 {
     manage_app_entry_t *e;
-    int cat_sel, term_sel, vis_sel;
+    int  cat_sel, term_sel, vis_sel;
+    bool changed = false;
 
     if(idx < 0 || idx >= model->count) return;
 
     e = &model->entries[idx];
 
+    /* Only flag the model dirty when a commit actually mutates a
+       field.  Tab/Shift-Tab between focus zones routes through here
+       every time, so without the guard a single Tab after Save (e.g.
+       to reach the Cancel button) would re-dirty the model and make
+       Close warn about losing changes that don't exist. */
+
     cat_sel = vk_dropdown_get_curr(cat_dropdown);
-    if(cat_sel >= 0 && cat_sel < NUM_CATEGORIES)
+    if(cat_sel >= 0 && cat_sel < NUM_CATEGORIES
+        && e->type != category_types[cat_sel])
+    {
         e->type = category_types[cat_sel];
+        changed = true;
+    }
 
     term_sel = vk_dropdown_get_curr(term_dropdown);
-    if(term_sel >= 0 && term_sel < NUM_VTERMS)
+    if(term_sel >= 0 && term_sel < NUM_VTERMS
+        && strncmp(e->requires, vterm_names[term_sel], NAME_MAX - 1) != 0)
+    {
         strncpy(e->requires, vterm_names[term_sel], NAME_MAX - 1);
+        e->requires[NAME_MAX - 1] = '\0';
+        changed = true;
+    }
 
     vis_sel = vk_dropdown_get_curr(vis_dropdown);
-    e->hidden = (vis_sel == 1);
+    if(e->hidden != (vis_sel == 1))
+    {
+        e->hidden = (vis_sel == 1);
+        changed = true;
+    }
 
-    model->dirty = true;
+    if(changed) model->dirty = true;
 }
 
 static void
