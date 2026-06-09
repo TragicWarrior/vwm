@@ -1,3 +1,12 @@
+2026-06-09
+
+Manage Apps wheel scrolling.  The wheel mouse now scrolls the apps
+listbox in the Manage Apps dialog -- previously only BUTTON1 clicks
+moved the selection, so users on a wheel mouse had no quick way to
+page through a long apps list.  The category / terminal / visibility
+dropdowns repopulate to match the new selection just like a click,
+and pending dropdown edits are committed before the selection moves.
+
 2026-06-08
 
 Mouse over SSH.  Mouse handling was reworked end to end so hover,
