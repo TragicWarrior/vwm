@@ -1,3 +1,15 @@
+Version 4.1.1
+
+*  [Bryan Christ] Fix wheel scrolling in the Manage Apps dialog.  The
+   main dialog's mouse gate dropped everything but BUTTON1, so wheel
+   events never reached the apps listbox -- only BUTTON1 clicks could
+   move the selection.  Widen the gate to include BUTTON4/5 and route
+   wheel hits inside the listbox frame to vk_listbox_set_prev / _next,
+   matching the click path (commit pending dropdown edits, repopulate
+   the category / terminal / visibility dropdowns for the new entry,
+   set FOCUS_APP_LIST).  Wheel hits outside the listbox frame are still
+   dropped.
+
 Version 4.1.0
 
 *  [Bryan Christ] Fix mouse going unresponsive over SSH, and dying after

@@ -2745,7 +2745,8 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
     if(rx < 0 || rx >= INTERIOR_WIDTH) return 0;
     if(ry < 0 || ry >= INTERIOR_HEIGHT) return 0;
 
-    if(!(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED)))
+    if(!(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED
+        | BUTTON4_PRESSED | BUTTON5_PRESSED)))
         return 0;
 
     /*
@@ -2760,6 +2761,33 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         int term_dd = cat_dd + 4;
         int vis_dd  = term_dd + 4;
         int btn_row = vis_dd + 3;
+
+    /* wheel scrolls the apps list; no other zone in this dialog reacts
+       to the wheel, so a wheel hit elsewhere is dropped here.  set_prev
+       / set_next move curr_item (not just the viewport), so the
+       dropdowns -- which mirror the selected entry -- must be
+       repopulated, the same as a click that changes selection. */
+    if(bs & (BUTTON4_PRESSED | BUTTON5_PRESSED))
+    {
+        if(ry >= 0 && ry <= lb_end && model->count > 0)
+        {
+            commit_dropdowns_to_entry(model->selected);
+            model->focus_zone = FOCUS_APP_LIST;
+
+            if(bs & BUTTON4_PRESSED)
+                vk_listbox_set_prev(app_listbox);
+            else
+                vk_listbox_set_next(app_listbox);
+
+            model->selected = vk_listbox_get_curr(app_listbox);
+            populate_dropdowns_from_entry(model->selected);
+
+            vk_listbox_update(app_listbox);
+            update_button_highlights();
+            refresh_dialog();
+        }
+        return 0;
+    }
 
     if(ry <= lb_end)
     {

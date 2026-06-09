@@ -11,7 +11,7 @@
 #include <vkmio.h>
 
 
-#define VWM_VERSION					"4.1.0"
+#define VWM_VERSION					"4.1.1"
 
 #ifndef _VWM_SCREENSAVER_TIMEOUT
 #define _VWM_SCREENSAVER_TIMEOUT    5
