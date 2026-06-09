@@ -1,3 +1,16 @@
+2026-06-08
+
+Mouse over SSH.  Mouse handling was reworked end to end so hover,
+drag, and click behave correctly over SSH -- where the terminal sends
+SGR mouse reports and there is no GPM.  vk_kmio (libvdk) now decodes
+SGR reports itself rather than trusting ncurses' decode, which masked
+the motion bit off the button code and surfaced motion as button
+releases (broken hover-highlight, windows raised on hover, dragged
+windows stuck to the cursor).  vwm also marks its vterms
+VTERM_FLAG_EXTMOUSE, so opening a mouse-aware program (mc, vim) inside
+a window no longer makes libvterm seize ncurses' mouse and kill all
+mouse input.  Needs libvterm >= 10.1 and libvdk >= 5.1.0.
+
 2026-06-04
 
 Performance: wallpaper backing-WINDOW cache.  Each desktop's

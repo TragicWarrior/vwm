@@ -1,3 +1,12 @@
+Version 4.1.0
+
+*  [Bryan Christ] Fix mouse going unresponsive over SSH, and dying after
+   a mouse-aware app (mc, vim) was opened in a vwmterm.  vwm marks its
+   vterms VTERM_FLAG_EXTMOUSE so libvterm no longer seizes ncurses'
+   mousemask out from under vk_kmio's SGR mouse parser.  Pairs with the
+   in-libvdk SGR decode rewrite.  Requires libvterm >= 10.1 and
+   libvdk (libviper) >= 5.1.0.
+
 Version 4.0.0
 
 *  [Bryan Christ] Per-desktop wallpaper patterns in Settings (None,
