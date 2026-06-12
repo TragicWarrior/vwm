@@ -108,6 +108,11 @@ add_executable(vwm
     utf8_wide.c
     )
 
+# Modules dlopen()'d at runtime (libvwmterm.so etc.) resolve symbols like
+# vwm_window_decorate against the vwm executable's dynamic symbol table.
+# Pass -rdynamic so those globals make it in.
+set_target_properties(vwm PROPERTIES ENABLE_EXPORTS ON)
+
 if (GPM_FOUND)
 target_link_libraries(vwm -lutil -lm -lrt ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}" )
 else()
