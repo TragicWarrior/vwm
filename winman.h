@@ -1,5 +1,5 @@
 #ifndef _VWM_WINMAN_H_
-#define _VMW_WINMAN_H_
+#define _VWM_WINMAN_H_
 
 #include <inttypes.h>
 

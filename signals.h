@@ -1,4 +1,4 @@
-#ifndef _VMW_SIGNALS_H_
+#ifndef _VWM_SIGNALS_H_
 #define _VWM_SIGNALS_H_
 
 #include <signal.h>
