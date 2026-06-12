@@ -15,7 +15,7 @@ struct _vwmterm_data_s
 {
     vk_window_t     *window;
     vterm_t         *vterm;
-    vwm_module_t    *mod;
+    char            title[64];
     unsigned int    state;
     int             redraw_pending;
     int             scroll_offset;

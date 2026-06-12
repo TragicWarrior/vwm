@@ -206,10 +206,11 @@ vwmterm_main(vwm_module_t *mod)
 
     vterm_init_sigio(vterm);
 
+    char title[64] = "";
+
     if(vwmterm_mod->fullscreen == FALSE)
     {
-        char raw_title[64];
-        char title[68];
+        char raw_title[62];
         vwm_module_get_title(mod, raw_title, sizeof(raw_title));
         snprintf(title, sizeof(title), " %s ", raw_title);
 
@@ -248,7 +249,7 @@ vwmterm_main(vwm_module_t *mod)
 
     vwmterm_data->window = window;
     vwmterm_data->vterm = vterm;
-    vwmterm_data->mod = mod;
+    memcpy(vwmterm_data->title, title, sizeof(vwmterm_data->title));
     vwmterm_data->state = VWMTERM_STATE_RUNNING;
 
     vk_widget_set_userptr(VK_WIDGET(window), (void *)vwmterm_data);
