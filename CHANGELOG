@@ -1,3 +1,20 @@
+Version 4.2.0
+
+*  [Bryan Christ] Fix vwmterm window titles going blank after the user
+   triggers an apps reload (Manage Apps > Save, or VWM > Reload Apps).
+   vwm_programs_purge freed every USER-zone vwm_module_t out from under
+   any running vwmterm window that pointed at one, leaving a dangling
+   vwmterm_data->mod.  The next SELECT-mode exit would read mod->title
+   from the freed slab -- typically zeroed by a later calloc -- and
+   write the resulting empty string back as " %s " ("  "), visually a
+   blank gap in the centered title bar.  Snapshot the formatted title
+   into vwmterm_data->title at launch and restore from there, so the
+   window owns its title for its entire lifetime.
+
+*  [Bryan Christ] Reorder the menubar so "Apps" appears before "VWM".
+   The Apps menu is reached more often than the VWM (file) menu, so
+   it now sits at the left edge where the menu bar starts.
+
 Version 4.1.1
 
 *  [Bryan Christ] Fix wheel scrolling in the Manage Apps dialog.  The

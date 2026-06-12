@@ -1,3 +1,17 @@
+2026-06-12
+
+Window titles no longer go blank after an apps reload.  vwmterm windows
+launched from user-defined apps held a pointer to the launching module
+record; reloading apps (Manage Apps > Save, or VWM > Reload Apps) freed
+those records, and the next time the user entered and exited SELECT
+mode on such a window its title would read back as a blank gap in the
+title bar.  Windows now snapshot their title at launch and own it for
+their entire lifetime.
+
+Menubar reordered to "Apps" before "VWM".  The Apps menu is reached
+more often than the VWM (file) menu, so it now sits at the left edge
+where the menu bar starts.
+
 2026-06-09
 
 Manage Apps wheel scrolling.  The wheel mouse now scrolls the apps
