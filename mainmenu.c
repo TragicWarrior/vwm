@@ -162,7 +162,7 @@ vwm_file_menu_activate(vk_widget_t *widget, void *anything)
     (void)anything;
 
     vwm = vwm_get_instance();
-    open_dropdown(vwm, 0);
+    open_dropdown(vwm, 1);
 
     return 0;
 }
@@ -176,7 +176,7 @@ vwm_apps_menu_activate(vk_widget_t *widget, void *anything)
     (void)anything;
 
     vwm = vwm_get_instance();
-    open_dropdown(vwm, 1);
+    open_dropdown(vwm, 0);
 
     return 0;
 }
@@ -381,9 +381,9 @@ open_dropdown(vwm_t *vwm, int idx)
     if(vwm->menu != NULL) return;
 
     if(idx == 0)
-        window = create_file_dropdown(vwm);
-    else
         window = create_apps_dropdown(vwm);
+    else
+        window = create_file_dropdown(vwm);
 
     vk_widget_get_position(VK_WIDGET(vwm->menubar), &menubar_x, &menubar_y);
     vk_menubar_get_item_position(vwm->menubar, idx, &item_x);
@@ -491,15 +491,15 @@ vwm_menubar_init(void)
 
     vwm = vwm_get_instance();
 
-    vk_menubar_add_item(vwm->menubar, "VWM",
-        vwm_file_menu_activate, NULL);
     vk_menubar_add_item(vwm->menubar, "Apps",
         vwm_apps_menu_activate, NULL);
+    vk_menubar_add_item(vwm->menubar, "VWM",
+        vwm_file_menu_activate, NULL);
 
     vk_object_register_event(VK_OBJECT(vwm->menubar),
         VK_EVENT_ON_SELECT, vwm_menubar_on_select, NULL);
 
-    // " VWM " + "|" + " Apps " = 5 + 1 + 6 = 12
+    // " Apps " + "|" + " VWM " = 6 + 1 + 5 = 12
     menubar_width = 12;
     vk_widget_resize(VK_WIDGET(vwm->menubar), menubar_width, 1);
 
