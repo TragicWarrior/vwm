@@ -316,11 +316,7 @@ vwmterm_exit_selection(vwmterm_data_t *vwmterm_data)
 
     vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
 
-    char raw_title[64];
-    char title[68];
-    vwm_module_get_title(vwmterm_data->mod, raw_title, sizeof(raw_title));
-    snprintf(title, sizeof(title), " %s ", raw_title);
-    vk_window_set_title(vwmterm_data->window, title);
+    vk_window_set_title(vwmterm_data->window, vwmterm_data->title);
 
     vwm_panel_set_status(VWM_WINDOW_HELP);
 
