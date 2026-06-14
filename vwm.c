@@ -225,8 +225,7 @@ vwm_init(void)
 
         vwm->screen = vk_screen_create();
         vdk_color_init();
-        vk_kmio_init(vk_screen_get_fd(vwm->screen),
-            VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO);
+        vk_kmio_init(vk_screen_get_fd(vwm->screen), VWM_KMIO_FLAGS);
         nodelay(stdscr, TRUE);
 
         vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
@@ -453,8 +452,7 @@ vwm_on_teleport(vk_object_t *object, int event, void *anything)
        mousemask + mouseinterval are SCREEN-local ncurses state, and
        the \033[?1003h hover escape has to land on the new fd (kmio
        writes it directly to whatever fd we hand it) */
-    vk_kmio_init(vk_screen_get_fd(vwm->screen),
-        VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO);
+    vk_kmio_init(vk_screen_get_fd(vwm->screen), VWM_KMIO_FLAGS);
     nodelay(stdscr, TRUE);
 
     /* queue a KEY_RESIZE so the poll loop runs the same cascade it does

@@ -136,3 +136,8 @@ install (TARGETS vwm DESTINATION bin)
 install (TARGETS vwmterm DESTINATION lib/vwm/)
 install (TARGETS vwmscrshot DESTINATION lib/vwm/)
 install (TARGETS vwmprint DESTINATION lib/vwm/)
+
+# dtach session launchers -- PROGRAMS installs them with the execute bit
+# set, alongside the vwm binary so they share its PATH (and tab-complete
+# together as vwm-*)
+install (PROGRAMS scripts/vwm-start scripts/vwm-resume DESTINATION bin)
