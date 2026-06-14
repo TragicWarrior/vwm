@@ -75,6 +75,12 @@ typedef struct _vwm_profile_s   vwm_profile_t;
 vwm_t*          vwm_init(void);
 #define			vwm_get_instance()	            (vwm_init())
 
+/* (re)arm the kmio/ncurses input state against the current tty.  Used
+   at startup and re-run whenever the terminal may have changed under us
+   -- teleport (new fd) and dtach reattach (new outer tty, possibly
+   post-`reset`), both of which arrive as KEY_RESIZE. */
+void            vwm_input_rearm(vwm_t *vwm);
+
 void            vwm_apply_surface_count(int new_count);
 
 /* panel facilities  */
