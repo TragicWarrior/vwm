@@ -198,6 +198,12 @@ int main(int argc,char **argv)
     vwm_apply_surface_count(vwm->surface_count);
     /* settings + surfaces are now both live; seed each desktop's bkgd */
     vwm_apply_desktop_bkgd_all();
+    /* the first vk_screen_refresh above cached the active desktop's
+       wallpaper using the built-in defaults, before settings_load
+       supplied the saved pattern/color.  Drop that stale cache so the
+       refresh below rebuilds it from the loaded settings -- otherwise
+       the real wallpaper does not appear until the first resize. */
+    vwm_invalidate_wallpaper_cache_all();
     vwm_programs_load(vwm);
 
     vk_screen_refresh(vwm->screen);
