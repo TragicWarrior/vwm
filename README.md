@@ -33,6 +33,8 @@ FEATURES
       restarting.
 *  Permanent status bar with clock, hotkey hints, version, and a GPM-driven
    mouse cursor overlay.
+*  Remote-friendly: run under dtach via the bundled vwm-start / vwm-resume
+   launchers to detach and reattach a session across SSH disconnects.
 *  Configuration persisted to JSON at ~/.config/vwm/config.json; a sane
    default is written on first run.
 
@@ -41,12 +43,13 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-libviper 5.0.0+  - https://github.com/TragicWarrior/libviper
+libviper 5.1.1+  - https://github.com/TragicWarrior/libviper
 libgpm (optional)
 libvterm 10.0+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for the screen-capture module; "make all")
 libcups2-dev     (for the print module; "make all")
 xclip (optional) - for "xclip" / "Both" Copy-to-Clipboard modes under X
+dtach (optional) - for remote detach/reattach (vwm-start / vwm-resume)
 
 INSTALLATION
 ============
@@ -74,5 +77,20 @@ JSON config on Save.
 The config file lives at ~/.config/vwm/config.json and is created with sane
 defaults on first run.  Hand-editing is still supported -- a sample is
 provided at samples/config.json that you can adapt to your binary paths.
+
+REMOTE SESSIONS
+===============
+
+To run vwm on a remote server and survive SSH disconnects, install the
+dtach package and use the bundled launchers instead of calling vwm directly:
+
+vwm-start   - start a new detached session
+vwm-resume  - reattach to a running session
+
+Detach at any time with Ctrl-\ ; vwm keeps running on the server.  Log back
+in and run vwm-resume to pick up where you left off.  vwm-start refuses to
+start over a session that is already running (use vwm-resume instead) and
+offers to clean up a leftover socket from a crashed one.  The socket
+defaults to ~/.vwm.sock; override it with VWM_SOCK to run more than one.
 
 Enjoy!

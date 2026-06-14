@@ -1,3 +1,22 @@
+2026-06-14
+
+Run vwm on a remote server across disconnects.  vwm can now be detached
+and reattached, so a session on a remote box survives an SSH drop and
+picks up exactly where you left off.  Two helpers are installed next to
+the vwm binary: run vwm-start to begin a session and vwm-resume to
+reconnect to it later (detach with Ctrl-\).  vwm-start won't clobber a
+session that is already running -- it points you at vwm-resume -- and
+offers to clear away a leftover socket from a crashed one.  Reattaching
+repaints the screen, restores the mouse (even after a `reset` on the
+detached terminal), and keeps the cursor hidden.  Needs the dtach
+package installed and libviper >= 5.1.1.
+
+The saved wallpaper now shows immediately at startup.  A non-default
+desktop wallpaper used to stay hidden until the first terminal resize,
+because the startup paint cached the desktop background before the saved
+settings had loaded.  The cache is now refreshed once settings are in,
+so the wallpaper you picked is there from the first frame.
+
 2026-06-12
 
 Window titles no longer go blank after an apps reload.  vwmterm windows

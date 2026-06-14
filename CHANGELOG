@@ -1,3 +1,30 @@
+Version 4.2.1
+
+*  [Bryan Christ] Add detach/reattach support for running vwm on remote
+   servers.  Two launchers, installed alongside the vwm binary, wrap vwm
+   in dtach so a session survives an SSH disconnect: vwm-start begins a
+   new session (refusing to clobber a live one -- it points you at
+   vwm-resume -- while offering to clean up a stale socket), and
+   vwm-resume reattaches.  A reattach reaches vwm as KEY_RESIZE (dtach
+   -r winch sends SIGWINCH), so the resize cascade re-arms the mouse
+   (re-emitting the enable escapes the new -- or freshly `reset`'d --
+   tty has lost) and, via libviper >= 5.1.1, forces a full repaint and
+   re-hides the cursor.  Detach disables mouse reporting on the outer
+   terminal from the launcher's exit trap, since dtach gives the inner
+   process no detach hook.  Requires dtach at runtime and libvdk
+   (libviper) >= 5.1.1.
+
+*  [Bryan Christ] Refactor: fold the startup / teleport / resize input
+   re-arm (vk_kmio_init + nodelay) into a single vwm_input_rearm helper.
+
+*  [Bryan Christ] Fix a saved non-default wallpaper not appearing until
+   the first terminal resize.  The startup sequence built the active
+   desktop's wallpaper cache during the first refresh -- before
+   settings_load supplied the saved pattern/color -- and the second
+   refresh reused that default-themed cache.  Invalidate the wallpaper
+   cache after settings load so the startup refresh rebuilds it from the
+   saved settings.
+
 Version 4.2.0
 
 *  [Bryan Christ] Fix vwmterm window titles going blank after the user
