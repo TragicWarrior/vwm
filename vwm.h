@@ -13,6 +13,14 @@
 
 #define VWM_VERSION					"4.2.0"
 
+/* the kmio feature set vwm arms at startup and must re-arm whenever the
+   outer terminal may have changed under us -- teleport to a new PTY, a
+   terminal resize, or a dtach/abduco reattach (all of which arrive as
+   KEY_RESIZE).  Keep the three call sites in lockstep through this one
+   definition. */
+#define VWM_KMIO_FLAGS \
+    (VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO)
+
 #ifndef _VWM_SCREENSAVER_TIMEOUT
 #define _VWM_SCREENSAVER_TIMEOUT    5
 #endif
@@ -66,6 +74,12 @@ typedef struct _vwm_profile_s   vwm_profile_t;
 /*	startup functions	*/
 vwm_t*          vwm_init(void);
 #define			vwm_get_instance()	            (vwm_init())
+
+/* (re)arm the kmio/ncurses input state against the current tty.  Used
+   at startup and re-run whenever the terminal may have changed under us
+   -- teleport (new fd) and dtach reattach (new outer tty, possibly
+   post-`reset`), both of which arrive as KEY_RESIZE. */
+void            vwm_input_rearm(vwm_t *vwm);
 
 void            vwm_apply_surface_count(int new_count);
 

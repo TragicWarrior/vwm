@@ -489,6 +489,14 @@ vwm_poll_input(void * const env)
         {
             vk_screen_resize(vwm->screen);
 
+            /* a dtach / abduco reattach also arrives as KEY_RESIZE (the
+               client sends SIGWINCH via -r winch).  Re-arm input against
+               the current tty so the mouse survives a detach/reattach
+               cycle -- in particular when the user ran `reset` on the
+               detached terminal, which clears the modes vwm set at
+               startup.  Same re-arm the teleport handler performs. */
+            vwm_input_rearm(vwm);
+
             /* drop every cached wallpaper -- the surface canvases were
                just wresized and the cache callback's geometry mismatch
                check has been observed to miss the change in practice

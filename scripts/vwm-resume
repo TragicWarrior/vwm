@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+# vwm-resume -- reconnect to a vwm session started with vwm-start.
+#
+# If no session is running, use vwm-start instead.
+#
+# Detach key while attached:  Ctrl-\
+#
+# Environment:
+#   VWM_SOCK  path to the dtach socket   (default: ~/.vwm.sock)
+
+set -u
+
+SOCK="${VWM_SOCK:-$HOME/.vwm.sock}"
+
+# --- locate dtach ---------------------------------------------------
+if ! command -v dtach >/dev/null 2>&1; then
+    echo "vwm-resume: dtach is not installed." >&2
+    echo "  Debian/Ubuntu:  sudo apt install dtach" >&2
+    exit 1
+fi
+
+# --- must have something to attach to -------------------------------
+if [ ! -e "$SOCK" ]; then
+    echo "No vwm session found at:  $SOCK"
+    echo "Start one with:  vwm-start"
+    exit 1
+fi
+
+# --- disable mouse reporting on the OUTER terminal at detach --------
+# See vwm-start for why this lives in the launcher rather than in vwm.
+disable_mouse() {
+    printf '\033[?1003l\033[?1002l\033[?1000l\033[?1006l\033[?1015l' \
+        > /dev/tty 2>/dev/null || true
+}
+
+# --- attach ---------------------------------------------------------
+# No `exec`: the disable_mouse trap must outlive dtach so it can run
+# when the client detaches.  -r winch makes vwm repaint and re-arm the
+# mouse on attach; -z keeps Ctrl-Z from orphaning dtach.  dtach exits
+# non-zero if the socket is stale (no live session) -- point the user
+# back at vwm-start in that case.
+trap disable_mouse EXIT
+
+dtach -a "$SOCK" -r winch -z
+status=$?
+
+if [ "$status" -ne 0 ]; then
+    echo
+    echo "Could not attach -- the session may have ended."
+    echo "If the problem persists, remove $SOCK and run vwm-start."
+fi
+
+exit "$status"

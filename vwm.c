@@ -198,6 +198,12 @@ int main(int argc,char **argv)
     vwm_apply_surface_count(vwm->surface_count);
     /* settings + surfaces are now both live; seed each desktop's bkgd */
     vwm_apply_desktop_bkgd_all();
+    /* the first vk_screen_refresh above cached the active desktop's
+       wallpaper using the built-in defaults, before settings_load
+       supplied the saved pattern/color.  Drop that stale cache so the
+       refresh below rebuilds it from the loaded settings -- otherwise
+       the real wallpaper does not appear until the first resize. */
+    vwm_invalidate_wallpaper_cache_all();
     vwm_programs_load(vwm);
 
     vk_screen_refresh(vwm->screen);
@@ -225,9 +231,7 @@ vwm_init(void)
 
         vwm->screen = vk_screen_create();
         vdk_color_init();
-        vk_kmio_init(vk_screen_get_fd(vwm->screen),
-            VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO);
-        nodelay(stdscr, TRUE);
+        vwm_input_rearm(vwm);
 
         vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
 
@@ -305,6 +309,21 @@ vwm_init(void)
     }
 
 	return vwm;
+}
+
+void
+vwm_input_rearm(vwm_t *vwm)
+{
+    if(vwm == NULL) return;
+
+    /* re-emit the mouse enable escapes and restore non-blocking input
+       against the current tty.  kmio writes the escapes straight to the
+       fd, so they have to be resent whenever that fd's terminal may have
+       changed: at startup, after teleport (a new fd), and on a dtach
+       reattach (a new outer terminal, possibly after `reset`).  On an
+       ordinary resize it is a harmless no-op. */
+    vk_kmio_init(vk_screen_get_fd(vwm->screen), VWM_KMIO_FLAGS);
+    nodelay(stdscr, TRUE);
 }
 
 void
@@ -453,9 +472,7 @@ vwm_on_teleport(vk_object_t *object, int event, void *anything)
        mousemask + mouseinterval are SCREEN-local ncurses state, and
        the \033[?1003h hover escape has to land on the new fd (kmio
        writes it directly to whatever fd we hand it) */
-    vk_kmio_init(vk_screen_get_fd(vwm->screen),
-        VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_GPM_SIGIO);
-    nodelay(stdscr, TRUE);
+    vwm_input_rearm(vwm);
 
     /* queue a KEY_RESIZE so the poll loop runs the same cascade it does
        for a real terminal resize (panel + status bar + dialogs) */
