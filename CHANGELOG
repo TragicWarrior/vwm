@@ -1,3 +1,21 @@
+Version 4.2.2
+
+*  [Bryan Christ] Fix dtach reattach not re-arming the terminal on a
+   same-size reattach.  dtach -r winch sends SIGWINCH on every attach,
+   but ncurses only turns it into KEY_RESIZE when the dimensions
+   changed, so reattaching at the same window size never ran the re-arm
+   cascade -- the mouse stayed dead, the cursor visible and the arrow
+   keys emitting escapes until a manual resize.  vwm now catches
+   SIGWINCH itself (chaining ncurses' handler) and the clock poller
+   forces a KEY_RESIZE when a SIGWINCH arrived with no size change.
+
+*  [Bryan Christ] Fix dtach reattach not re-arming when a screensaver or
+   lock (e.g. vlock) was running at reattach time.  The saver runs in a
+   fullscreen vterm and poll_input swallows KEY_RESIZE while it is up,
+   so the reattach re-arm was discarded and the terminal stayed
+   half-dead after unlock until a manual resize.  The saver's close
+   path now queues a KEY_RESIZE once it is gone so the cascade runs.
+
 Version 4.2.1
 
 *  [Bryan Christ] Add detach/reattach support for running vwm on remote

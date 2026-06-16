@@ -188,6 +188,12 @@ int main(int argc,char **argv)
 
 	// use the integrated window manager
 	vwm = vwm_init();
+
+    /* now that newterm() has run (inside vwm_init), claim SIGWINCH so a
+       same-size dtach reattach still drives the resync cascade -- chains
+       ncurses' own handler, so ordinary resizes are unaffected. */
+    vwm_sigwinch_install();
+
     vwm_panel_init(vwm);
 
     vk_screen_refresh(vwm->screen);
