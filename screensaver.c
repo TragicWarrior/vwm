@@ -81,6 +81,18 @@ screensaver_on_close(vk_object_t *object, int event, void *anything)
 
     s_last_activity = time(NULL);
 
+    /* The lock program (e.g. vlock) ran inside a fullscreen vterm while it
+       owned the screen, and vwm_screensaver_input swallowed KEY_RESIZE the
+       whole time it was up.  So if a dtach reattach happened DURING the lock
+       -- the common case, since the saver is usually what's running when you
+       vwm-resume -- the KEY_RESIZE that re-arms the terminal (mouse, cursor,
+       keypad, full repaint) was dropped, and vwm comes back with a dead
+       mouse and a visible cursor until a manual resize.  Now that the saver
+       is gone and s_active is false, queue one KEY_RESIZE so poll_input_thd
+       runs the resync cascade.  Idempotent -- and a welcome repaint -- even
+       when no reattach occurred (the user just unlocked locally). */
+    ungetch(KEY_RESIZE);
+
     return 0;
 }
 
