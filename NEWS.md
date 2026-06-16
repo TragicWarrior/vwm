@@ -1,3 +1,16 @@
+2026-06-16
+
+Detach/reattach is now robust in the cases that used to come back
+half-working.  Reattaching at the same window size, or reconnecting while
+a screensaver or lock (e.g. vlock) is running, now re-arms the mouse,
+re-hides the cursor and restores the cursor keys with no manual resize --
+the re-arm fires on the reattach itself and again when the lock clears.
+
+You can also have the server's login greeting remind you a session is
+waiting: a small /etc/update-motd.d/ script can print a "reconnect with
+vwm-resume" line while vwm is running (see the README).
+
+
 2026-06-14
 
 Run vwm on a remote server across disconnects.  vwm can now be detached
