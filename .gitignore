@@ -1,0 +1,11 @@
+# CMake in-source build output
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+/Makefile
+install_manifest.txt
+
+# compiled objects, shared libraries, and the vwm binary
+*.o
+*.so
+/vwm
