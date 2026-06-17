@@ -32,7 +32,6 @@ vwm_profile_init(vwm_t *vwm)
     if(user_info != NULL)
     {
         profile->login = strdup(user_info->pw_name);
-        profile->passwd = strdup(user_info->pw_passwd);
         profile->home = strdup(user_info->pw_dir);
     }
 
