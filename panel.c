@@ -66,8 +66,6 @@ vwm_panel_init(vwm_t *vwm)
     if(panel_data != NULL) return;
 
     vwm_panel = (VWM_PANEL*)calloc(1, sizeof(VWM_PANEL));
-    vwm_panel->tick_rate = 2;
-    vwm_panel->thaw_rate = 3;
     panel_data = vwm_panel;
 
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
@@ -678,12 +676,6 @@ vwm_panel_message_add(char *msg, int timeout)
     list_add(&vwm_panel_msg->list, &vwm_panel->msg_list);
     vwm_panel->msg_count++;
 
-    if(vwm_panel->msg_count == 1)
-    {
-        vwm_panel->state |= VWM_PANEL_STATE_FROZEN;
-        vwm_panel->thaw_timer = vwm_panel->thaw_rate;
-    }
-
     return vwm_panel_msg->msg_id.msg_handle;
 }
 
@@ -776,8 +768,6 @@ vwm_panel_message_promote(uintmax_t msg_id)
     if(vwm_panel_msg != NULL)
     {
         list_move(pos, &vwm_panel->msg_list);
-
-        vwm_panel->thaw_timer = vwm_panel->thaw_rate;
     }
 
     return 0;

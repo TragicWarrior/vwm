@@ -9,8 +9,6 @@
 
 #include "list.h"
 
-#define  VWM_PANEL_STATE_FROZEN  (1<<1)
-
 #define  VWM_PANEL_MSG_TTL_MAX   30
 
 typedef struct
@@ -36,12 +34,7 @@ typedef struct
     vk_marquee_t        *status_marquee;
     vk_label_t          *version_label;
 
-    int32_t             tick_rate;
-    int32_t             freeze_time;
-    int32_t             thaw_timer;
-    int16_t             thaw_rate;
     int32_t             clock;
-    uint32_t            state;
 }
 VWM_PANEL;
 
