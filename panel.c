@@ -669,7 +669,7 @@ vwm_panel_message_add(char *msg, int timeout)
         timeout = VWM_PANEL_MSG_TTL_MAX;
 
     vwm_panel_msg = (VWM_PANEL_MSG*)calloc(1, sizeof(VWM_PANEL_MSG));
-    vwm_panel_msg->msg = strdup_printf("%s",msg);
+    vwm_panel_msg->msg = strdup(msg);
     vwm_panel_msg->msg_len = strlen(msg);
     vwm_panel_msg->timeout = timeout;
     vwm_panel_msg->touch_val = timeout;
