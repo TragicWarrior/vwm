@@ -1,3 +1,16 @@
+Version 4.3.0
+
+*  [Bryan Christ] Bump the minor version to mark dtach-based remote-session
+   support as a complete, validated feature.  Detach with Ctrl-\ (or just
+   drop the SSH connection) and vwm-resume reconnects, re-arming the mouse,
+   cursor, keypad and a full repaint -- now including a same-size reattach
+   and reattaching onto a running screensaver/lock, the two cases that
+   previously came back needing a manual resize.  (Launchers and groundwork
+   landed in 4.2.1; the reattach re-arm fixes in 4.2.2.)
+
+*  [Bryan Christ] Docs: README tip for an /etc/update-motd.d/ login reminder
+   that announces a resumable vwm session.
+
 Version 4.2.2
 
 *  [Bryan Christ] Fix dtach reattach not re-arming the terminal on a

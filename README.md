@@ -93,4 +93,18 @@ start over a session that is already running (use vwm-resume instead) and
 offers to clean up a leftover socket from a crashed one.  The socket
 defaults to ~/.vwm.sock; override it with VWM_SOCK to run more than one.
 
+On Ubuntu you can also have the login greeting remind you that a session is
+waiting.  Drop a small executable script into /etc/update-motd.d/ -- the
+same mechanism that prints the usual load/disk lines -- that emits a line
+only while vwm is running:
+
+#!/bin/sh
+pgrep -x vwm >/dev/null 2>&1 || exit 0
+printf '\n  A vwm session is running -- reconnect with  vwm-resume\n\n'
+
+Save it as e.g. /etc/update-motd.d/99-vwm-session, make it executable, and
+it shows on your next login whenever vwm is up (and stays silent otherwise).
+These scripts run as root, so pgrep keeps it simpler than chasing a
+per-user ~/.vwm.sock path; use a lower number prefix to move the line up.
+
 Enjoy!

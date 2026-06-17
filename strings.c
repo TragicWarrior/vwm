@@ -129,10 +129,7 @@ strdupv(char **array, int limit)
         retval[i] = strdup(array[i]);
         i++;
 
-        if(limit > 0)
-        {
-            if((i - 1) == limit) break;
-        }
+        if(limit > 0 && i == limit) break;
     }
 
     return retval;

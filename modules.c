@@ -246,7 +246,7 @@ vwm_modules_load(char *module_dir)
         {
             module = list_entry(pos, vwm_module_t, list);
 
-   			if(strstr(module->modpath, modpath) != NULL) break;
+   			if(strcmp(module->modpath, modpath) == 0) break;
 
             module = NULL;
         }
