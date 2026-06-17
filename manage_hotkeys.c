@@ -311,16 +311,13 @@ model_load_from_config(const char *path)
 static void
 rebuild_listbox(void)
 {
-    int     count;
     int     i;
     int     lb_idx = 0;
     int     last_cat = -1;
     char    display[ITEM_WIDTH + 32];
     char    keybuf[32];
 
-    count = vk_listbox_get_item_count(hotkey_listbox);
-    for(i = count - 1; i >= 0; i--)
-        vk_listbox_remove_item(hotkey_listbox, i);
+    vk_listbox_reset(hotkey_listbox);
 
     for(i = 0; i < NUM_HOTKEYS; i++)
     {
