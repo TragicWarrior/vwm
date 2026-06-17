@@ -64,7 +64,7 @@ hotkey_defs[NUM_HOTKEYS] =
 enum
 {
     FOCUS_HOTKEY_LIST = 0,
-    FOCUS_BTN_TEST,
+    FOCUS_BTN_MODIFY,
     FOCUS_BTN_RESET,
     FOCUS_BTN_SAVE,
     FOCUS_BTN_LOAD,
@@ -73,7 +73,7 @@ enum
 };
 
 #define NUM_BUTTONS     5
-#define BTN_TEST        0
+#define BTN_MODIFY        0
 #define BTN_RESET       1
 #define BTN_SAVE        2
 #define BTN_LOAD        3
@@ -350,7 +350,7 @@ update_button_highlights(void)
 {
     int focus_zones[] =
     {
-        FOCUS_BTN_TEST, FOCUS_BTN_RESET,
+        FOCUS_BTN_MODIFY, FOCUS_BTN_RESET,
         FOCUS_BTN_SAVE, FOCUS_BTN_LOAD, FOCUS_BTN_CANCEL
     };
     int i;
@@ -1120,7 +1120,7 @@ hk_load_popup_open(void)
 /* ── actions ───────────────────────────────────────────────── */
 
 static void
-on_test(void)
+on_modify(void)
 {
     if(model->selected < 0 || model->selected >= NUM_HOTKEYS) return;
 
@@ -1219,7 +1219,7 @@ handle_button_keys(int32_t keystroke)
 
     switch(model->focus_zone)
     {
-        case FOCUS_BTN_TEST:    on_test();      break;
+        case FOCUS_BTN_MODIFY:    on_modify();      break;
         case FOCUS_BTN_RESET:   on_reset();     break;
         case FOCUS_BTN_SAVE:    on_save();      break;
         case FOCUS_BTN_LOAD:    on_load();      break;
@@ -1298,7 +1298,7 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
             retval = handle_hotkey_list_keys(keystroke);
             break;
 
-        case FOCUS_BTN_TEST:
+        case FOCUS_BTN_MODIFY:
         case FOCUS_BTN_RESET:
         case FOCUS_BTN_SAVE:
         case FOCUS_BTN_LOAD:
@@ -1396,7 +1396,7 @@ build_dialog(void)
     vk_box_set_homogeneous(button_hbox, false);
     vk_widget_set_colors(VK_WIDGET(button_hbox), COLOR_BLACK, COLOR_CYAN);
 
-    buttons[BTN_TEST] = vk_button_create("Test");
+    buttons[BTN_MODIFY] = vk_button_create("Modify");
     buttons[BTN_RESET] = vk_button_create("Reset");
     buttons[BTN_SAVE] = vk_button_create("Save");
     buttons[BTN_LOAD] = vk_button_create("Load");
@@ -1419,7 +1419,7 @@ build_dialog(void)
     vk_widget_set_colors(VK_WIDGET(button_spacer), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_expand(VK_WIDGET(button_spacer));
 
-    vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_TEST]));
+    vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_MODIFY]));
     vk_box_set_widget(button_hbox, 1, VK_WIDGET(buttons[BTN_RESET]));
     vk_box_set_widget(button_hbox, 2, VK_WIDGET(button_spacer));
     vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_SAVE]));
@@ -1896,7 +1896,7 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         refresh_dialog();
 
         if(is_dblclick)
-            on_test();
+            on_modify();
 
         return 0;
     }
@@ -1905,7 +1905,7 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
     {
         int zone = -1;
 
-        if(rx <= 7)                     zone = FOCUS_BTN_TEST;
+        if(rx <= 7)                     zone = FOCUS_BTN_MODIFY;
         else if(rx >= 8 && rx <= 14)    zone = FOCUS_BTN_RESET;
         else if(rx >= 38 && rx <= 43)   zone = FOCUS_BTN_SAVE;
         else if(rx >= 44 && rx <= 49)   zone = FOCUS_BTN_LOAD;
@@ -1918,7 +1918,7 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
 
             switch(zone)
             {
-                case FOCUS_BTN_TEST:    on_test();      break;
+                case FOCUS_BTN_MODIFY:    on_modify();      break;
                 case FOCUS_BTN_RESET:   on_reset();     break;
                 case FOCUS_BTN_SAVE:    on_save();      break;
                 case FOCUS_BTN_LOAD:    on_load();      break;
