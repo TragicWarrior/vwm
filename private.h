@@ -83,7 +83,7 @@ struct _vwm_s
 #define  SPRITE_ROWS(x)    (sizeof(x) / sizeof(x[0]))
 #define  SPRITE_COLS(x)    (sizeof(x[0]) / (sizeof(x[0][0])))
 
-struct sigaction* vwm_sigset(int signum, sighandler_t handler);
+void vwm_sigset(int signum, sighandler_t handler);
 
 /* border decoration callback for vk_window_t */
 void    vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *data);

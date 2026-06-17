@@ -33,31 +33,24 @@ static struct sigaction vwm_winch_prev;
 static int              vwm_winch_prev_valid = 0;
 
 /*
-   pass back the struct sigaction so that the memory can be release if we
-   need to replace the sighandler.  not use now, but maybe useful in the
-   future.
+   install handler for signum, preserving the current signal mask and
+   leaving sa_flags clear (matches the old calloc-zeroed sigaction).
 */
-struct sigaction*
+void
 vwm_sigset(int signum, sighandler_t handler)
 {
-    struct sigaction    *action;
+    struct sigaction    action;
     sigset_t            old_mask;
 
-    if(handler == NULL) return NULL;
+    if(handler == NULL) return;
 
-    action = (struct sigaction*)calloc(1,sizeof(struct sigaction));
+    memset(&action, 0, sizeof(action));
 
     // retrieve current signal mask
     sigprocmask(0,NULL,&old_mask);
-    action->sa_handler = handler;
-    action->sa_mask = old_mask;
-    sigaction(signum,(const struct sigaction*)action,NULL);
-
-    free(action);
-
-    (void)signum;
-
-    return NULL;
+    action.sa_handler = handler;
+    action.sa_mask = old_mask;
+    sigaction(signum, &action, NULL);
 }
 
 #ifdef _DEBUG
