@@ -13,6 +13,7 @@ void    vwm_manage_hotkeys_handle_resize(void);
 vk_widget_t *vwm_manage_hotkeys_get_load_popup(void);
 vk_widget_t *vwm_manage_hotkeys_get_confirm_popup(void);
 vk_widget_t *vwm_manage_hotkeys_get_error_popup(void);
+vk_widget_t *vwm_manage_hotkeys_get_saved_popup(void);
 vk_widget_t *vwm_manage_hotkeys_get_warning_popup(void);
 
 #endif

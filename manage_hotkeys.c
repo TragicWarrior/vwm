@@ -64,20 +64,20 @@ hotkey_defs[NUM_HOTKEYS] =
 enum
 {
     FOCUS_HOTKEY_LIST = 0,
-    FOCUS_BTN_TEST,
+    FOCUS_BTN_MODIFY,
     FOCUS_BTN_RESET,
     FOCUS_BTN_SAVE,
     FOCUS_BTN_LOAD,
-    FOCUS_BTN_CANCEL,
+    FOCUS_BTN_CLOSE,
     FOCUS_MAX
 };
 
 #define NUM_BUTTONS     5
-#define BTN_TEST        0
+#define BTN_MODIFY        0
 #define BTN_RESET       1
 #define BTN_SAVE        2
 #define BTN_LOAD        3
-#define BTN_CANCEL      4
+#define BTN_CLOSE      4
 
 typedef struct
 {
@@ -124,6 +124,7 @@ static int                   hk_load_focus = HL_FILEDIALOG;
 static vk_popup_t           *error_popup = NULL;
 static vk_popup_t           *confirm_popup = NULL;
 static vk_popup_t           *warning_popup = NULL;
+static vk_popup_t           *saved_popup = NULL;
 static int                  confirm_active_btn = 0;
 
 static void rebuild_listbox(void);
@@ -350,8 +351,8 @@ update_button_highlights(void)
 {
     int focus_zones[] =
     {
-        FOCUS_BTN_TEST, FOCUS_BTN_RESET,
-        FOCUS_BTN_SAVE, FOCUS_BTN_LOAD, FOCUS_BTN_CANCEL
+        FOCUS_BTN_MODIFY, FOCUS_BTN_RESET,
+        FOCUS_BTN_SAVE, FOCUS_BTN_LOAD, FOCUS_BTN_CLOSE
     };
     int i;
 
@@ -503,6 +504,119 @@ error_popup_show(const char *msg)
         ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
     vk_box_update(client);
     vk_popup_update(error_popup);
+    vk_screen_refresh(vwm->screen);
+}
+
+/* ── saved popup ───────────────────────────────────────────── */
+
+static void
+saved_popup_close(void)
+{
+    vwm_t *vwm;
+
+    if(saved_popup == NULL) return;
+
+    vwm = vwm_get_instance();
+
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(saved_popup));
+
+    vk_popup_destroy(saved_popup);
+    saved_popup = NULL;
+
+    refresh_dialog();
+}
+
+static int
+saved_popup_kmio(vk_object_t *object, int32_t keystroke)
+{
+    (void)object;
+
+    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
+    {
+        saved_popup_close();
+        return 0;
+    }
+
+    return 0;
+}
+
+static void
+saved_popup_show(void)
+{
+    vwm_t       *vwm;
+    vk_label_t  *label;
+    vk_box_t    *client;
+    int         scr_w, scr_h;
+    int         popup_w = 30;
+    int         popup_h = 7;
+    int         pos_x, pos_y;
+
+    if(saved_popup != NULL) return;
+
+    vwm = vwm_get_instance();
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+
+    saved_popup = vk_popup_create(popup_w, popup_h,
+        VK_BORDER_SINGLE, "OK", NULL);
+    vk_popup_set_title(saved_popup, " Saved ");
+    vk_popup_set_border_colors(saved_popup, COLOR_WHITE, COLOR_BLUE);
+    vk_popup_set_border_attrs(saved_popup, A_BOLD);
+    {
+        vk_box_t *bar = vk_popup_get_button_bar(saved_popup);
+        if(bar != NULL)
+        {
+            vk_widget_set_colors(VK_WIDGET(bar), COLOR_WHITE, COLOR_BLUE);
+            vk_widget_fill(VK_WIDGET(bar),
+                ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
+        }
+    }
+
+    client = vk_box_create(popup_w - 2, popup_h - 5,
+        VK_BOX_VERTICAL, 1);
+    vk_box_set_homogeneous(client, true);
+    vk_widget_set_colors(VK_WIDGET(client), COLOR_WHITE, COLOR_BLUE);
+
+    label = vk_label_create(popup_w - 2);
+    vk_label_set_justify(label, VK_JUSTIFY_CENTER);
+    vk_label_set_text(label, "Hotkeys saved.");
+    vk_widget_set_colors(VK_WIDGET(label), COLOR_WHITE, COLOR_BLUE);
+    vk_label_update(label);
+    vk_box_set_widget(client, 0, VK_WIDGET(label));
+
+    vk_popup_set_client(saved_popup, VK_WIDGET(client));
+
+    {
+        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
+        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
+    }
+
+    vk_popup_set_colors(saved_popup, COLOR_WHITE, COLOR_BLUE);
+    vk_object_set_kmio(VK_OBJECT(saved_popup), saved_popup_kmio);
+
+    {
+        vk_button_t *ok_btn = vk_popup_get_button(saved_popup, 0);
+        vk_widget_set_colors(VK_WIDGET(ok_btn), COLOR_YELLOW, COLOR_BLUE);
+        vk_widget_set_attrs(VK_WIDGET(ok_btn), A_BOLD);
+        vk_button_update(ok_btn);
+    }
+
+    pos_x = (scr_w - popup_w) / 2;
+    pos_y = (scr_h - popup_h) / 2;
+    if(pos_x < 0) pos_x = 0;
+    if(pos_y < 0) pos_y = 0;
+
+    vk_widget_move(VK_WIDGET(saved_popup), pos_x, pos_y);
+
+    vk_screen_attach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(saved_popup));
+
+    vk_widget_fill(VK_WIDGET(client),
+        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
+    vk_box_update(client);
+    vk_popup_update(saved_popup);
     vk_screen_refresh(vwm->screen);
 }
 
@@ -772,11 +886,10 @@ static void
 confirm_popup_show(void)
 {
     vwm_t       *vwm;
-    vk_label_t  *label;
     vk_box_t    *client;
     int         scr_w, scr_h;
-    int         popup_w = 48;
-    int         popup_h = 10;
+    int         popup_w = 40;
+    int         popup_h = 9;
     int         pos_x, pos_y;
 
     if(confirm_popup != NULL) return;
@@ -785,7 +898,7 @@ confirm_popup_show(void)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     confirm_popup = vk_popup_create(popup_w, popup_h,
-        VK_BORDER_SINGLE, "Yes", "No", NULL);
+        VK_BORDER_SINGLE, "Discard", "Cancel", NULL);
     vk_popup_set_title(confirm_popup, " Confirm ");
     vk_popup_set_border_colors(confirm_popup, COLOR_RED, COLOR_WHITE);
     vk_popup_set_border_attrs(confirm_popup, A_NORMAL);
@@ -800,17 +913,33 @@ confirm_popup_show(void)
     }
 
     client = vk_box_create(popup_w - 2, popup_h - 5,
-        VK_BOX_VERTICAL, 1);
+        VK_BOX_VERTICAL, 4);
     vk_box_set_homogeneous(client, true);
     vk_widget_set_colors(VK_WIDGET(client), COLOR_RED, COLOR_WHITE);
 
-    label = vk_label_create(popup_w - 2);
-    vk_label_set_justify(label, VK_JUSTIFY_CENTER);
-    vk_label_set_text(label,
-        "You have uncommitted changes. Are you sure?");
-    vk_widget_set_colors(VK_WIDGET(label), COLOR_RED, COLOR_WHITE);
-    vk_label_update(label);
-    vk_box_set_widget(client, 0, VK_WIDGET(label));
+    {
+        vk_filler_t *top_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_RED, COLOR_WHITE);
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+
+        vk_label_t *line1 = vk_label_create(popup_w - 2);
+        vk_label_set_justify(line1, VK_JUSTIFY_CENTER);
+        vk_label_set_text(line1, "You have unsaved changes.");
+        vk_widget_set_colors(VK_WIDGET(line1), COLOR_RED, COLOR_WHITE);
+        vk_label_update(line1);
+        vk_box_set_widget(client, 1, VK_WIDGET(line1));
+
+        vk_label_t *line2 = vk_label_create(popup_w - 2);
+        vk_label_set_justify(line2, VK_JUSTIFY_CENTER);
+        vk_label_set_text(line2, "Discard changes and close?");
+        vk_widget_set_colors(VK_WIDGET(line2), COLOR_RED, COLOR_WHITE);
+        vk_label_update(line2);
+        vk_box_set_widget(client, 2, VK_WIDGET(line2));
+
+        vk_filler_t *bot_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_RED, COLOR_WHITE);
+        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad));
+    }
 
     vk_popup_set_client(confirm_popup, VK_WIDGET(client));
 
@@ -1120,7 +1249,7 @@ hk_load_popup_open(void)
 /* ── actions ───────────────────────────────────────────────── */
 
 static void
-on_test(void)
+on_modify(void)
 {
     if(model->selected < 0 || model->selected >= NUM_HOTKEYS) return;
 
@@ -1158,7 +1287,7 @@ on_save(void)
     model_apply_to_vwm(vwm);
     vwm_settings_save(vwm);
 
-    vwm_manage_hotkeys_close();
+    saved_popup_show();
 }
 
 static void
@@ -1168,7 +1297,7 @@ on_load(void)
 }
 
 static void
-on_cancel(void)
+on_close(void)
 {
     if(has_changes())
     {
@@ -1219,11 +1348,11 @@ handle_button_keys(int32_t keystroke)
 
     switch(model->focus_zone)
     {
-        case FOCUS_BTN_TEST:    on_test();      break;
+        case FOCUS_BTN_MODIFY:    on_modify();      break;
         case FOCUS_BTN_RESET:   on_reset();     break;
         case FOCUS_BTN_SAVE:    on_save();      break;
         case FOCUS_BTN_LOAD:    on_load();      break;
-        case FOCUS_BTN_CANCEL:  on_cancel();    break;
+        case FOCUS_BTN_CLOSE:  on_close();    break;
     }
 
     return 0;
@@ -1241,6 +1370,9 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
 
     if(error_popup != NULL)
         return error_popup_kmio(NULL, keystroke);
+
+    if(saved_popup != NULL)
+        return saved_popup_kmio(NULL, keystroke);
 
     if(warning_popup != NULL)
         return warning_popup_kmio(NULL, keystroke);
@@ -1268,7 +1400,7 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
 
     if(keystroke == 27)
     {
-        on_cancel();
+        on_close();
         return 0;
     }
 
@@ -1278,7 +1410,6 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
         if(model->focus_zone >= FOCUS_MAX)
             model->focus_zone = FOCUS_HOTKEY_LIST;
 
-        update_button_highlights();
         refresh_dialog();
         return 0;
     }
@@ -1289,7 +1420,6 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
         if(model->focus_zone < 0)
             model->focus_zone = FOCUS_MAX - 1;
 
-        update_button_highlights();
         refresh_dialog();
         return 0;
     }
@@ -1300,11 +1430,11 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
             retval = handle_hotkey_list_keys(keystroke);
             break;
 
-        case FOCUS_BTN_TEST:
+        case FOCUS_BTN_MODIFY:
         case FOCUS_BTN_RESET:
         case FOCUS_BTN_SAVE:
         case FOCUS_BTN_LOAD:
-        case FOCUS_BTN_CANCEL:
+        case FOCUS_BTN_CLOSE:
             retval = handle_button_keys(keystroke);
             break;
     }
@@ -1398,11 +1528,11 @@ build_dialog(void)
     vk_box_set_homogeneous(button_hbox, false);
     vk_widget_set_colors(VK_WIDGET(button_hbox), COLOR_BLACK, COLOR_CYAN);
 
-    buttons[BTN_TEST] = vk_button_create("Test");
+    buttons[BTN_MODIFY] = vk_button_create("Modify");
     buttons[BTN_RESET] = vk_button_create("Reset");
     buttons[BTN_SAVE] = vk_button_create("Save");
     buttons[BTN_LOAD] = vk_button_create("Load");
-    buttons[BTN_CANCEL] = vk_button_create("Cancel");
+    buttons[BTN_CLOSE] = vk_button_create("Close");
 
     {
         int i;
@@ -1421,12 +1551,12 @@ build_dialog(void)
     vk_widget_set_colors(VK_WIDGET(button_spacer), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_expand(VK_WIDGET(button_spacer));
 
-    vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_TEST]));
+    vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_MODIFY]));
     vk_box_set_widget(button_hbox, 1, VK_WIDGET(buttons[BTN_RESET]));
     vk_box_set_widget(button_hbox, 2, VK_WIDGET(button_spacer));
     vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_SAVE]));
     vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_LOAD]));
-    vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_CANCEL]));
+    vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_CLOSE]));
 
     vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame));
     vk_box_set_widget(main_vbox, 1, VK_WIDGET(button_hbox));
@@ -1520,6 +1650,9 @@ vwm_manage_hotkeys_close(void)
     if(error_popup != NULL)
         error_popup_close();
 
+    if(saved_popup != NULL)
+        saved_popup_close();
+
     if(warning_popup != NULL)
         warning_popup_close();
 
@@ -1576,6 +1709,12 @@ vk_widget_t *
 vwm_manage_hotkeys_get_error_popup(void)
 {
     return VK_WIDGET(error_popup);
+}
+
+vk_widget_t *
+vwm_manage_hotkeys_get_saved_popup(void)
+{
+    return VK_WIDGET(saved_popup);
 }
 
 vk_widget_t *
@@ -1812,6 +1951,14 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         return 0;
     }
 
+    if(saved_popup != NULL)
+    {
+        if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+            saved_popup_close();
+
+        return 0;
+    }
+
     if(warning_popup != NULL)
     {
         if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
@@ -1840,7 +1987,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         if(entry >= 0) model->selected = entry;
 
         model->focus_zone = FOCUS_HOTKEY_LIST;
-        update_button_highlights();
         refresh_dialog();
         return 0;
     }
@@ -1855,7 +2001,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         if(entry >= 0) model->selected = entry;
 
         model->focus_zone = FOCUS_HOTKEY_LIST;
-        update_button_highlights();
         refresh_dialog();
         return 0;
     }
@@ -1897,11 +2042,10 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         vk_listbox_update(hotkey_listbox);
         model->selected = entry;
 
-        update_button_highlights();
         refresh_dialog();
 
         if(is_dblclick)
-            on_test();
+            on_modify();
 
         return 0;
     }
@@ -1910,25 +2054,24 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
     {
         int zone = -1;
 
-        if(rx <= 7)                     zone = FOCUS_BTN_TEST;
+        if(rx <= 7)                     zone = FOCUS_BTN_MODIFY;
         else if(rx >= 8 && rx <= 14)    zone = FOCUS_BTN_RESET;
         else if(rx >= 38 && rx <= 43)   zone = FOCUS_BTN_SAVE;
         else if(rx >= 44 && rx <= 49)   zone = FOCUS_BTN_LOAD;
-        else if(rx >= 50)               zone = FOCUS_BTN_CANCEL;
+        else if(rx >= 50)               zone = FOCUS_BTN_CLOSE;
 
         if(zone >= 0)
         {
             model->focus_zone = zone;
-            update_button_highlights();
             refresh_dialog();
 
             switch(zone)
             {
-                case FOCUS_BTN_TEST:    on_test();      break;
+                case FOCUS_BTN_MODIFY:    on_modify();      break;
                 case FOCUS_BTN_RESET:   on_reset();     break;
                 case FOCUS_BTN_SAVE:    on_save();      break;
                 case FOCUS_BTN_LOAD:    on_load();      break;
-                case FOCUS_BTN_CANCEL:  on_cancel();    break;
+                case FOCUS_BTN_CLOSE:  on_close();    break;
             }
         }
 
