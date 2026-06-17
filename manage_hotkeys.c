@@ -68,7 +68,7 @@ enum
     FOCUS_BTN_RESET,
     FOCUS_BTN_SAVE,
     FOCUS_BTN_LOAD,
-    FOCUS_BTN_CANCEL,
+    FOCUS_BTN_CLOSE,
     FOCUS_MAX
 };
 
@@ -77,7 +77,7 @@ enum
 #define BTN_RESET       1
 #define BTN_SAVE        2
 #define BTN_LOAD        3
-#define BTN_CANCEL      4
+#define BTN_CLOSE      4
 
 typedef struct
 {
@@ -352,7 +352,7 @@ update_button_highlights(void)
     int focus_zones[] =
     {
         FOCUS_BTN_MODIFY, FOCUS_BTN_RESET,
-        FOCUS_BTN_SAVE, FOCUS_BTN_LOAD, FOCUS_BTN_CANCEL
+        FOCUS_BTN_SAVE, FOCUS_BTN_LOAD, FOCUS_BTN_CLOSE
     };
     int i;
 
@@ -1282,7 +1282,7 @@ on_load(void)
 }
 
 static void
-on_cancel(void)
+on_close(void)
 {
     if(has_changes())
     {
@@ -1337,7 +1337,7 @@ handle_button_keys(int32_t keystroke)
         case FOCUS_BTN_RESET:   on_reset();     break;
         case FOCUS_BTN_SAVE:    on_save();      break;
         case FOCUS_BTN_LOAD:    on_load();      break;
-        case FOCUS_BTN_CANCEL:  on_cancel();    break;
+        case FOCUS_BTN_CLOSE:  on_close();    break;
     }
 
     return 0;
@@ -1385,7 +1385,7 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
 
     if(keystroke == 27)
     {
-        on_cancel();
+        on_close();
         return 0;
     }
 
@@ -1419,7 +1419,7 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
         case FOCUS_BTN_RESET:
         case FOCUS_BTN_SAVE:
         case FOCUS_BTN_LOAD:
-        case FOCUS_BTN_CANCEL:
+        case FOCUS_BTN_CLOSE:
             retval = handle_button_keys(keystroke);
             break;
     }
@@ -1517,7 +1517,7 @@ build_dialog(void)
     buttons[BTN_RESET] = vk_button_create("Reset");
     buttons[BTN_SAVE] = vk_button_create("Save");
     buttons[BTN_LOAD] = vk_button_create("Load");
-    buttons[BTN_CANCEL] = vk_button_create("Cancel");
+    buttons[BTN_CLOSE] = vk_button_create("Close");
 
     {
         int i;
@@ -1541,7 +1541,7 @@ build_dialog(void)
     vk_box_set_widget(button_hbox, 2, VK_WIDGET(button_spacer));
     vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_SAVE]));
     vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_LOAD]));
-    vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_CANCEL]));
+    vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_CLOSE]));
 
     vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame));
     vk_box_set_widget(main_vbox, 1, VK_WIDGET(button_hbox));
@@ -2043,7 +2043,7 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         else if(rx >= 8 && rx <= 14)    zone = FOCUS_BTN_RESET;
         else if(rx >= 38 && rx <= 43)   zone = FOCUS_BTN_SAVE;
         else if(rx >= 44 && rx <= 49)   zone = FOCUS_BTN_LOAD;
-        else if(rx >= 50)               zone = FOCUS_BTN_CANCEL;
+        else if(rx >= 50)               zone = FOCUS_BTN_CLOSE;
 
         if(zone >= 0)
         {
@@ -2056,7 +2056,7 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
                 case FOCUS_BTN_RESET:   on_reset();     break;
                 case FOCUS_BTN_SAVE:    on_save();      break;
                 case FOCUS_BTN_LOAD:    on_load();      break;
-                case FOCUS_BTN_CANCEL:  on_cancel();    break;
+                case FOCUS_BTN_CLOSE:  on_close();    break;
             }
         }
 
