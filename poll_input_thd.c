@@ -234,6 +234,20 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
             }
         }
 
+        vk_widget_t *hk_saved =
+            vwm_manage_hotkeys_get_saved_popup();
+        if(hk_saved != NULL)
+        {
+            vk_widget_get_position(hk_saved, &wx, &wy);
+            vk_widget_get_metrics(hk_saved, &ww, &wh);
+
+            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            {
+                *hit_out = hk_saved;
+                return ZONE_MANAGE_HOTKEYS;
+            }
+        }
+
         vk_widget_t *hk_warning =
             vwm_manage_hotkeys_get_warning_popup();
         if(hk_warning != NULL)
