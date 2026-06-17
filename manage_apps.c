@@ -405,11 +405,8 @@ static void
 listbox_rebuild(void)
 {
     int i;
-    int count;
 
-    count = vk_listbox_get_item_count(app_listbox);
-    for(i = count - 1; i >= 0; i--)
-        vk_listbox_remove_item(app_listbox, i);
+    vk_listbox_reset(app_listbox);
 
     for(i = 0; i < model->count; i++)
     {

@@ -131,7 +131,6 @@ rebuild_listbox(void)
 {
     vwm_t           *vwm;
     int             count;
-    int             existing;
     int             i;
     vk_widget_t     *w;
     const char      *title;
@@ -147,9 +146,7 @@ rebuild_listbox(void)
         count = vk_deck_count(vwm->deck);
     }
 
-    existing = vk_listbox_get_item_count(windows_listbox);
-    for(i = existing - 1; i >= 0; i--)
-        vk_listbox_remove_item(windows_listbox, i);
+    vk_listbox_reset(windows_listbox);
 
     if(count == 0)
     {

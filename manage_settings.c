@@ -462,11 +462,8 @@ static void
 rebuild_listbox(void)
 {
     int i;
-    int count;
 
-    count = vk_listbox_get_item_count(settings_listbox);
-    for(i = count - 1; i >= 0; i--)
-        vk_listbox_remove_item(settings_listbox, i);
+    vk_listbox_reset(settings_listbox);
 
     for(i = 0; i < active_setting_count(); i++)
     {
