@@ -886,11 +886,10 @@ static void
 confirm_popup_show(void)
 {
     vwm_t       *vwm;
-    vk_label_t  *label;
     vk_box_t    *client;
     int         scr_w, scr_h;
-    int         popup_w = 48;
-    int         popup_h = 10;
+    int         popup_w = 40;
+    int         popup_h = 9;
     int         pos_x, pos_y;
 
     if(confirm_popup != NULL) return;
@@ -899,7 +898,7 @@ confirm_popup_show(void)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     confirm_popup = vk_popup_create(popup_w, popup_h,
-        VK_BORDER_SINGLE, "Yes", "No", NULL);
+        VK_BORDER_SINGLE, "Discard", "Cancel", NULL);
     vk_popup_set_title(confirm_popup, " Confirm ");
     vk_popup_set_border_colors(confirm_popup, COLOR_RED, COLOR_WHITE);
     vk_popup_set_border_attrs(confirm_popup, A_NORMAL);
@@ -914,17 +913,33 @@ confirm_popup_show(void)
     }
 
     client = vk_box_create(popup_w - 2, popup_h - 5,
-        VK_BOX_VERTICAL, 1);
+        VK_BOX_VERTICAL, 4);
     vk_box_set_homogeneous(client, true);
     vk_widget_set_colors(VK_WIDGET(client), COLOR_RED, COLOR_WHITE);
 
-    label = vk_label_create(popup_w - 2);
-    vk_label_set_justify(label, VK_JUSTIFY_CENTER);
-    vk_label_set_text(label,
-        "You have uncommitted changes. Are you sure?");
-    vk_widget_set_colors(VK_WIDGET(label), COLOR_RED, COLOR_WHITE);
-    vk_label_update(label);
-    vk_box_set_widget(client, 0, VK_WIDGET(label));
+    {
+        vk_filler_t *top_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_RED, COLOR_WHITE);
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+
+        vk_label_t *line1 = vk_label_create(popup_w - 2);
+        vk_label_set_justify(line1, VK_JUSTIFY_CENTER);
+        vk_label_set_text(line1, "You have unsaved changes.");
+        vk_widget_set_colors(VK_WIDGET(line1), COLOR_RED, COLOR_WHITE);
+        vk_label_update(line1);
+        vk_box_set_widget(client, 1, VK_WIDGET(line1));
+
+        vk_label_t *line2 = vk_label_create(popup_w - 2);
+        vk_label_set_justify(line2, VK_JUSTIFY_CENTER);
+        vk_label_set_text(line2, "Discard changes and close?");
+        vk_widget_set_colors(VK_WIDGET(line2), COLOR_RED, COLOR_WHITE);
+        vk_label_update(line2);
+        vk_box_set_widget(client, 2, VK_WIDGET(line2));
+
+        vk_filler_t *bot_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_RED, COLOR_WHITE);
+        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad));
+    }
 
     vk_popup_set_client(confirm_popup, VK_WIDGET(client));
 
