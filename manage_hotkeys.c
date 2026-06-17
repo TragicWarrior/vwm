@@ -1278,7 +1278,6 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
         if(model->focus_zone >= FOCUS_MAX)
             model->focus_zone = FOCUS_HOTKEY_LIST;
 
-        update_button_highlights();
         refresh_dialog();
         return 0;
     }
@@ -1289,7 +1288,6 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
         if(model->focus_zone < 0)
             model->focus_zone = FOCUS_MAX - 1;
 
-        update_button_highlights();
         refresh_dialog();
         return 0;
     }
@@ -1840,7 +1838,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         if(entry >= 0) model->selected = entry;
 
         model->focus_zone = FOCUS_HOTKEY_LIST;
-        update_button_highlights();
         refresh_dialog();
         return 0;
     }
@@ -1855,7 +1852,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         if(entry >= 0) model->selected = entry;
 
         model->focus_zone = FOCUS_HOTKEY_LIST;
-        update_button_highlights();
         refresh_dialog();
         return 0;
     }
@@ -1897,7 +1893,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         vk_listbox_update(hotkey_listbox);
         model->selected = entry;
 
-        update_button_highlights();
         refresh_dialog();
 
         if(is_dblclick)
@@ -1919,7 +1914,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         if(zone >= 0)
         {
             model->focus_zone = zone;
-            update_button_highlights();
             refresh_dialog();
 
             switch(zone)
