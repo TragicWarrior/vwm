@@ -31,13 +31,14 @@ HIGH IMPACT
            intentional leak as libviper's canvases)
 
 [ ] 2. classify_mouse is ~370 lines of duplicated popup hit-testing
-       poll_input_thd.c lines 92-417 (classify_mouse function)
+       poll_input_thd.c from line 94 (classify_mouse function)
        Per mouse event (every cursor move while hover-tracking is on),
        we walk through 19+ optional popup pointers, each with the same
        NULL-check + vk_widget_get_position + vk_widget_get_metrics +
        bounds-test boilerplate (about 12 lines per popup).
        manage_apps_popup has 7 sub-popups checked.  manage_hotkeys has
-       5.  manage_settings has 7.  Plus top-level menu, calendar, etc.
+       6 (saved_popup added in the hotkeys/settings consistency pass).
+       manage_settings has 7.  Plus top-level menu, calendar, etc.
 
        Two fixes, either one or both:
        a) Table-driven: array of (popup_getter_fn, zone_id) pairs and a
@@ -101,12 +102,12 @@ MEDIUM IMPACT
        Fix: compare against current title (via vk_window_get_title)
        and skip if identical.
 
-[ ] 7. Wallpaper cchar_t built per refresh
+[x] 7. Wallpaper cchar_t built per refresh
        bkgd.c  _bkgd_render_small_bricks, _bkgd_render_large_bricks
-       Each render builds cchar_t copies from WACS_* sources every
-       call.  Resolved automatically if item 1 lands (the cchar_t's
-       are constructed during the cache build, not the per-refresh
-       blit).  Listed for completeness; don't fix in isolation.
+       RESOLVED by item 1 (now landed): the cchar_t's are built once
+       during the wallpaper cache build; the per-refresh path is an
+       overwrite() blit of the cached WINDOW, so no per-refresh cchar_t
+       construction remains.
 
 [ ] 8. Panel display redoes vk_widget_set_colors every clock tick
        panel.c  vwm_panel_display() + its callees
@@ -172,3 +173,46 @@ BIGGEST WIN AT LOWEST RISK
   Items 3 and 5 (skip refresh when no state changed; batch pt_thread
   refreshes) compound nicely on top of item 1: fewer refreshes, each
   refresh cheaper.
+
+
+MEMORY CORRECTNESS (valgrind, 2026-06-17)
+-----------------------------------------
+
+From `valgrind --leak-check=full --show-leak-kinds=all ./vwm`
+(valgrind 3.22.0), exercising the menus and the manage_* dialogs;
+log was at /tmp/vwm-valgrind.log.
+
+These are PRE-EXISTING and unrelated to the recent cleanups -- the
+listbox rebuild path (vk_listbox_reset / rebuild_listbox) appears in
+none of the records.  For certainty, an A/B run on master should show
+the same counts.
+
+  Summary: 184 errors / 33 contexts.
+  Leaks: definitely 4,249 B / 20 blocks (14 records);
+         indirectly 12,296 B / 151; possibly 27,558 B / 103;
+         still reachable 77,181 B / 192.
+
+[ ] M1. ncurses color-tree "Invalid read of size 4" (startup + exit)
+        tsearch/tfind/tdelete inside libncursesw, reached via
+        _vdk_color_init_extended <- vdk_color_init <- vwm_init at
+        startup, and via delscreen <- _vk_screen_dtor at exit.
+        ncurses-internal, surfaced by libviper's extended-color setup;
+        not directly fixable in vwm.  A libviper/ncurses concern --
+        see whether vdk_color_init can avoid it, else suppress.
+        (Also noted in libviper/TODO.)
+
+[ ] M2. vwmterm reads an uninitialised value
+        "Conditional jump or move depends on uninitialised value(s)"
+        at vwmterm_thd (modules/vwmterm3, libvwmterm.so), under
+        vwm_sched_trampoline.  A field/var used before it is set in the
+        vwmterm thread.  Re-run with --track-origins=yes to pinpoint
+        the origin.  Actionable in vwmterm3.
+
+[ ] M3. Leaks at exit (definitely lost: 4,249 B / 20 blocks)
+        Top allocation sites are dialog/menu open paths
+        (vwm_menu_helper, vwm_dropdown_mouse -> vk_listbox_exec_curr ->
+        manage_*_open -> vk_window / vk_scroller / vk_box_create),
+        vwmterm allocations, and program load (vwm_programs_load).
+        Long-lived objects not freed on exit; the OS reclaims them so
+        runtime impact is nil, but a teardown/free pass would zero the
+        count.  Lower priority than M2.
