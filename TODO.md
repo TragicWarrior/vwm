@@ -1,9 +1,14 @@
-vwm performance review
-======================
+vwm review backlog
+==================
 
-Findings from a code review focused on per-event and per-frame hot
-paths.  Ordered by expected impact within each band.  This file is
-local; commit it or not as you prefer.
+A running backlog from several reviews of vwm, in three parts:
+
+  * PERFORMANCE -- per-event / per-frame hot-path findings, ordered by
+    expected impact (the numbered items under HIGH / MEDIUM / LOWER).
+  * MEMORY CORRECTNESS -- valgrind findings (the M-items).
+  * SIMPLIFICATION / DEDUP -- the tiered code-quality cleanup (S-items).
+
+This file is local; commit it or not as you prefer.
 
 
 HIGH IMPACT
@@ -31,13 +36,14 @@ HIGH IMPACT
            intentional leak as libviper's canvases)
 
 [ ] 2. classify_mouse is ~370 lines of duplicated popup hit-testing
-       poll_input_thd.c lines 92-417 (classify_mouse function)
+       poll_input_thd.c from line 94 (classify_mouse function)
        Per mouse event (every cursor move while hover-tracking is on),
        we walk through 19+ optional popup pointers, each with the same
        NULL-check + vk_widget_get_position + vk_widget_get_metrics +
        bounds-test boilerplate (about 12 lines per popup).
        manage_apps_popup has 7 sub-popups checked.  manage_hotkeys has
-       5.  manage_settings has 7.  Plus top-level menu, calendar, etc.
+       6 (saved_popup added in the hotkeys/settings consistency pass).
+       manage_settings has 7.  Plus top-level menu, calendar, etc.
 
        Two fixes, either one or both:
        a) Table-driven: array of (popup_getter_fn, zone_id) pairs and a
@@ -101,12 +107,12 @@ MEDIUM IMPACT
        Fix: compare against current title (via vk_window_get_title)
        and skip if identical.
 
-[ ] 7. Wallpaper cchar_t built per refresh
+[x] 7. Wallpaper cchar_t built per refresh
        bkgd.c  _bkgd_render_small_bricks, _bkgd_render_large_bricks
-       Each render builds cchar_t copies from WACS_* sources every
-       call.  Resolved automatically if item 1 lands (the cchar_t's
-       are constructed during the cache build, not the per-refresh
-       blit).  Listed for completeness; don't fix in isolation.
+       RESOLVED by item 1 (now landed): the cchar_t's are built once
+       during the wallpaper cache build; the per-refresh path is an
+       overwrite() blit of the cached WINDOW, so no per-refresh cchar_t
+       construction remains.
 
 [ ] 8. Panel display redoes vk_widget_set_colors every clock tick
        panel.c  vwm_panel_display() + its callees
@@ -172,3 +178,109 @@ BIGGEST WIN AT LOWEST RISK
   Items 3 and 5 (skip refresh when no state changed; batch pt_thread
   refreshes) compound nicely on top of item 1: fewer refreshes, each
   refresh cheaper.
+
+
+MEMORY CORRECTNESS (valgrind, 2026-06-17)
+-----------------------------------------
+
+From `valgrind --leak-check=full --show-leak-kinds=all ./vwm`
+(valgrind 3.22.0), exercising the menus and the manage_* dialogs;
+log was at /tmp/vwm-valgrind.log.
+
+These are PRE-EXISTING and unrelated to the recent cleanups -- the
+listbox rebuild path (vk_listbox_reset / rebuild_listbox) appears in
+none of the records.  For certainty, an A/B run on master should show
+the same counts.
+
+  Summary: 184 errors / 33 contexts.
+  Leaks: definitely 4,249 B / 20 blocks (14 records);
+         indirectly 12,296 B / 151; possibly 27,558 B / 103;
+         still reachable 77,181 B / 192.
+
+[ ] M1. ncurses color-tree "Invalid read of size 4" (startup + exit)
+        tsearch/tfind/tdelete inside libncursesw, reached via
+        _vdk_color_init_extended <- vdk_color_init <- vwm_init at
+        startup, and via delscreen <- _vk_screen_dtor at exit.
+        ncurses-internal, surfaced by libviper's extended-color setup;
+        not directly fixable in vwm.  A libviper/ncurses concern --
+        see whether vdk_color_init can avoid it, else suppress.
+        (Also noted in libviper/TODO.)
+
+[ ] M2. vwmterm reads an uninitialised value
+        "Conditional jump or move depends on uninitialised value(s)"
+        at vwmterm_thd (modules/vwmterm3, libvwmterm.so), under
+        vwm_sched_trampoline.  A field/var used before it is set in the
+        vwmterm thread.  Re-run with --track-origins=yes to pinpoint
+        the origin.  Actionable in vwmterm3.
+
+[ ] M3. Leaks at exit (definitely lost: 4,249 B / 20 blocks)
+        Top allocation sites are dialog/menu open paths
+        (vwm_menu_helper, vwm_dropdown_mouse -> vk_listbox_exec_curr ->
+        manage_*_open -> vk_window / vk_scroller / vk_box_create),
+        vwmterm allocations, and program load (vwm_programs_load).
+        Long-lived objects not freed on exit; the OS reclaims them so
+        runtime impact is nil, but a teardown/free pass would zero the
+        count.  Lower priority than M2.
+
+
+SIMPLIFICATION / DEDUP (tiered cleanup review)
+----------------------------------------------
+
+A separate code-quality pass (reduce duplication, remove dead code),
+run alongside the perf review and classified by tier.  Line counts are
+rough estimates from the original analyst pass.
+
+Already merged: the two bugs (module dedup strstr->strcmp; strdupv
+off-by-one) and all of Tier 1 -- profile passwd field, panel
+strdup_printf("%s")->strdup, signals vwm_sigset heap->stack, panel
+freeze/thaw vestige, manage_hotkeys redundant repaints, and
+vk_listbox_reset for the 4 full-clear rebuilds.  Remaining:
+
+TIER 1 (leftover)
+[ ] S1. Dead includes / ghost declarations / stray casts sweep, tree-
+        wide (e.g. duplicate includes, vwm_hook_* ghost decls).
+        Compile-validated only; verify each before committing.  (The
+        (void)signum cast already went with the sigset change.)
+
+THE BIG ONE -- shared manage_ui_common (~450+ lines; spike first)
+[ ] S2. The three manage_* dialogs each carry private copies of the
+        same primitives.  Consolidate into one translation unit:
+          warning_popup_show()      x3        ~180
+          error_popup_show()        x2-3      ~75
+          popup center+clamp        19 sites  ~63
+          double-click detection    10 sites  ~55
+          popup close lifecycle     ~13 sites ~45
+          listbox_scroll_info()     x3        ~22
+          one/two-button popup kmio            ~30
+        De-risk: extract one helper (e.g. warning_popup), prove it
+        across all three dialogs, then move the rest.  Centralizing the
+        popup set also subsumes perf items 2 and 13 (classify_mouse
+        hit-test boilerplate and the get_X_popup accessor sprawl).
+
+TIER 2 -- within-file dedup
+[ ] S3. manage_settings: popup-lifecycle trios (~90), two-button
+        handler (~55), TASK/DATE actions x3 (~45).
+[ ] S4. manage_hotkeys: offsetof table for the 13-field
+        load/apply/has_changes triplication (~40); scroll twins (~22).
+[ ] S5. manage_apps: KEY_UP/DOWN nav dup; dropdown-zone table; dead
+        include + dead output params (~40).
+[ ] S6. winman: WINDOW_MOVE_* / RESIZE_* siblings -> 2 bodies (~48).
+[ ] S7. panel: message-list scan x4 -> 2 finders (~30).
+[ ] S8. bkgd: 3 fill-pattern helpers -> one (~20).
+[ ] S9. mainmenu: dropdown boilerplate + nav dup.
+[ ] S10. modules: find_by_name/title/type share structure -> dedup;
+         dead ghost declarations.  (find_by_title is also perf item 11;
+         classify_mouse hit-test dedup is perf item 2.)
+
+TIER 3 -- bundled modules
+[ ] S11. vwmprint <-> vwmscrshot: 6 shared tool-window helpers
+         (center_window, center_pad, make_window, destroy_own_window,
+         swap_window, close_session) ~85.
+[ ] S12. vwmterm3: scroll logic x4 -> one (~50); 6-block module
+         registration -> table (~50); selection-normalization dup (~13).
+
+PARKED (excluded -- would trade simplicity for perf/memory or risk)
+  - sched.c n_active counter: adds a field + sync invariant for
+    negligible gain at MAX_TASKS=20.
+  - modules.c find_by_type first-iteration restructure: low-med risk,
+    touches the iteration contract.
