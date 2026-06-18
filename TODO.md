@@ -91,7 +91,7 @@ HIGH IMPACT
 MEDIUM IMPACT
 -------------
 
-[ ] 4. Multiple vk_screen_refresh per logical mouse event
+[x] 4. Multiple vk_screen_refresh per logical mouse event
        poll_input_thd.c, the KEY_MOUSE branch.
        The "close popup that lost focus" sequence (manage_hotkeys,
        manage_settings, manage_apps, menu, calendar) calls
@@ -101,6 +101,12 @@ MEDIUM IMPACT
 
        Fix: drop the early refreshes; let the trailing one cover them.
        Or set a flag and refresh once.
+
+       DONE: dropped the 5 early vk_screen_refresh calls in the
+       close-on-lost-focus branches; every mouse path falls through the
+       switch to the single trailing refresh, so a dismiss-click now
+       composites once instead of 2-3.  (Verified all switch(zone) cases
+       break -- no early continue -- so the close is always painted.)
 
 [ ] 5. pt_thread.c refreshes per drain cycle, not per scheduler tick
        modules/vwmterm3/pt_thread.c lines 100-107
