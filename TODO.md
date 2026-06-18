@@ -1,9 +1,14 @@
-vwm performance review
-======================
+vwm review backlog
+==================
 
-Findings from a code review focused on per-event and per-frame hot
-paths.  Ordered by expected impact within each band.  This file is
-local; commit it or not as you prefer.
+A running backlog from several reviews of vwm, in three parts:
+
+  * PERFORMANCE -- per-event / per-frame hot-path findings, ordered by
+    expected impact (the numbered items under HIGH / MEDIUM / LOWER).
+  * MEMORY CORRECTNESS -- valgrind findings (the M-items).
+  * SIMPLIFICATION / DEDUP -- the tiered code-quality cleanup (S-items).
+
+This file is local; commit it or not as you prefer.
 
 
 HIGH IMPACT
