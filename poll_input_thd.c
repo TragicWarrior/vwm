@@ -369,7 +369,6 @@ vwm_poll_input(void * const env)
                (bs & BUTTON1_PRESSED))
             {
                 vwm_manage_hotkeys_close();
-                vk_screen_refresh(vwm->screen);
             }
 
             if(vwm->manage_settings_popup != NULL &&
@@ -377,7 +376,6 @@ vwm_poll_input(void * const env)
                (bs & BUTTON1_PRESSED))
             {
                 vwm_manage_settings_close();
-                vk_screen_refresh(vwm->screen);
             }
 
             if(vwm->manage_apps_popup != NULL &&
@@ -385,7 +383,6 @@ vwm_poll_input(void * const env)
                (bs & BUTTON1_PRESSED))
             {
                 vwm_manage_apps_close();
-                vk_screen_refresh(vwm->screen);
             }
 
             if(vwm->menu != NULL && zone != ZONE_MENU &&
@@ -394,7 +391,6 @@ vwm_poll_input(void * const env)
                 vwm_menubar_close_dropdown();
                 vk_menubar_set_focused(vwm->menubar, false);
                 vk_menubar_update(vwm->menubar);
-                vk_screen_refresh(vwm->screen);
             }
 
             if(vwm->calendar_popup != NULL && zone != ZONE_CALENDAR &&
@@ -402,7 +398,6 @@ vwm_poll_input(void * const env)
                (bs & BUTTON1_PRESSED))
             {
                 vwm_calendar_close();
-                vk_screen_refresh(vwm->screen);
             }
 
             switch(zone)
