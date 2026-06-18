@@ -61,7 +61,7 @@ HIGH IMPACT
        (still called via MHIT), so item 13 stays open -- it needs
        approach (b) or the manage_ui_common refactor (S2).
 
-[ ] 3. vk_screen_refresh fires on every keystroke regardless of state
+[x] 3. vk_screen_refresh fires on every keystroke regardless of state
        change
        poll_input_thd.c (every branch in vwm_poll_input ends with
        vk_screen_refresh).
@@ -76,6 +76,16 @@ HIGH IMPACT
        set.  Branches that genuinely don't change visible state (the
        common typing-into-vwmterm path) just skip the refresh.  Cuts
        roughly half the surface composites during heavy typing.
+
+       DONE (already handled, and narrower than the proposed flag
+       refactor): the dominant case -- a keystroke falling through to
+       the deck-top widget (a vwmterm) -- already skips the refresh.
+       That branch in vwm_poll_input pushes the key to the PTY and lets
+       pt_thread paint the child's echo (see the comment there).  Every
+       other refresh branch handles input that DOES change visible state
+       (tool window, resize, dialog/popup/menu/panel keystrokes, mouse
+       actions), so a needs_refresh flag would save nothing there.  Goal
+       met; no further work.
 
 
 MEDIUM IMPACT
