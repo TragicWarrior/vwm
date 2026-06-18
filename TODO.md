@@ -35,7 +35,7 @@ HIGH IMPACT
            WINDOWs are bound to a SCREEN that's about to die, same
            intentional leak as libviper's canvases)
 
-[ ] 2. classify_mouse is ~370 lines of duplicated popup hit-testing
+[x] 2. classify_mouse is ~370 lines of duplicated popup hit-testing
        poll_input_thd.c from line 94 (classify_mouse function)
        Per mouse event (every cursor move while hover-tracking is on),
        we walk through 19+ optional popup pointers, each with the same
@@ -51,6 +51,15 @@ HIGH IMPACT
        b) Maintain a small "currently visible popups" list that each
           system tool's open/close routines push/pop themselves into.
           classify_mouse then walks 0-3 entries instead of 19.
+
+       DONE (approach a): a _mouse_hit() helper + a local MHIT() macro
+       collapse each candidate's bounds-test to one line; per-dialog
+       gates, check order, and zone returns preserved.  ~234 lines
+       removed.  Verified with a temporary shadow-compare (the new table
+       ran beside the old chain, divergences logged -- none) across a
+       full mouse exercise.  NOTE: this kept the get_X_popup accessors
+       (still called via MHIT), so item 13 stays open -- it needs
+       approach (b) or the manage_ui_common refactor (S2).
 
 [ ] 3. vk_screen_refresh fires on every keystroke regardless of state
        change
@@ -162,8 +171,11 @@ LOWER IMPACT / CLEANUP
 [ ] 13. Repetitive get_X_popup() accessor functions
        manage_apps.c, manage_hotkeys.c, manage_settings.c, etc.
        Each system tool exports half a dozen vwm_X_get_<thing>_popup()
-       accessors so classify_mouse can hit-test them.  Solved
-       structurally by item 2.  Listed for completeness.
+       accessors so classify_mouse can hit-test them.  Item 2 was done
+       via the mechanical approach (a), which still calls these
+       accessors through MHIT, so they remain.  Resolved only by
+       approach (b) (popups self-register) or the manage_ui_common
+       refactor (S2).
 
 
 BIGGEST WIN AT LOWEST RISK
