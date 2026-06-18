@@ -90,6 +90,28 @@ apply_drag_position(MEVENT *mouse_event)
     }
 }
 
+/* uniform popup bounds-test: when (mx,my) lands inside w, set *hit_out
+   and return `zone`; otherwise -1.  w == NULL (popup not open) is a miss,
+   which folds the per-popup NULL-check into the same call. */
+static int
+_mouse_hit(vk_widget_t *w, int mx, int my, vk_widget_t **hit_out, int zone)
+{
+    int wx, wy, ww, wh;
+
+    if(w == NULL) return -1;
+
+    vk_widget_get_position(w, &wx, &wy);
+    vk_widget_get_metrics(w, &ww, &wh);
+
+    if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+    {
+        *hit_out = w;
+        return zone;
+    }
+
+    return -1;
+}
+
 static int
 classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
 {
@@ -97,6 +119,12 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
     int         wx, wy, ww, wh;
     int         rx, ry;
     uint32_t    state;
+    int         z;
+
+/* test one candidate; return its zone immediately on a hit */
+#define MHIT(w, zone) \
+    do { if((z = _mouse_hit((w), mx, my, hit_out, (zone))) >= 0) return z; } \
+    while(0)
 
     *hit_out = NULL;
 
@@ -111,302 +139,40 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
 
     if(vwm->manage_apps_popup != NULL)
     {
-        vk_widget_t *dd_pop = vwm_manage_apps_get_dropdown_popup();
-        if(dd_pop != NULL)
-        {
-            vk_widget_get_position(dd_pop, &wx, &wy);
-            vk_widget_get_metrics(dd_pop, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = dd_pop;
-                return ZONE_MANAGE_APPS;
-            }
-        }
-
-        vk_widget_t *apps_confirm =
-            vwm_manage_apps_get_confirm_popup();
-        if(apps_confirm != NULL)
-        {
-            vk_widget_get_position(apps_confirm, &wx, &wy);
-            vk_widget_get_metrics(apps_confirm, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = apps_confirm;
-                return ZONE_MANAGE_APPS;
-            }
-        }
-
-        vk_widget_t *apps_saved =
-            vwm_manage_apps_get_saved_popup();
-        if(apps_saved != NULL)
-        {
-            vk_widget_get_position(apps_saved, &wx, &wy);
-            vk_widget_get_metrics(apps_saved, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = apps_saved;
-                return ZONE_MANAGE_APPS;
-            }
-        }
-
-        vk_widget_t *apps_warning =
-            vwm_manage_apps_get_warning_popup();
-        if(apps_warning != NULL)
-        {
-            vk_widget_get_position(apps_warning, &wx, &wy);
-            vk_widget_get_metrics(apps_warning, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = apps_warning;
-                return ZONE_MANAGE_APPS;
-            }
-        }
-
-        vk_widget_t *load_pop = vwm_manage_apps_get_load_popup();
-        if(load_pop != NULL)
-        {
-            vk_widget_get_position(load_pop, &wx, &wy);
-            vk_widget_get_metrics(load_pop, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = load_pop;
-                return ZONE_MANAGE_APPS;
-            }
-        }
-
-        vk_widget_t *edit_pop = vwm_manage_apps_get_edit_popup();
-        if(edit_pop != NULL)
-        {
-            vk_widget_get_position(edit_pop, &wx, &wy);
-            vk_widget_get_metrics(edit_pop, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = edit_pop;
-                return ZONE_MANAGE_APPS;
-            }
-        }
-
-        vk_widget_get_position(VK_WIDGET(vwm->manage_apps_popup),
-            &wx, &wy);
-        vk_widget_get_metrics(VK_WIDGET(vwm->manage_apps_popup),
-            &ww, &wh);
-
-        if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-        {
-            *hit_out = VK_WIDGET(vwm->manage_apps_popup);
-            return ZONE_MANAGE_APPS;
-        }
+        MHIT(vwm_manage_apps_get_dropdown_popup(), ZONE_MANAGE_APPS);
+        MHIT(vwm_manage_apps_get_confirm_popup(),  ZONE_MANAGE_APPS);
+        MHIT(vwm_manage_apps_get_saved_popup(),    ZONE_MANAGE_APPS);
+        MHIT(vwm_manage_apps_get_warning_popup(),  ZONE_MANAGE_APPS);
+        MHIT(vwm_manage_apps_get_load_popup(),     ZONE_MANAGE_APPS);
+        MHIT(vwm_manage_apps_get_edit_popup(),     ZONE_MANAGE_APPS);
+        MHIT(VK_WIDGET(vwm->manage_apps_popup),    ZONE_MANAGE_APPS);
     }
 
     if(vwm->manage_hotkeys_popup != NULL)
     {
-        vk_widget_t *hk_confirm =
-            vwm_manage_hotkeys_get_confirm_popup();
-        if(hk_confirm != NULL)
-        {
-            vk_widget_get_position(hk_confirm, &wx, &wy);
-            vk_widget_get_metrics(hk_confirm, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = hk_confirm;
-                return ZONE_MANAGE_HOTKEYS;
-            }
-        }
-
-        vk_widget_t *hk_error =
-            vwm_manage_hotkeys_get_error_popup();
-        if(hk_error != NULL)
-        {
-            vk_widget_get_position(hk_error, &wx, &wy);
-            vk_widget_get_metrics(hk_error, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = hk_error;
-                return ZONE_MANAGE_HOTKEYS;
-            }
-        }
-
-        vk_widget_t *hk_saved =
-            vwm_manage_hotkeys_get_saved_popup();
-        if(hk_saved != NULL)
-        {
-            vk_widget_get_position(hk_saved, &wx, &wy);
-            vk_widget_get_metrics(hk_saved, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = hk_saved;
-                return ZONE_MANAGE_HOTKEYS;
-            }
-        }
-
-        vk_widget_t *hk_warning =
-            vwm_manage_hotkeys_get_warning_popup();
-        if(hk_warning != NULL)
-        {
-            vk_widget_get_position(hk_warning, &wx, &wy);
-            vk_widget_get_metrics(hk_warning, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = hk_warning;
-                return ZONE_MANAGE_HOTKEYS;
-            }
-        }
-
-        vk_widget_t *hk_load = vwm_manage_hotkeys_get_load_popup();
-        if(hk_load != NULL)
-        {
-            vk_widget_get_position(hk_load, &wx, &wy);
-            vk_widget_get_metrics(hk_load, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = hk_load;
-                return ZONE_MANAGE_HOTKEYS;
-            }
-        }
-
-        vk_widget_get_position(VK_WIDGET(vwm->manage_hotkeys_popup),
-            &wx, &wy);
-        vk_widget_get_metrics(VK_WIDGET(vwm->manage_hotkeys_popup),
-            &ww, &wh);
-
-        if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-        {
-            *hit_out = VK_WIDGET(vwm->manage_hotkeys_popup);
-            return ZONE_MANAGE_HOTKEYS;
-        }
+        MHIT(vwm_manage_hotkeys_get_confirm_popup(), ZONE_MANAGE_HOTKEYS);
+        MHIT(vwm_manage_hotkeys_get_error_popup(),   ZONE_MANAGE_HOTKEYS);
+        MHIT(vwm_manage_hotkeys_get_saved_popup(),   ZONE_MANAGE_HOTKEYS);
+        MHIT(vwm_manage_hotkeys_get_warning_popup(), ZONE_MANAGE_HOTKEYS);
+        MHIT(vwm_manage_hotkeys_get_load_popup(),    ZONE_MANAGE_HOTKEYS);
+        MHIT(VK_WIDGET(vwm->manage_hotkeys_popup),   ZONE_MANAGE_HOTKEYS);
     }
 
     if(vwm->manage_settings_popup != NULL)
     {
-        vk_widget_t *st_confirm =
-            vwm_manage_settings_get_confirm_popup();
-        if(st_confirm != NULL)
-        {
-            vk_widget_get_position(st_confirm, &wx, &wy);
-            vk_widget_get_metrics(st_confirm, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = st_confirm;
-                return ZONE_MANAGE_SETTINGS;
-            }
-        }
-
-        vk_widget_t *st_save_confirm =
-            vwm_manage_settings_get_save_confirm_popup();
-        if(st_save_confirm != NULL)
-        {
-            vk_widget_get_position(st_save_confirm, &wx, &wy);
-            vk_widget_get_metrics(st_save_confirm, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = st_save_confirm;
-                return ZONE_MANAGE_SETTINGS;
-            }
-        }
-
-        vk_widget_t *st_saved =
-            vwm_manage_settings_get_saved_popup();
-        if(st_saved != NULL)
-        {
-            vk_widget_get_position(st_saved, &wx, &wy);
-            vk_widget_get_metrics(st_saved, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = st_saved;
-                return ZONE_MANAGE_SETTINGS;
-            }
-        }
-
-        vk_widget_t *st_warning =
-            vwm_manage_settings_get_warning_popup();
-        if(st_warning != NULL)
-        {
-            vk_widget_get_position(st_warning, &wx, &wy);
-            vk_widget_get_metrics(st_warning, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = st_warning;
-                return ZONE_MANAGE_SETTINGS;
-            }
-        }
-
-        vk_widget_t *st_modify =
-            vwm_manage_settings_get_modify_popup();
-        if(st_modify != NULL)
-        {
-            vk_widget_get_position(st_modify, &wx, &wy);
-            vk_widget_get_metrics(st_modify, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = st_modify;
-                return ZONE_MANAGE_SETTINGS;
-            }
-        }
-
-        vk_widget_t *st_load = vwm_manage_settings_get_load_popup();
-        if(st_load != NULL)
-        {
-            vk_widget_get_position(st_load, &wx, &wy);
-            vk_widget_get_metrics(st_load, &ww, &wh);
-
-            if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-            {
-                *hit_out = st_load;
-                return ZONE_MANAGE_SETTINGS;
-            }
-        }
-
-        vk_widget_get_position(VK_WIDGET(vwm->manage_settings_popup),
-            &wx, &wy);
-        vk_widget_get_metrics(VK_WIDGET(vwm->manage_settings_popup),
-            &ww, &wh);
-
-        if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-        {
-            *hit_out = VK_WIDGET(vwm->manage_settings_popup);
-            return ZONE_MANAGE_SETTINGS;
-        }
+        MHIT(vwm_manage_settings_get_confirm_popup(),      ZONE_MANAGE_SETTINGS);
+        MHIT(vwm_manage_settings_get_save_confirm_popup(), ZONE_MANAGE_SETTINGS);
+        MHIT(vwm_manage_settings_get_saved_popup(),        ZONE_MANAGE_SETTINGS);
+        MHIT(vwm_manage_settings_get_warning_popup(),      ZONE_MANAGE_SETTINGS);
+        MHIT(vwm_manage_settings_get_modify_popup(),       ZONE_MANAGE_SETTINGS);
+        MHIT(vwm_manage_settings_get_load_popup(),         ZONE_MANAGE_SETTINGS);
+        MHIT(VK_WIDGET(vwm->manage_settings_popup),        ZONE_MANAGE_SETTINGS);
     }
 
-    if(vwm->calendar_popup != NULL)
-    {
-        vk_widget_get_position(VK_WIDGET(vwm->calendar_popup), &wx, &wy);
-        vk_widget_get_metrics(VK_WIDGET(vwm->calendar_popup), &ww, &wh);
+    MHIT(VK_WIDGET(vwm->calendar_popup), ZONE_CALENDAR);
+    MHIT(VK_WIDGET(vwm->menu),           ZONE_MENU);
 
-        if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-        {
-            *hit_out = VK_WIDGET(vwm->calendar_popup);
-            return ZONE_CALENDAR;
-        }
-    }
-
-    if(vwm->menu != NULL)
-    {
-        vk_widget_get_position(VK_WIDGET(vwm->menu), &wx, &wy);
-        vk_widget_get_metrics(VK_WIDGET(vwm->menu), &ww, &wh);
-
-        if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
-        {
-            *hit_out = VK_WIDGET(vwm->menu);
-            return ZONE_MENU;
-        }
-    }
+#undef MHIT
 
     hit = vk_deck_hit_test(vwm->deck, mx, my);
     if(hit == NULL) return ZONE_SCREEN;
