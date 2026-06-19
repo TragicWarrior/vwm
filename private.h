@@ -88,10 +88,6 @@ void vwm_sigset(int signum, sighandler_t handler);
 /* border decoration callback for vk_window_t */
 void    vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *data);
 
-/*	default events	*/
-int     vwm_hook_wm_start(WINDOW *window, void *arg);
-int 	vwm_hook_wm_stop(WINDOW *window, void *arg);
-
 /* helpers  */
 void    vwm_modules_preload(vwm_t *vwm);
 
