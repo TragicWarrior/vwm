@@ -18,6 +18,7 @@
 #include "panel.h"
 #include "winman.h"
 #include "manage_apps.h"
+#include "manage_ui_common.h"
 
 #define MANAGE_APPS_HELP \
 "[Tab] cycle controls  [Up/Dn] navigate list  " \
@@ -187,22 +188,6 @@ static int  manage_apps_kmio(vk_object_t *object, int32_t keystroke);
 static void saved_popup_show(void);
 static void confirm_popup_show(void);
 static void confirm_popup_close(void);
-
-static void
-listbox_scroll_info(vk_widget_t *child,
-    int *content_h, int *content_w,
-    int *scroll_y, int *scroll_x)
-{
-    vk_listbox_t *lb = VK_LISTBOX(child);
-    int metrics_w = 0;
-
-    vk_listbox_get_metrics(lb, &metrics_w, NULL);
-
-    if(content_h) *content_h = vk_listbox_get_item_count(lb);
-    if(content_w) *content_w = metrics_w;
-    if(scroll_y) *scroll_y = vk_listbox_get_curr(lb);
-    if(scroll_x) *scroll_x = 0;
-}
 
 static int
 vterm_index_from_name(const char *name)
@@ -2080,7 +2065,7 @@ build_dialog(void)
     vk_scroller_set_scroll_source(listbox_scroller,
         VK_WIDGET(app_listbox));
     vk_scroller_set_scroll_info(listbox_scroller,
-        listbox_scroll_info);
+        vwm_listbox_scroll_info);
     vk_widget_attach_scroller(VK_WIDGET(app_listbox),
         listbox_scroller);
 

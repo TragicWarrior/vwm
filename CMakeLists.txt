@@ -100,6 +100,7 @@ add_executable(vwm
     manage_hotkeys.c
     manage_settings.c
     manage_windows.c
+    manage_ui_common.c
     signals.c
     strings.c
     vwm.c
