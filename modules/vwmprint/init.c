@@ -741,7 +741,16 @@ handle_mouse(MEVENT *me)
     ix = me->x - wx - 1;
     iy = me->y - wy - 1;
 
-    if(ix < 0 || ix >= ww - 2 || iy < 0 || iy >= wh - 2) return;
+    if(ix < 0 || ix >= ww - 2 || iy < 0 || iy >= wh - 2)
+    {
+        /* clicked outside the dialog -- dismiss on a real button press,
+           but only when fully off the window (not just on its border),
+           matching Manage Desktop and the apps/hotkeys/settings popups */
+        if((bs & BUTTON1_PRESSED) &&
+           (me->x < wx || me->x >= wx + ww || me->y < wy || me->y >= wy + wh))
+            close_session();
+        return;
+    }
 
     if(s->state == ST_RESULT)
     {
