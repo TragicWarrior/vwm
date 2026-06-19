@@ -1115,7 +1115,17 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
     rel_x = mouse_event->x - wx;
     rel_y = mouse_event->y - wy;
 
-    if(rel_x < 0 || rel_x >= ww || rel_y < 0 || rel_y >= wh) return 0;
+    if(rel_x < 0 || rel_x >= ww || rel_y < 0 || rel_y >= wh)
+    {
+        /* clicked outside the dialog (e.g. on the desktop) -- dismiss it,
+           matching the lost-focus close the apps/hotkeys/settings popups
+           get from poll_input.  Only a real button press closes it, so
+           hover-moves don't; the move/warning sub-popups are handled
+           above and never reach here. */
+        if(mouse_event->bstate & BUTTON1_PRESSED)
+            vwm_manage_windows_close();
+        return 0;
+    }
 
     /*
         coarse hit-test: the listbox area is the top portion, the button
