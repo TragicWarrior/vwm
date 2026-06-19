@@ -265,10 +265,17 @@ freeze/thaw vestige, manage_hotkeys redundant repaints, and
 vk_listbox_reset for the 4 full-clear rebuilds.  Remaining:
 
 TIER 1 (leftover)
-[ ] S1. Dead includes / ghost declarations / stray casts sweep, tree-
+[x] S1. Dead includes / ghost declarations / stray casts sweep, tree-
         wide (e.g. duplicate includes, vwm_hook_* ghost decls).
         Compile-validated only; verify each before committing.  (The
         (void)signum cast already went with the sigset change.)
+
+        DONE (verifiable subset): removed the vwm_hook_wm_start/stop
+        ghost decls in private.h (no definition or caller) and the
+        duplicate <signal.h>/<time.h> includes in vwm.c.  The broader
+        "unused includes tree-wide" is descoped -- reliable detection
+        needs include-what-you-use tooling and the payoff is cosmetic,
+        not worth a manual hunt across ~68 files.
 
 THE BIG ONE -- shared manage_ui_common (~450+ lines; spike first)
 [ ] S2. The three manage_* dialogs each carry private copies of the

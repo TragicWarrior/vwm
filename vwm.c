@@ -27,8 +27,6 @@
 #include <dirent.h>
 #include <locale.h>
 #include <inttypes.h>
-#include <signal.h>
-#include <time.h>
 
 #include <sys/ioctl.h>
 #include <sys/types.h>
