@@ -18,6 +18,7 @@
 #include "modules.h"
 #include "mainmenu.h"
 #include "manage_settings.h"
+#include "manage_ui_common.h"
 #include "winman.h"
 #include "bkgd.h"
 
@@ -218,22 +219,6 @@ static void rebuild_listbox(void);
 static void refresh_dialog(void);
 static void refresh_load_popup(void);
 static int  manage_settings_kmio(vk_object_t *object, int32_t keystroke);
-
-static void
-listbox_scroll_info(vk_widget_t *child,
-    int *content_h, int *content_w,
-    int *scroll_y, int *scroll_x)
-{
-    vk_listbox_t *lb = VK_LISTBOX(child);
-    int metrics_w = 0;
-
-    vk_listbox_get_metrics(lb, &metrics_w, NULL);
-
-    if(content_h) *content_h = vk_listbox_get_item_count(lb);
-    if(content_w) *content_w = metrics_w;
-    if(scroll_y) *scroll_y = vk_listbox_get_curr(lb);
-    if(scroll_x) *scroll_x = 0;
-}
 
 /* ── app options population ───────────────────────────────── */
 
@@ -2407,7 +2392,7 @@ build_dialog(void)
     vk_scroller_set_scroll_source(listbox_scroller,
         VK_WIDGET(settings_listbox));
     vk_scroller_set_scroll_info(listbox_scroller,
-        listbox_scroll_info);
+        vwm_listbox_scroll_info);
     vk_widget_attach_scroller(VK_WIDGET(settings_listbox),
         listbox_scroller);
 
