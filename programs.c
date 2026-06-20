@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "cJSON.h"
 #include "config.h"
@@ -23,6 +24,7 @@ vwm_programs_purge(vwm_t *vwm)
         if(vwm_module_get_zone(mod) != MODULE_ZONE_USER) continue;
 
         list_del(pos);
+        if(mod->fd_argv != NULL) strfreev(mod->fd_argv);
         free(mod);
     }
 }
@@ -92,6 +94,7 @@ vwm_programs_load(vwm_t *vwm)
         if(value == -1) value = VWM_MOD_TYPE_MISC;
 
         module = vwm_module_clone(module);
+        module->fd_argv = NULL;
         vwm_module_set_title(module, (char *)title);
         vwm_module_set_type(module, value);
 
@@ -104,6 +107,20 @@ vwm_programs_load(vwm_t *vwm)
         else
         {
             args = strcatv(NULL, (char *)bin);
+        }
+
+        /* if any arg carries the "%fd" launch token, stash the raw argv so
+           the launch picker can substitute the chosen file at run time */
+        {
+            int i;
+            for(i = 0; args[i] != NULL; i++)
+            {
+                if(strstr(args[i], "%fd") != NULL)
+                {
+                    module->fd_argv = strdupv(args, 0);
+                    break;
+                }
+            }
         }
 
         vwm_module_set_hidden(module, vwm_json_bool(entry, "hidden", 0) != 0);

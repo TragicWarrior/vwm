@@ -48,6 +48,12 @@ struct _vwm_module_s
 
     vk_window_t*            (*main)             (vwm_module_t *);
     void                    *anything;
+
+    /* For a USER program whose params hold the "%fd" launch token: the
+       raw argv (bin + params, %fd unsubstituted), strdupv'd in
+       programs.c; NULL otherwise.  The launch picker substitutes the
+       chosen file into a copy of this at run time. */
+    char                    **fd_argv;
 };
 
 // this is the standard callback which clones a module
