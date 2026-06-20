@@ -30,6 +30,7 @@ static vwm_module_t     *picker_module;
 
 static struct timespec  last_click_time;
 static int              last_click_item = -1;
+static int              picker_focus = VWM_LOAD_FOCUS_FILEDIALOG;
 
 /* Return a newly-allocated copy of `src` with every "%fd" replaced by
    `repl`, or NULL if `src` holds no "%fd".  Substitution is per argv
@@ -283,6 +284,8 @@ launch_picker_mouse(MEVENT *me)
         if(clicked < 0 || clicked >= count) return;
 
         vk_listbox_set_curr(fl, clicked);
+        picker_focus = VWM_LOAD_FOCUS_FILEDIALOG;
+        vwm_load_popup_paint_focus(picker_fd, picker_focus);
         launch_picker_redraw();
 
         if(picker_double_click(clicked)) launch_picker_activate();
@@ -308,6 +311,31 @@ launch_picker_kmio(vk_object_t *object, int32_t keystroke)
         return 0;
     }
 
+    /* Tab cycles focus: file browser -> Okay -> Cancel (matches the
+       Hotkeys / Apps load dialogs and the print pick session) */
+    if(keystroke == '\t')
+    {
+        picker_focus = (picker_focus + 1) % VWM_LOAD_FOCUS_COUNT;
+        vwm_load_popup_paint_focus(picker_fd, picker_focus);
+        launch_picker_redraw();
+        return 0;
+    }
+
+    if(picker_focus == VWM_LOAD_FOCUS_OK)
+    {
+        if(keystroke == KEY_CRLF || keystroke == ' ')
+            launch_picker_activate();
+        return 0;
+    }
+
+    if(picker_focus == VWM_LOAD_FOCUS_CANCEL)
+    {
+        if(keystroke == KEY_CRLF || keystroke == ' ')
+            launch_picker_close();
+        return 0;
+    }
+
+    /* VWM_LOAD_FOCUS_FILEDIALOG: drive the file browser */
     if(keystroke == KEY_CRLF)
     {
         const char *sel = vk_filedialog_get_selected(picker_fd);
@@ -355,8 +383,10 @@ vwm_launch_picker_open(vwm_module_t *module)
 
     picker_module = module;
     last_click_item = -1;
+    picker_focus = VWM_LOAD_FOCUS_FILEDIALOG;
 
     vk_object_set_kmio(VK_OBJECT(picker), launch_picker_kmio);
+    vwm_load_popup_paint_focus(picker_fd, picker_focus);
 
     /* park the popup in the modal tool_window slot.  tool_window is only
        ever accessed via VK_OBJECT (poll_input pushes all input to its
