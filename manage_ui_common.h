@@ -19,4 +19,9 @@ void    vwm_listbox_scroll_info(vk_widget_t *child,
    stores the pointer.  Shared by Manage Settings / Hotkeys / Apps. */
 vk_popup_t *vwm_warning_popup_show(void);
 
+/* Build, center, and attach a shared error popup showing `msg` at the
+   given size (message length varies per dialog).  The caller sets its
+   kmio handler and stores the pointer.  Shared by Settings / Hotkeys. */
+vk_popup_t *vwm_error_popup_show(const char *msg, int popup_w, int popup_h);
+
 #endif
