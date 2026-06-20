@@ -10,6 +10,7 @@
 #include "profile.h"
 #include "private.h"
 #include "strings.h"
+#include "launch_picker.h"
 #include "list.h"
 
 #define X_MOD(modtype_val, modtype_text) modtype_text,
@@ -473,6 +474,14 @@ vwm_menu_helper(vk_widget_t *widget, void *anything)
 
     vwm = vwm_get_instance();
     module = (vwm_module_t *)anything;
+
+    /* a program whose params hold "%fd" pops a file picker first; it
+       substitutes the chosen file and launches (or aborts on cancel) */
+    if(module->fd_argv != NULL)
+    {
+        vwm_launch_picker_open(module);
+        return 0;
+    }
 
     window = module->main(module);
 

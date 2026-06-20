@@ -96,6 +96,7 @@ add_executable(vwm
     settings.c
     screensaver.c
     programs.c
+    launch_picker.c
     manage_apps.c
     manage_hotkeys.c
     manage_settings.c
