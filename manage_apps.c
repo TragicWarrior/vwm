@@ -154,9 +154,6 @@ static int             edit_active_btn = EDIT_BTN_OK;
 static bool            edit_is_add_mode = false;
 static vk_dropdown_t   *active_dropdown = NULL;
 
-#define LOAD_WIDTH          50
-#define LOAD_HEIGHT         20
-
 static struct timespec      list_last_click_time;
 static int                 list_last_click_item = -1;
 
@@ -1081,42 +1078,7 @@ load_popup_ok(void)
 static void
 update_load_focus(void)
 {
-    vk_widget_t *bar_w;
-    vk_widget_t *ok = NULL;
-    vk_widget_t *cancel = NULL;
-
-    if(load_filedialog == NULL) return;
-
-    /* swap the file_list highlight: BLACK/RED when browser focused,
-       BLACK/WHITE when focus has moved to the buttons */
-    vk_listbox_set_focused(vk_filedialog_get_file_list(load_filedialog),
-        load_focus == LF_FILEDIALOG);
-
-    bar_w = vk_box_get_widget(VK_BOX(load_filedialog), 2);
-    if(bar_w != NULL)
-    {
-        ok = vk_box_get_widget(VK_BOX(bar_w), 0);
-        cancel = vk_box_get_widget(VK_BOX(bar_w), 1);
-    }
-
-    if(ok != NULL)
-    {
-        vk_button_release(VK_BUTTON(ok));
-        vk_widget_set_colors(ok,
-            (load_focus == LF_OK) ? COLOR_YELLOW : COLOR_WHITE, COLOR_BLUE);
-        vk_widget_set_attrs(ok, A_BOLD);
-        vk_button_update(VK_BUTTON(ok));
-    }
-
-    if(cancel != NULL)
-    {
-        vk_button_release(VK_BUTTON(cancel));
-        vk_widget_set_colors(cancel,
-            (load_focus == LF_CANCEL) ? COLOR_YELLOW : COLOR_WHITE,
-            COLOR_BLUE);
-        vk_widget_set_attrs(cancel, A_BOLD);
-        vk_button_update(VK_BUTTON(cancel));
-    }
+    vwm_load_popup_paint_focus(load_filedialog, load_focus);
 }
 
 static int
@@ -1192,68 +1154,15 @@ refresh_load_popup(void)
 static void
 load_popup_open(void)
 {
-    vwm_t   *vwm;
-    int     scr_width, scr_height;
-    int     pos_x, pos_y;
-    int     interior_w, interior_h;
-
     if(load_popup != NULL) return;
 
     load_last_click_item = -1;
     memset(&load_last_click_time, 0, sizeof(load_last_click_time));
     load_focus = LF_FILEDIALOG;
 
-    vwm = vwm_get_instance();
-    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
-
-    load_popup = vk_popup_create(LOAD_WIDTH, LOAD_HEIGHT,
-        VK_BORDER_SINGLE, NULL);
-    vk_popup_set_title(load_popup, " Load Config ");
-    vk_popup_set_border_colors(load_popup, COLOR_WHITE, COLOR_BLUE);
-    vk_popup_set_border_attrs(load_popup, A_BOLD);
-
-    interior_w = LOAD_WIDTH - 2;
-    interior_h = LOAD_HEIGHT - 2;
-
-    load_filedialog = vk_filedialog_create(interior_w, interior_h,
-        VK_BORDER_SINGLE, false);
-    vk_filedialog_set_colors(load_filedialog, COLOR_WHITE, COLOR_BLUE);
-    vk_filedialog_set_highlight(load_filedialog, COLOR_BLACK, COLOR_RED);
-    vk_listbox_set_unfocused(
-        vk_filedialog_get_file_list(load_filedialog),
-        COLOR_BLACK, COLOR_WHITE);
-    vk_filedialog_set_button_colors(load_filedialog, COLOR_WHITE, COLOR_BLUE);
-    vk_filedialog_set_button_attrs(load_filedialog, A_BOLD);
-
-    {
-        char dirpath[PATH_MAX];
-        strncpy(dirpath, model->file_path, PATH_MAX - 1);
-        dirpath[PATH_MAX - 1] = '\0';
-
-        char *slash = strrchr(dirpath, '/');
-        if(slash != NULL && slash != dirpath)
-            *slash = '\0';
-        else if(slash == dirpath)
-            dirpath[1] = '\0';
-
-        vk_filedialog_set_path(load_filedialog, dirpath);
-    }
-
-    vk_filedialog_update(load_filedialog);
-
-    vk_popup_set_client(load_popup, VK_WIDGET(load_filedialog));
+    load_popup = vwm_load_popup_show(" Load Config ", &load_filedialog,
+        model->file_path);
     vk_object_set_kmio(VK_OBJECT(load_popup), load_popup_kmio);
-
-    pos_x = (scr_width - LOAD_WIDTH) / 2;
-    pos_y = (scr_height - LOAD_HEIGHT) / 2;
-    if(pos_x < 0) pos_x = 0;
-    if(pos_y < 0) pos_y = 0;
-
-    vk_widget_move(VK_WIDGET(load_popup), pos_x, pos_y);
-
-    vk_screen_attach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(load_popup));
 
     update_load_focus();
     refresh_load_popup();

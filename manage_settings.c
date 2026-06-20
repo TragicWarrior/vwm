@@ -189,9 +189,6 @@ static int                 modify_focus = 0;
 static struct timespec     list_last_click_time;
 static int                 list_last_click_item = -1;
 
-#define LOAD_WIDTH          50
-#define LOAD_HEIGHT         20
-
 static vk_popup_t          *load_popup = NULL;
 static vk_filedialog_t     *load_filedialog = NULL;
 static vk_popup_t          *warning_popup = NULL;
@@ -1767,78 +1764,16 @@ refresh_load_popup(void)
 static void
 load_popup_open(void)
 {
-    vwm_t       *vwm;
-    int         scr_w, scr_h;
-    int         interior_w, interior_h;
-    int         pos_x, pos_y;
-
     if(load_popup != NULL) return;
 
     load_last_click_item = -1;
     memset(&load_last_click_time, 0, sizeof(load_last_click_time));
 
-    vwm = vwm_get_instance();
-    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
-
-    load_popup = vk_popup_create(LOAD_WIDTH, LOAD_HEIGHT,
-        VK_BORDER_SINGLE, NULL);
-    vk_popup_set_title(load_popup, " Load Settings ");
-    vk_popup_set_border_colors(load_popup, COLOR_WHITE, COLOR_BLUE);
-    vk_popup_set_border_attrs(load_popup, A_BOLD);
-
-    interior_w = LOAD_WIDTH - 2;
-    interior_h = LOAD_HEIGHT - 2;
-
-    load_filedialog = vk_filedialog_create(interior_w, interior_h,
-        VK_BORDER_SINGLE, false);
-    vk_filedialog_set_colors(load_filedialog, COLOR_WHITE, COLOR_BLUE);
-    vk_filedialog_set_highlight(load_filedialog, COLOR_BLACK, COLOR_RED);
-    vk_listbox_set_unfocused(
-        vk_filedialog_get_file_list(load_filedialog),
-        COLOR_BLACK, COLOR_WHITE);
-    vk_filedialog_set_button_colors(load_filedialog,
-        COLOR_WHITE, COLOR_BLUE);
-    vk_filedialog_set_button_attrs(load_filedialog, A_BOLD);
-
-    {
-        char dirpath[PATH_MAX];
-        strncpy(dirpath, model->file_path, PATH_MAX - 1);
-        dirpath[PATH_MAX - 1] = '\0';
-
-        char *slash = strrchr(dirpath, '/');
-        if(slash != NULL && slash != dirpath)
-            *slash = '\0';
-        else if(slash == dirpath)
-            dirpath[1] = '\0';
-
-        vk_filedialog_set_path(load_filedialog, dirpath);
-    }
-
-    vk_filedialog_update(load_filedialog);
-
-    vk_popup_set_client(load_popup, VK_WIDGET(load_filedialog));
-
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(load_filedialog));
-        vk_widget_set_state(VK_WIDGET(load_filedialog),
-            st & ~VK_STATE_EXPAND);
-    }
-
+    load_popup = vwm_load_popup_show(" Load Settings ", &load_filedialog,
+        model->file_path);
     vk_object_set_kmio(VK_OBJECT(load_popup), load_popup_kmio);
 
-    pos_x = (scr_w - LOAD_WIDTH) / 2;
-    pos_y = (scr_h - LOAD_HEIGHT) / 2;
-    if(pos_x < 0) pos_x = 0;
-    if(pos_y < 0) pos_y = 0;
-
-    vk_widget_move(VK_WIDGET(load_popup), pos_x, pos_y);
-
-    vk_screen_attach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(load_popup));
-
-    vk_popup_update(load_popup);
-    vk_screen_refresh(vwm->screen);
+    refresh_load_popup();
 }
 
 /* ── actions ──────────────────────────────────────────────── */
