@@ -1326,10 +1326,23 @@ on_load(void)
     load_popup_open();
 }
 
+static bool
+has_changes(void)
+{
+    /* Flush a pending dropdown edit (category/terminal/visibility) into
+       the model so it counts -- commit_dropdowns_to_entry only sets the
+       dirty flag when a field actually changed.  on_save flushes the
+       same way before saving; without this, Close skips the unsaved-
+       changes prompt for a dropdown change that was never committed. */
+    commit_dropdowns_to_entry(model->selected);
+
+    return model->dirty;
+}
+
 static void
 on_cancel(void)
 {
-    if(model->dirty)
+    if(has_changes())
     {
         confirm_popup_show();
         return;
