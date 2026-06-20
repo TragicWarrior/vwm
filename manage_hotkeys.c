@@ -642,111 +642,11 @@ confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
 static void
 confirm_popup_show(void)
 {
-    vwm_t       *vwm;
-    vk_box_t    *client;
-    int         scr_w, scr_h;
-    int         popup_w = 40;
-    int         popup_h = 9;
-    int         pos_x, pos_y;
-
     if(confirm_popup != NULL) return;
 
-    vwm = vwm_get_instance();
-    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
-
-    confirm_popup = vk_popup_create(popup_w, popup_h,
-        VK_BORDER_SINGLE, "Discard", "Cancel", NULL);
-    vk_popup_set_title(confirm_popup, " Confirm ");
-    vk_popup_set_border_colors(confirm_popup, COLOR_RED, COLOR_WHITE);
-    vk_popup_set_border_attrs(confirm_popup, A_NORMAL);
-    {
-        vk_box_t *bar = vk_popup_get_button_bar(confirm_popup);
-        if(bar != NULL)
-        {
-            vk_widget_set_colors(VK_WIDGET(bar), COLOR_RED, COLOR_WHITE);
-            vk_widget_fill(VK_WIDGET(bar),
-                ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
-        }
-    }
-
-    client = vk_box_create(popup_w - 2, popup_h - 5,
-        VK_BOX_VERTICAL, 4);
-    vk_box_set_homogeneous(client, true);
-    vk_widget_set_colors(VK_WIDGET(client), COLOR_RED, COLOR_WHITE);
-
-    {
-        vk_filler_t *top_pad = vk_filler_create();
-        vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_RED, COLOR_WHITE);
-        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
-
-        vk_label_t *line1 = vk_label_create(popup_w - 2);
-        vk_label_set_justify(line1, VK_JUSTIFY_CENTER);
-        vk_label_set_text(line1, "You have unsaved changes.");
-        vk_widget_set_colors(VK_WIDGET(line1), COLOR_RED, COLOR_WHITE);
-        vk_label_update(line1);
-        vk_box_set_widget(client, 1, VK_WIDGET(line1));
-
-        vk_label_t *line2 = vk_label_create(popup_w - 2);
-        vk_label_set_justify(line2, VK_JUSTIFY_CENTER);
-        vk_label_set_text(line2, "Discard changes and close?");
-        vk_widget_set_colors(VK_WIDGET(line2), COLOR_RED, COLOR_WHITE);
-        vk_label_update(line2);
-        vk_box_set_widget(client, 2, VK_WIDGET(line2));
-
-        vk_filler_t *bot_pad = vk_filler_create();
-        vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_RED, COLOR_WHITE);
-        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad));
-    }
-
-    vk_popup_set_client(confirm_popup, VK_WIDGET(client));
-
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
-        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
-    }
-
-    vk_popup_set_colors(confirm_popup, COLOR_RED, COLOR_WHITE);
+    confirm_popup = vwm_confirm_popup_show();
     vk_object_set_kmio(VK_OBJECT(confirm_popup), confirm_popup_kmio);
-
     confirm_active_btn = 0;
-
-    {
-        int count = vk_popup_get_button_count(confirm_popup);
-        for(int i = 0; i < count; i++)
-        {
-            vk_button_t *btn = vk_popup_get_button(confirm_popup, i);
-            if(i == 0)
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_YELLOW, COLOR_WHITE);
-                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            }
-            else
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_BLACK, COLOR_WHITE);
-                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            }
-            vk_button_update(btn);
-        }
-    }
-
-    pos_x = (scr_w - popup_w) / 2;
-    pos_y = (scr_h - popup_h) / 2;
-    if(pos_x < 0) pos_x = 0;
-    if(pos_y < 0) pos_y = 0;
-
-    vk_widget_move(VK_WIDGET(confirm_popup), pos_x, pos_y);
-
-    vk_screen_attach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(confirm_popup));
-
-    vk_widget_fill(VK_WIDGET(client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
-    vk_box_update(client);
-    vk_popup_update(confirm_popup);
-    vk_screen_refresh(vwm->screen);
 }
 
 /* ── load popup ────────────────────────────────────────────── */
