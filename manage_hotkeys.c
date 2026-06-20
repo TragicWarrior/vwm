@@ -414,79 +414,10 @@ error_popup_kmio(vk_object_t *object, int32_t keystroke)
 static void
 error_popup_show(const char *msg)
 {
-    vwm_t       *vwm;
-    vk_label_t  *label;
-    vk_box_t    *client;
-    int         scr_w, scr_h;
-    int         popup_w = 46;
-    int         popup_h = 10;
-    int         pos_x, pos_y;
-
     if(error_popup != NULL) return;
 
-    vwm = vwm_get_instance();
-    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
-
-    error_popup = vk_popup_create(popup_w, popup_h,
-        VK_BORDER_SINGLE, "OK", NULL);
-    vk_popup_set_title(error_popup, " Error ");
-    vk_popup_set_border_colors(error_popup, COLOR_RED, COLOR_WHITE);
-    vk_popup_set_border_attrs(error_popup, A_NORMAL);
-    {
-        vk_box_t *bar = vk_popup_get_button_bar(error_popup);
-        if(bar != NULL)
-        {
-            vk_widget_set_colors(VK_WIDGET(bar), COLOR_RED, COLOR_WHITE);
-            vk_widget_fill(VK_WIDGET(bar),
-                ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
-        }
-    }
-
-    client = vk_box_create(popup_w - 2, popup_h - 5,
-        VK_BOX_VERTICAL, 1);
-    vk_box_set_homogeneous(client, true);
-    vk_widget_set_colors(VK_WIDGET(client), COLOR_RED, COLOR_WHITE);
-
-    label = vk_label_create(popup_w - 2);
-    vk_label_set_justify(label, VK_JUSTIFY_CENTER);
-    vk_label_set_text(label, msg);
-    vk_widget_set_colors(VK_WIDGET(label), COLOR_RED, COLOR_WHITE);
-    vk_label_update(label);
-    vk_box_set_widget(client, 0, VK_WIDGET(label));
-
-    vk_popup_set_client(error_popup, VK_WIDGET(client));
-
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
-        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
-    }
-
-    vk_popup_set_colors(error_popup, COLOR_RED, COLOR_WHITE);
+    error_popup = vwm_error_popup_show(msg, 46, 10);
     vk_object_set_kmio(VK_OBJECT(error_popup), error_popup_kmio);
-
-    {
-        vk_button_t *ok_btn = vk_popup_get_button(error_popup, 0);
-        vk_widget_set_colors(VK_WIDGET(ok_btn), COLOR_YELLOW, COLOR_WHITE);
-        vk_widget_set_attrs(VK_WIDGET(ok_btn), A_BOLD);
-        vk_button_update(ok_btn);
-    }
-
-    pos_x = (scr_w - popup_w) / 2;
-    pos_y = (scr_h - popup_h) / 2;
-    if(pos_x < 0) pos_x = 0;
-    if(pos_y < 0) pos_y = 0;
-
-    vk_widget_move(VK_WIDGET(error_popup), pos_x, pos_y);
-
-    vk_screen_attach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(error_popup));
-
-    vk_widget_fill(VK_WIDGET(client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
-    vk_box_update(client);
-    vk_popup_update(error_popup);
-    vk_screen_refresh(vwm->screen);
 }
 
 /* ── saved popup ───────────────────────────────────────────── */
