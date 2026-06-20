@@ -970,7 +970,7 @@ edit_popup_open(void)
     vk_box_set_widget(edit_client, 3, VK_WIDGET(edit_input_binary));
 
     lbl = vk_label_create(EDIT_INTERIOR_W);
-    vk_label_set_text(lbl, "  Params");
+    vk_label_set_text(lbl, "  Params   (%fd = file picker at launch)");
     vk_widget_set_colors(VK_WIDGET(lbl), COLOR_WHITE, COLOR_BLUE);
     vk_label_update(lbl);
     vk_box_set_widget(edit_client, 4, VK_WIDGET(lbl));

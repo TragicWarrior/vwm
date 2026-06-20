@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
 
@@ -35,8 +36,14 @@ vwmterm_module_configure(vwm_module_t *mod, va_list *argp)
 
     vwmterm_mod = (vwmterm_mod_t *)mod;
 
+    /* free any previous config so re-configuring (e.g. a %fd launch that
+       substitutes a fresh file each time) doesn't leak the old strings;
+       calloc'd on create, so these are NULL on the first call */
+    free(vwmterm_mod->bin_path);
+    strfreev(vwmterm_mod->exec_args);
+
     vwmterm_mod->bin_path = strdup(va_arg(*argp, char *));
-    vwmterm_mod->exec_args = strdupv(va_arg(*argp, char **), 10);
+    vwmterm_mod->exec_args = strdupv(va_arg(*argp, char **), 0);
 
     return 0;
 }
