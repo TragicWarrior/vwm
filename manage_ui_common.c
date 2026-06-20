@@ -1,4 +1,5 @@
 #include <ncursesw/curses.h>
+#include <string.h>
 
 #include <vdk.h>
 
@@ -302,6 +303,120 @@ vwm_confirm_popup_show(void)
     vk_screen_refresh(vwm->screen);
 
     return popup;
+}
+
+vk_popup_t *
+vwm_load_popup_show(const char *title, vk_filedialog_t **filedialog,
+    const char *cur_path)
+{
+    vwm_t           *vwm;
+    vk_popup_t      *popup;
+    vk_filedialog_t *fd;
+    int             scr_w, scr_h;
+    int             interior_w, interior_h;
+    int             pos_x, pos_y;
+    const int       popup_w = 50;   /* matches each dialog's former LOAD_WIDTH  */
+    const int       popup_h = 20;   /* matches each dialog's former LOAD_HEIGHT */
+
+    vwm = vwm_get_instance();
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+
+    popup = vk_popup_create(popup_w, popup_h, VK_BORDER_SINGLE, NULL);
+    vk_popup_set_title(popup, title);
+    vk_popup_set_border_colors(popup, COLOR_WHITE, COLOR_BLUE);
+    vk_popup_set_border_attrs(popup, A_BOLD);
+
+    interior_w = popup_w - 2;
+    interior_h = popup_h - 2;
+
+    fd = vk_filedialog_create(interior_w, interior_h,
+        VK_BORDER_SINGLE, false);
+    vk_filedialog_set_colors(fd, COLOR_WHITE, COLOR_BLUE);
+    vk_filedialog_set_highlight(fd, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(vk_filedialog_get_file_list(fd),
+        COLOR_BLACK, COLOR_WHITE);
+    vk_filedialog_set_button_colors(fd, COLOR_WHITE, COLOR_BLUE);
+    vk_filedialog_set_button_attrs(fd, A_BOLD);
+
+    {
+        char dirpath[PATH_MAX];
+        char *slash;
+
+        strncpy(dirpath, cur_path, PATH_MAX - 1);
+        dirpath[PATH_MAX - 1] = '\0';
+
+        slash = strrchr(dirpath, '/');
+        if(slash != NULL && slash != dirpath)
+            *slash = '\0';
+        else if(slash == dirpath)
+            dirpath[1] = '\0';
+
+        vk_filedialog_set_path(fd, dirpath);
+    }
+
+    vk_filedialog_update(fd);
+
+    vk_popup_set_client(popup, VK_WIDGET(fd));
+
+    {
+        uint32_t st = vk_widget_get_state(VK_WIDGET(fd));
+        vk_widget_set_state(VK_WIDGET(fd), st & ~VK_STATE_EXPAND);
+    }
+
+    pos_x = (scr_w - popup_w) / 2;
+    pos_y = (scr_h - popup_h) / 2;
+    if(pos_x < 0) pos_x = 0;
+    if(pos_y < 0) pos_y = 0;
+
+    vk_widget_move(VK_WIDGET(popup), pos_x, pos_y);
+
+    vk_screen_attach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(popup));
+
+    *filedialog = fd;
+    return popup;
+}
+
+void
+vwm_load_popup_paint_focus(vk_filedialog_t *filedialog, int focus)
+{
+    vk_widget_t *bar_w;
+    vk_widget_t *ok = NULL;
+    vk_widget_t *cancel = NULL;
+
+    if(filedialog == NULL) return;
+
+    /* the file browser is highlighted only while it holds focus */
+    vk_listbox_set_focused(vk_filedialog_get_file_list(filedialog),
+        focus == VWM_LOAD_FOCUS_FILEDIALOG);
+
+    bar_w = vk_box_get_widget(VK_BOX(filedialog), 2);
+    if(bar_w != NULL)
+    {
+        ok     = vk_box_get_widget(VK_BOX(bar_w), 0);
+        cancel = vk_box_get_widget(VK_BOX(bar_w), 1);
+    }
+
+    if(ok != NULL)
+    {
+        vk_button_release(VK_BUTTON(ok));
+        vk_widget_set_colors(ok,
+            (focus == VWM_LOAD_FOCUS_OK) ? COLOR_YELLOW : COLOR_WHITE,
+            COLOR_BLUE);
+        vk_widget_set_attrs(ok, A_BOLD);
+        vk_button_update(VK_BUTTON(ok));
+    }
+
+    if(cancel != NULL)
+    {
+        vk_button_release(VK_BUTTON(cancel));
+        vk_widget_set_colors(cancel,
+            (focus == VWM_LOAD_FOCUS_CANCEL) ? COLOR_YELLOW : COLOR_WHITE,
+            COLOR_BLUE);
+        vk_widget_set_attrs(cancel, A_BOLD);
+        vk_button_update(VK_BUTTON(cancel));
+    }
 }
 
 vk_popup_t *

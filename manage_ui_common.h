@@ -36,4 +36,26 @@ vk_popup_t *vwm_saved_popup_show(const char *msg);
    active-button index.  Shared by Settings / Hotkeys / Apps. */
 vk_popup_t *vwm_confirm_popup_show(void);
 
+/* Focus targets for the Load popup's Tab cycle (file browser -> OK ->
+   Cancel); mirrors the per-dialog focus orderings in Hotkeys / Apps. */
+enum {
+    VWM_LOAD_FOCUS_FILEDIALOG = 0,
+    VWM_LOAD_FOCUS_OK,
+    VWM_LOAD_FOCUS_CANCEL,
+    VWM_LOAD_FOCUS_COUNT
+};
+
+/* Build, center, and attach the shared white-on-blue file-load popup
+   titled `title`, holding a vk_filedialog rooted at the directory of
+   `cur_path`; the filedialog is returned through *filedialog.  The
+   caller sets the popup's kmio, stores the pointer, and refreshes.
+   Shared by Settings / Hotkeys / Apps. */
+vk_popup_t *vwm_load_popup_show(const char *title,
+    vk_filedialog_t **filedialog, const char *cur_path);
+
+/* Repaint the load filedialog's OK / Cancel buttons and file-list
+   highlight for the given focus (a VWM_LOAD_FOCUS_* value).  Used by the
+   Hotkeys / Apps load dialogs, which Tab between browser and buttons. */
+void vwm_load_popup_paint_focus(vk_filedialog_t *filedialog, int focus);
+
 #endif
