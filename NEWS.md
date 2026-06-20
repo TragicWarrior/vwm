@@ -1,3 +1,19 @@
+2026-06-20
+
+Manage Apps can prompt for a file at launch.  Put the token "%fd"
+anywhere in an app's Params and launching it pops up a file browser
+(starting in your home directory); the file you pick is substituted for
+%fd and the app starts with it, and cancelling the browser calls off the
+launch.  The Add/Edit App dialog labels the Params field with the token
+as a reminder.
+
+A couple of Manage Apps fixes came with it: clicking a field in the
+Add/Edit form now lands on the field you actually clicked (the Params
+field used to be unreachable by mouse), and closing the dialog after
+changing an app's category now warns before discarding the change, the
+same as the other tools.
+
+
 2026-06-16
 
 Detach/reattach is now robust in the cases that used to come back

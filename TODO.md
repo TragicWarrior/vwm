@@ -278,7 +278,7 @@ TIER 1 (leftover)
         not worth a manual hunt across ~68 files.
 
 THE BIG ONE -- shared manage_ui_common (~450+ lines; spike first)
-[ ] S2. The three manage_* dialogs each carry private copies of the
+[x] S2. The three manage_* dialogs each carry private copies of the
         same primitives.  Consolidate into one translation unit:
           warning_popup_show()      x3        ~180
           error_popup_show()        x2-3      ~75
@@ -291,6 +291,12 @@ THE BIG ONE -- shared manage_ui_common (~450+ lines; spike first)
         across all three dialogs, then move the rest.  Centralizing the
         popup set also subsumes perf items 2 and 13 (classify_mouse
         hit-test boilerplate and the get_X_popup accessor sprawl).
+        DONE: listbox_scroll_info + the warning / error / saved /
+        confirm / load popup construction now live in manage_ui_common
+        (one family per PR).  Left per-dialog by design -- the close
+        lifecycle, double-click detection, and one/two-button kmio
+        dispatch are each woven around the per-dialog popup pointers the
+        dialogs' mouse/keyboard routing depends on.
 
 TIER 2 -- within-file dedup
 [ ] S3. manage_settings: popup-lifecycle trios (~90), two-button

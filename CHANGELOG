@@ -1,3 +1,26 @@
+Version 4.4.0
+
+*  [Bryan Christ] Manage Apps: add the "%fd" Params launch token.  An app
+   whose Params contain %fd pops a file picker at launch (rooted at the
+   home directory), substitutes the chosen file into the app's arguments,
+   and starts it; cancelling the picker aborts the launch.  The Add/Edit
+   App dialog labels the Params field with the token.
+
+*  [Bryan Christ] Manage Apps: clicking a field in the Add/Edit form now
+   focuses the field under the cursor -- the Params field was previously
+   unreachable by mouse -- and Close warns about an unsaved category
+   change before discarding it, matching the other tools.
+
+*  [Bryan Christ] Consolidate the per-dialog popup primitives -- the
+   warning, error, saved, confirm and file-load popups plus the listbox
+   scroll callback -- into a shared manage_ui_common translation unit,
+   removing several hundred lines of duplication across the Manage
+   Settings / Hotkeys / Apps dialogs with no behaviour change.
+
+*  [Bryan Christ] Popup consistency: the modal Manage Desktop / Print /
+   Screenshot dialogs now dismiss when clicked outside, like the other
+   popups.
+
 Version 4.3.0
 
 *  [Bryan Christ] Bump the minor version to mark dtach-based remote-session

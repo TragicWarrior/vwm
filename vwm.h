@@ -11,7 +11,7 @@
 #include <vkmio.h>
 
 
-#define VWM_VERSION					"4.3.0"
+#define VWM_VERSION					"4.4.0"
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
    outer terminal may have changed under us -- teleport to a new PTY, a
