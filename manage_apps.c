@@ -2330,21 +2330,28 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         if(!(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED | BUTTON1_RELEASED)))
             return 0;
 
-        if(ey >= 0 && ey <= 2)
+        /* Route the click to the field under it, in the same popup-
+           interior frame (ey) the rest of this handler uses.  Each
+           label+input pair spans 4 rows -- the label (1) plus the
+           input's 3-row relief -- so Title is rows 0-3, Binary 4-7,
+           Params 8-up.  The earlier 0-2 / 3-5 / 6-8 ranges assumed
+           3-row fields, so clicks drifted to the neighbour and the
+           Params field was unreachable. */
+        if(ey >= 0 && ey <= 3)
         {
             edit_focus = EDIT_FOCUS_TITLE;
             update_edit_input_highlights();
             update_edit_button_highlights();
             refresh_edit_popup();
         }
-        else if(ey >= 3 && ey <= 5)
+        else if(ey >= 4 && ey <= 7)
         {
             edit_focus = EDIT_FOCUS_BINARY;
             update_edit_input_highlights();
             update_edit_button_highlights();
             refresh_edit_popup();
         }
-        else if(ey >= 6 && ey <= 8)
+        else if(ey >= 8 && ey < EDIT_INTERIOR_H - 3)
         {
             edit_focus = EDIT_FOCUS_PARAMS;
             update_edit_input_highlights();
