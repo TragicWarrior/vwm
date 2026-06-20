@@ -48,7 +48,7 @@ pt_t vwmterm_thd(void * const env)
     vwm_t               *vwm;
     vk_window_t         *window;
     vterm_t             *vterm;
-    ssize_t             bytes_read;
+    ssize_t             bytes_read = 0;
     int                 i;
     int                 history_sz;
     int                 width, height;
