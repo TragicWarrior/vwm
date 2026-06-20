@@ -23,6 +23,17 @@ vwmterm_module_clone(vwm_module_t *mod)
     // memcpy the entire module
     memcpy(vwmterm_mod, mod, sizeof(vwmterm_mod_t));
 
+    /* The memcpy copied the source's heap-owned pointers.  Clear them so
+       the clone owns nothing yet -- configure() allocates fresh copies.
+       Without this, cloning an already-configured module (which
+       vwm_module_find_by_name returns, since clones keep the template
+       name and land at the list head) would share bin_path/exec_args with
+       the source, and configure()'s free-then-strdup would leave the
+       source dangling: a use-after-free that launches the wrong program
+       or crashes. */
+    vwmterm_mod->bin_path = NULL;
+    vwmterm_mod->exec_args = NULL;
+
     return VWM_MODULE(vwmterm_mod);
 }
 
