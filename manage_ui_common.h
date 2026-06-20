@@ -24,4 +24,9 @@ vk_popup_t *vwm_warning_popup_show(void);
    kmio handler and stores the pointer.  Shared by Settings / Hotkeys. */
 vk_popup_t *vwm_error_popup_show(const char *msg, int popup_w, int popup_h);
 
+/* Build, center, and attach the shared white-on-blue " Saved "
+   confirmation popup showing `msg`.  The caller sets its kmio handler
+   and stores the pointer.  Shared by Settings / Hotkeys / Apps. */
+vk_popup_t *vwm_saved_popup_show(const char *msg);
+
 #endif
