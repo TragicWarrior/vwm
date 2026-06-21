@@ -29,6 +29,20 @@
 #define INTERIOR_WIDTH      (DIALOG_WIDTH - 2)
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
+/* the VTerm Mode row is split into two columns: the mode dropdown on the
+   left and the scrollback spinbutton on the right (flush to the right
+   edge, an expanding gap between them) */
+#define TERM_COL_WIDTH          36
+#define SCROLLBACK_COL_WIDTH    26
+
+/* scrollback stepping: 0 means "vterm default".  The first step up off 0
+   jumps to SCROLLBACK_FLOOR and a step down off it returns to 0; in
+   between, the spinbutton's own step (SCROLLBACK_STEP) applies.  vwm
+   enforces the 0 <-> floor jump in the spinbutton's on_change so libviper
+   stays generic. */
+#define SCROLLBACK_STEP         5
+#define SCROLLBACK_FLOOR        100
+
 #define MAX_ENTRIES         128
 #define MAX_PARAMS          256
 
@@ -37,6 +51,7 @@ enum
     FOCUS_APP_LIST = 0,
     FOCUS_CATEGORY,
     FOCUS_TERMINAL,
+    FOCUS_SCROLLBACK,
     FOCUS_VISIBILITY,
     FOCUS_BTN_ADD,
     FOCUS_BTN_REMOVE,
@@ -63,6 +78,7 @@ typedef struct
     char    requires[NAME_MAX];
     int     type;
     bool    hidden;
+    int     scrollback;     /* vterm history lines; 0 = vterm default */
 } manage_app_entry_t;
 
 typedef struct
@@ -118,11 +134,17 @@ static vk_frame_t           *listbox_frame = NULL;
 static vk_scroller_t        *listbox_scroller = NULL;
 static vk_box_t             *main_vbox = NULL;
 static vk_box_t             *button_hbox = NULL;
+static vk_box_t             *term_label_row = NULL;
+static vk_box_t             *term_widget_row = NULL;
 static vk_listbox_t         *app_listbox = NULL;
 static vk_label_t           *cat_label_widget = NULL;
 static vk_dropdown_t        *cat_dropdown = NULL;
 static vk_label_t           *term_label_widget = NULL;
 static vk_dropdown_t        *term_dropdown = NULL;
+static vk_label_t           *scrollback_label_widget = NULL;
+static vk_spinbutton_t      *scrollback_spin = NULL;
+static int                   scrollback_prev = 0;  /* last value, for the
+                                                      0 <-> floor jump */
 static vk_label_t           *vis_label_widget = NULL;
 static vk_dropdown_t        *vis_dropdown = NULL;
 static vk_button_t          *buttons[NUM_BUTTONS];
@@ -268,6 +290,7 @@ model_load_from_config(const char *path)
         }
 
         e->hidden = (vwm_json_bool(entry, "hidden", 0) != 0);
+        e->scrollback = vwm_json_int(entry, "scrollback", 0);
 
         model->count++;
     }
@@ -311,6 +334,9 @@ model_save_to_config(const char *path)
         if(e->hidden)
             cJSON_AddBoolToObject(entry, "hidden", 1);
 
+        if(e->scrollback > 0)
+            cJSON_AddNumberToObject(entry, "scrollback", e->scrollback);
+
         cJSON_AddItemToArray(programs, entry);
     }
 
@@ -337,6 +363,10 @@ populate_dropdowns_from_entry(int idx)
 
     vk_dropdown_set_curr(vis_dropdown, e->hidden ? 1 : 0);
     vk_dropdown_update(vis_dropdown);
+
+    vk_spinbutton_set_value(scrollback_spin, (double)e->scrollback);
+    scrollback_prev = e->scrollback;   /* set_value doesn't fire on_change */
+    vk_spinbutton_update(scrollback_spin);
 }
 
 static void
@@ -378,6 +408,16 @@ commit_dropdowns_to_entry(int idx)
     {
         e->hidden = (vis_sel == 1);
         changed = true;
+    }
+
+    {
+        /* get_value folds any in-progress manual edit into the number */
+        int sb_val = (int)vk_spinbutton_get_value(scrollback_spin);
+        if(sb_val != e->scrollback)
+        {
+            e->scrollback = sb_val;
+            changed = true;
+        }
     }
 
     if(changed) model->dirty = true;
@@ -480,6 +520,16 @@ update_dropdown_highlights(void)
 
         vk_dropdown_update(dropdowns[i]);
     }
+
+    /* scrollback spinbutton -- yellow when focused, like the dropdowns */
+    if(model->focus_zone == FOCUS_SCROLLBACK)
+        vk_widget_set_colors(VK_WIDGET(scrollback_spin),
+            COLOR_YELLOW, COLOR_CYAN);
+    else
+        vk_widget_set_colors(VK_WIDGET(scrollback_spin),
+            COLOR_BLACK, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(scrollback_spin), A_BOLD);
+    vk_spinbutton_update(scrollback_spin);
 }
 
 /* ── dropdown popup helpers ────────────────────────────────── */
@@ -1636,6 +1686,14 @@ manage_apps_kmio(vk_object_t *object, int32_t keystroke)
             retval = handle_dropdown_keys(term_dropdown, keystroke);
             break;
 
+        case FOCUS_SCROLLBACK:
+            /* spinbutton's own kmio handles Up/Down and (since it is
+               editable) typed digits; returns 0 when it consumed the key,
+               else the keystroke -- normalized to 0/-1 by the tail */
+            retval = vk_object_push_keystroke(VK_OBJECT(scrollback_spin),
+                keystroke);
+            break;
+
         case FOCUS_VISIBILITY:
             retval = handle_dropdown_keys(vis_dropdown, keystroke);
             break;
@@ -1667,6 +1725,7 @@ refresh_dialog(void)
 
     vk_label_update(cat_label_widget);
     vk_label_update(term_label_widget);
+    vk_label_update(scrollback_label_widget);
     vk_label_update(vis_label_widget);
     update_button_highlights();
     vk_listbox_update(app_listbox);
@@ -1675,12 +1734,51 @@ refresh_dialog(void)
     vk_dropdown_update(cat_dropdown);
     vk_dropdown_update(term_dropdown);
     vk_dropdown_update(vis_dropdown);
+    /* composite the two-column VTerm Mode row (its children were just
+       updated above) before the vbox composites it -- without this the
+       hbox canvases stay blank and the row paints solid black */
+    vk_box_update(term_label_row);
+    vk_box_update(term_widget_row);
     vk_box_update(button_hbox);
     vk_box_update(main_vbox);
     vk_window_update(dialog_window);
 
     vwm = vwm_get_instance();
     vk_screen_refresh(vwm->screen);
+}
+
+/*
+    Enforce the 0 <-> floor jump on the scrollback spinbutton.  The control
+    steps by SCROLLBACK_STEP, so a step up off 0 lands on SCROLLBACK_STEP
+    and a step down off the floor lands on SCROLLBACK_FLOOR - STEP; snap
+    those two cases to the floor and to 0 respectively.  Manual entry of
+    other values is left untouched (only the exact single-step results are
+    intercepted).
+*/
+static int
+scrollback_spin_on_change(vk_widget_t *widget, void *anything)
+{
+    vk_spinbutton_t *sb = VK_SPINBUTTON(widget);
+    int             orig;
+    int             v;
+
+    (void)anything;
+
+    orig = (int)vk_spinbutton_get_value(sb);
+    v = orig;
+
+    if(scrollback_prev == 0 && v == SCROLLBACK_STEP)
+        v = SCROLLBACK_FLOOR;
+    else if(scrollback_prev == SCROLLBACK_FLOOR
+        && v == SCROLLBACK_FLOOR - SCROLLBACK_STEP)
+        v = 0;
+
+    if(v != orig)
+        vk_spinbutton_set_value(sb, (double)v);
+
+    scrollback_prev = v;
+
+    return 0;
 }
 
 static void
@@ -1764,14 +1862,14 @@ build_dialog(void)
         }
     }
 
-    term_label = vk_label_create(INTERIOR_WIDTH);
+    term_label = vk_label_create(TERM_COL_WIDTH);
     vk_label_set_text(term_label, "  VTerm Mode");
     vk_label_set_justify(term_label, VK_JUSTIFY_LEFT);
     vk_widget_set_colors(VK_WIDGET(term_label), COLOR_BLACK, COLOR_CYAN);
     vk_label_update(term_label);
     term_label_widget = term_label;
 
-    term_dropdown = vk_dropdown_create(INTERIOR_WIDTH, 5);
+    term_dropdown = vk_dropdown_create(TERM_COL_WIDTH, 5);
     vk_dropdown_set_relief_style(term_dropdown, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(term_dropdown), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_attrs(VK_WIDGET(term_dropdown), A_BOLD);
@@ -1783,6 +1881,28 @@ build_dialog(void)
             vk_dropdown_add_item(term_dropdown,
                 (char *)vterm_labels[i], NULL, NULL);
     }
+
+    /* right column of the VTerm Mode row: the scrollback spinbutton */
+    scrollback_label_widget = vk_label_create(SCROLLBACK_COL_WIDTH);
+    vk_label_set_text(scrollback_label_widget, "  Scrollback (lines)");
+    vk_label_set_justify(scrollback_label_widget, VK_JUSTIFY_LEFT);
+    vk_widget_set_colors(VK_WIDGET(scrollback_label_widget),
+        COLOR_BLACK, COLOR_CYAN);
+    vk_label_update(scrollback_label_widget);
+
+    scrollback_spin = vk_spinbutton_create(SCROLLBACK_COL_WIDTH);
+    vk_spinbutton_set_relief_style(scrollback_spin, VK_BORDER_SINGLE);
+    vk_spinbutton_set_field_relief(scrollback_spin, VK_RELIEF_SUNKEN);
+    vk_spinbutton_set_button_relief(scrollback_spin, VK_RELIEF_RAISED);
+    vk_spinbutton_set_range(scrollback_spin, 0, 100000);
+    vk_spinbutton_set_step(scrollback_spin, SCROLLBACK_STEP);
+    vk_spinbutton_set_precision(scrollback_spin, 0);
+    vk_spinbutton_set_editable(scrollback_spin, true);
+    vk_spinbutton_set_on_change(scrollback_spin,
+        scrollback_spin_on_change, NULL);
+    vk_widget_set_colors(VK_WIDGET(scrollback_spin), COLOR_BLACK, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(scrollback_spin), A_BOLD);
+    scrollback_prev = 0;   /* matches the freshly-created value (0) */
 
     vis_label = vk_label_create(INTERIOR_WIDTH);
     vk_label_set_text(vis_label, "  Visibility");
@@ -1837,14 +1957,56 @@ build_dialog(void)
     vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_LOAD]));
     vk_box_set_widget(button_hbox, 6, VK_WIDGET(buttons[BTN_CANCEL]));
 
-    vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame));
-    vk_box_set_widget(main_vbox, 1, VK_WIDGET(cat_label));
-    vk_box_set_widget(main_vbox, 2, VK_WIDGET(cat_dropdown));
-    vk_box_set_widget(main_vbox, 3, VK_WIDGET(term_label));
-    vk_box_set_widget(main_vbox, 4, VK_WIDGET(term_dropdown));
-    vk_box_set_widget(main_vbox, 5, VK_WIDGET(vis_label));
-    vk_box_set_widget(main_vbox, 6, VK_WIDGET(vis_dropdown));
-    vk_box_set_widget(main_vbox, 7, VK_WIDGET(button_hbox));
+    /*
+        The VTerm Mode row is two columns: the mode dropdown (left) and
+        the scrollback label/spinbutton (right), each in a horizontal box
+        with an expanding filler between so the scrollback column sits
+        flush to the right edge.  Slots 3 and 4 of the vbox hold these
+        rows in place of the former full-width term label / dropdown.
+    */
+    {
+        vk_filler_t *label_spacer;
+        vk_filler_t *widget_spacer;
+
+        term_label_row = vk_box_create(INTERIOR_WIDTH, 1,
+            VK_BOX_HORIZONTAL, 3);
+        vk_box_set_homogeneous(term_label_row, false);
+        vk_widget_set_colors(VK_WIDGET(term_label_row),
+            COLOR_BLACK, COLOR_CYAN);
+
+        label_spacer = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(label_spacer), COLOR_BLACK, COLOR_CYAN);
+        vk_widget_set_expand(VK_WIDGET(label_spacer));
+
+        vk_box_set_widget(term_label_row, 0, VK_WIDGET(term_label));
+        vk_box_set_widget(term_label_row, 1, VK_WIDGET(label_spacer));
+        vk_box_set_widget(term_label_row, 2,
+            VK_WIDGET(scrollback_label_widget));
+
+        term_widget_row = vk_box_create(INTERIOR_WIDTH, 3,
+            VK_BOX_HORIZONTAL, 3);
+        vk_box_set_homogeneous(term_widget_row, false);
+        vk_widget_set_colors(VK_WIDGET(term_widget_row),
+            COLOR_BLACK, COLOR_CYAN);
+
+        widget_spacer = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(widget_spacer),
+            COLOR_BLACK, COLOR_CYAN);
+        vk_widget_set_expand(VK_WIDGET(widget_spacer));
+
+        vk_box_set_widget(term_widget_row, 0, VK_WIDGET(term_dropdown));
+        vk_box_set_widget(term_widget_row, 1, VK_WIDGET(widget_spacer));
+        vk_box_set_widget(term_widget_row, 2, VK_WIDGET(scrollback_spin));
+
+        vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame));
+        vk_box_set_widget(main_vbox, 1, VK_WIDGET(cat_label));
+        vk_box_set_widget(main_vbox, 2, VK_WIDGET(cat_dropdown));
+        vk_box_set_widget(main_vbox, 3, VK_WIDGET(term_label_row));
+        vk_box_set_widget(main_vbox, 4, VK_WIDGET(term_widget_row));
+        vk_box_set_widget(main_vbox, 5, VK_WIDGET(vis_label));
+        vk_box_set_widget(main_vbox, 6, VK_WIDGET(vis_dropdown));
+        vk_box_set_widget(main_vbox, 7, VK_WIDGET(button_hbox));
+    }
 
     vk_window_set_child(dialog_window, VK_WIDGET(main_vbox));
     vk_object_set_kmio(VK_OBJECT(dialog_window), manage_apps_kmio);
@@ -1948,6 +2110,8 @@ vwm_manage_apps_close(void)
 
     main_vbox = NULL;
     button_hbox = NULL;
+    term_label_row = NULL;
+    term_widget_row = NULL;
     listbox_frame = NULL;
     listbox_scroller = NULL;
     app_listbox = NULL;
@@ -1955,6 +2119,8 @@ vwm_manage_apps_close(void)
     cat_dropdown = NULL;
     term_label_widget = NULL;
     term_dropdown = NULL;
+    scrollback_label_widget = NULL;
+    scrollback_spin = NULL;
     vis_label_widget = NULL;
     vis_dropdown = NULL;
     memset(buttons, 0, sizeof(buttons));
@@ -2514,13 +2680,35 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
 
     if(ry >= term_dd && ry <= term_dd + 2)
     {
-        model->focus_zone = FOCUS_TERMINAL;
-        update_button_highlights();
+        /* left column: the VTerm Mode dropdown */
+        if(rx < TERM_COL_WIDTH)
+        {
+            model->focus_zone = FOCUS_TERMINAL;
+            update_button_highlights();
 
-        vk_dropdown_set_expanded(term_dropdown, true);
-        dropdown_popup_attach(term_dropdown);
+            vk_dropdown_set_expanded(term_dropdown, true);
+            dropdown_popup_attach(term_dropdown);
 
-        refresh_dialog();
+            refresh_dialog();
+            return 0;
+        }
+
+        /* right column: the scrollback spinbutton.  translate the click
+           into widget-local coords (the spinbutton sits flush right) and
+           let it hit-test its own arrows / value field. */
+        if(rx >= INTERIOR_WIDTH - SCROLLBACK_COL_WIDTH)
+        {
+            int local_x = rx - (INTERIOR_WIDTH - SCROLLBACK_COL_WIDTH);
+            int local_y = ry - term_dd;
+
+            model->focus_zone = FOCUS_SCROLLBACK;
+            vk_spinbutton_click(scrollback_spin, local_x, local_y);
+            update_button_highlights();
+
+            refresh_dialog();
+            return 0;
+        }
+
         return 0;
     }
 
