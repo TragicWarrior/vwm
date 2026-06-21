@@ -54,6 +54,11 @@ struct _vwm_module_s
        programs.c; NULL otherwise.  The launch picker substitutes the
        chosen file into a copy of this at run time. */
     char                    **fd_argv;
+
+    /* Per-app vterm scrollback override, in lines (Manage Apps).  0 means
+       inherit the vterm default (4x the terminal height); a positive
+       value is applied via vterm_set_history_size at launch. */
+    int                     scrollback;
 };
 
 // this is the standard callback which clones a module
