@@ -229,14 +229,10 @@ launch_picker_mouse(MEVENT *me)
     ix = me->x - wx - 1;
     iy = me->y - wy - 1;
 
-    /* off the dialog -> abort the launch on a real press fully off the
-       window (not merely on its border), matching the other popups */
+    /* off the dialog -- ignore.  A press off the window no longer aborts
+       the launch; use Cancel or Esc to dismiss the picker. */
     if(ix < 0 || ix >= ww - 2 || iy < 0 || iy >= wh - 2)
     {
-        if((bs & BUTTON1_PRESSED) &&
-           (me->x < wx || me->x >= wx + ww ||
-            me->y < wy || me->y >= wy + wh))
-            launch_picker_close();
         return;
     }
 

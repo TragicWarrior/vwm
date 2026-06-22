@@ -364,26 +364,11 @@ vwm_poll_input(void * const env)
             zone = classify_mouse(vwm, mouse_event->x,
                 mouse_event->y, &hit);
 
-            if(vwm->manage_hotkeys_popup != NULL &&
-               zone != ZONE_MANAGE_HOTKEYS &&
-               (bs & BUTTON1_PRESSED))
-            {
-                vwm_manage_hotkeys_close();
-            }
-
-            if(vwm->manage_settings_popup != NULL &&
-               zone != ZONE_MANAGE_SETTINGS &&
-               (bs & BUTTON1_PRESSED))
-            {
-                vwm_manage_settings_close();
-            }
-
-            if(vwm->manage_apps_popup != NULL &&
-               zone != ZONE_MANAGE_APPS &&
-               (bs & BUTTON1_PRESSED))
-            {
-                vwm_manage_apps_close();
-            }
+            /* Manage Apps / Hotkeys / Settings intentionally do NOT close
+               on an outside click -- dismiss them with their Close/Cancel
+               button or Esc.  (The menubar dropdown and calendar popup
+               below still close on an outside press, which is the
+               conventional behavior for a menu / transient popup.) */
 
             if(vwm->menu != NULL && zone != ZONE_MENU &&
                zone != ZONE_PANEL && (bs & BUTTON1_PRESSED))
