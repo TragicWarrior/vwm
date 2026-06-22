@@ -211,7 +211,8 @@ build_pick(print_session_t *s)
 
     fd = vk_filedialog_create(W - 2, H - 2, VK_BORDER_SINGLE, false);
     vk_filedialog_set_colors(fd, COLOR_WHITE, COLOR_BLUE);
-    vk_filedialog_set_highlight(fd, COLOR_BLACK, COLOR_RED);
+    /* grey active selection (matches the unfocused row), not red */
+    vk_filedialog_set_highlight(fd, COLOR_BLACK, COLOR_WHITE);
     vk_listbox_set_unfocused(vk_filedialog_get_file_list(fd),
         COLOR_BLACK, COLOR_WHITE);
     vk_filedialog_set_button_colors(fd, COLOR_WHITE, COLOR_BLUE);
