@@ -244,6 +244,9 @@ vwm_init(void)
         vwm->screensaver_cmd[0] = '\0';
         vwm->screensaver_timeout = 0;
         vwm->clipboard_mode = VWM_CLIPBOARD_BOTH;
+        vwm->show_hostname = 0;             /* off by default */
+        vwm->hostname_fg = COLOR_WHITE;
+        vwm->hostname_bg = COLOR_BLUE;
         {
             /* sensible defaults per desktop -- diverse colors so a
                fresh vwm still has the original per-surface identity */

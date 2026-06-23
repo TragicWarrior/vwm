@@ -21,6 +21,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <wchar.h>
 #include <langinfo.h>
 
@@ -340,6 +341,59 @@ _bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
     }
 }
 
+/*
+    Draw the host name in the desktop's bottom-left corner: one column in
+    from the left edge, with one blank row between it and the bottom
+    status line (status sits at height-1, so the name goes at height-3).
+    Must be called AFTER the wallpaper is painted onto the canvas, or the
+    wallpaper blit overwrites it.  Gated by the Settings "Show Hostname"
+    option (off by default); colored by the "Hostname Colors" option,
+    applied via wattr_set so bright (8-15) colors survive.
+*/
+static void
+_bkgd_draw_hostname(WINDOW *canvas, int surface_id, int width, int height)
+{
+    static char     host[256] = "";
+    vwm_t           *vwm;
+    char            *dot;
+    short           fg, bg, pair;
+    int             row, col, len;
+
+    (void)surface_id;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL || !vwm->show_hostname) return;
+
+    if(host[0] == '\0')
+    {
+        if(gethostname(host, sizeof(host)) != 0) return;
+        host[sizeof(host) - 1] = '\0';
+        /* short name only -- drop any domain suffix */
+        dot = strchr(host, '.');
+        if(dot != NULL) *dot = '\0';
+        if(host[0] == '\0') return;
+    }
+
+    if(height < 3 || width < 2) return;
+
+    row = height - 3;       /* status at height-1, blank row at height-2 */
+    col = 1;                /* one column in from the left edge */
+
+    len = (int)strlen(host);
+    if(col + len > width) len = width - col;
+    if(len <= 0) return;
+
+    fg = vwm->hostname_fg;
+    bg = vwm->hostname_bg;
+    if(fg < 0 || fg > 15) fg = COLOR_WHITE;
+    if(bg < 0 || bg > 15) bg = COLOR_BLUE;
+    pair = vdk_color_pair(fg, bg);
+
+    wattr_set(canvas, A_BOLD, pair, NULL);
+    mvwaddnstr(canvas, row, col, host, len);
+    wattr_set(canvas, A_NORMAL, 0, NULL);
+}
+
 void
 vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
 {
@@ -353,6 +407,7 @@ vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
         /* out-of-range slot -- paint directly, no caching */
         getmaxyx(canvas, height, width);
         _bkgd_paint_into(canvas, surface_id, width, height);
+        _bkgd_draw_hostname(canvas, surface_id, width, height);
         return;
     }
 
@@ -375,6 +430,7 @@ vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
         {
             /* newwin failed -- paint directly so we don't lose a frame */
             _bkgd_paint_into(canvas, surface_id, width, height);
+            _bkgd_draw_hostname(canvas, surface_id, width, height);
             return;
         }
         _bkgd_paint_into(g_wallpaper_cache[surface_id],
@@ -385,6 +441,10 @@ vwm_bkgd_simple_normal(vk_screen_t *screen, int surface_id, WINDOW *canvas)
        destination rectangle, blanks included -- identical effect to
        overwrite() but explicit about the rectangle and the mode. */
     overwrite(g_wallpaper_cache[surface_id], canvas);
+
+    /* host name in the bottom-left -- drawn after the wallpaper blit so it
+       is not overpainted (see _bkgd_draw_hostname). */
+    _bkgd_draw_hostname(canvas, surface_id, width, height);
 }
 
 /*

@@ -75,6 +75,12 @@ struct _vwm_s
     /* VWM_CLIPBOARD_* -- how SELECT-mode copy reaches the host clipboard */
     short                   clipboard_mode;
 
+    /* bottom-left hostname label (Settings: Show Hostname + Hostname
+       Colors).  show_hostname 0 = off (default), 1 = on. */
+    short                   show_hostname;
+    short                   hostname_fg;
+    short                   hostname_bg;
+
     uint32_t                state;
 
     int                     cursor_x;
