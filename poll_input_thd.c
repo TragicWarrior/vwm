@@ -210,6 +210,57 @@ raise_to_top(vwm_t *vwm, vk_widget_t *widget)
     vk_window_update(VK_WINDOW(widget));
 }
 
+/*
+    Pull every window's top-left back into the usable area (below the
+    panel row, above the status row, left edge on-screen).  After a
+    shrink -- e.g. a dtach reattach onto a smaller terminal -- windows
+    keep their old coordinates and one can end up with its title bar
+    off-screen, leaving no frame to grab and drag.  This is a pure
+    reposition; the window size (and any vterm child) is left alone, so a
+    window wider/taller than the new terminal stays clipped but its frame
+    is reachable.  No-op for windows that already fit, and runs across
+    every desktop so off-screen windows on inactive decks are fixed too.
+*/
+static void
+clamp_windows_onscreen(vwm_t *vwm)
+{
+    int scr_h, scr_w;
+    int s;
+
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+
+    for(s = 0; s < vwm->surface_count; s++)
+    {
+        vk_deck_t   *deck = vwm->decks[s];
+        int          n, i;
+
+        if(deck == NULL) continue;
+        n = vk_deck_count(deck);
+
+        for(i = 0; i < n; i++)
+        {
+            vk_widget_t *w = vk_deck_get_widget(deck, i);
+            int          wx, wy, ww, wh, nx, ny;
+
+            if(w == NULL) continue;
+
+            vk_widget_get_position(w, &wx, &wy);
+            vk_widget_get_metrics(w, &ww, &wh);
+
+            nx = wx;
+            if(nx + ww > scr_w) nx = scr_w - ww;        /* pull left to fit */
+            if(nx < 0)          nx = 0;                 /* too wide: left-align */
+
+            ny = wy;
+            if(ny + wh > scr_h - 1) ny = scr_h - 1 - wh; /* clear the status row */
+            if(ny < 1)              ny = 1;              /* clear the panel row */
+
+            if(nx != wx || ny != wy)
+                vk_widget_move(w, nx, ny);
+        }
+    }
+}
+
 static void
 begin_drag(int mode, vk_widget_t *widget, MEVENT *mouse_event)
 {
@@ -301,6 +352,11 @@ vwm_poll_input(void * const env)
 
             if(vwm_manage_windows_is_open())
                 vwm_manage_windows_handle_resize();
+
+            /* the terminal may have shrunk (e.g. dtach reattach onto a
+               smaller tty) -- pull any now-off-screen window back so its
+               frame stays grabbable */
+            clamp_windows_onscreen(vwm);
 
             vk_screen_refresh(vwm->screen);
             ctx_poll_input->did_work = 1;
