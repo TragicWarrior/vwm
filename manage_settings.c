@@ -31,13 +31,14 @@
 #define INTERIOR_WIDTH      (DIALOG_WIDTH - 2)
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
-/* base settings = 5.  Desktop N Color and Desktop N Wallpaper rows
-   are dynamic, packed densely after the base rows in this order:
-        rows [5 .. 5+sc-1]              : Desktop N Color
-        rows [5+sc .. 5+2*sc-1]         : Desktop N Wallpaper
-   where sc = vwm->surface_count.  Storage covers the max so the array
-   size never grows; positions beyond active_setting_count are unused. */
-#define NUM_BASE_SETTINGS               6
+/* NUM_BASE_SETTINGS fixed rows come first.  Desktop N Color and Desktop
+   N Wallpaper rows are dynamic, packed densely after the base rows:
+        rows [B .. B+sc-1]             : Desktop N Color
+        rows [B+sc .. B+2*sc-1]        : Desktop N Wallpaper
+   where B = SETTING_DESKTOP_COLOR_BASE (= NUM_BASE_SETTINGS) and
+   sc = vwm->surface_count.  Storage covers the max so the array size
+   never grows; positions beyond active_setting_count are unused. */
+#define NUM_BASE_SETTINGS               8
 #define NUM_SETTINGS                    (NUM_BASE_SETTINGS + 2 * VWM_MAX_DESKTOPS)
 #define MAX_APP_OPTIONS                 64
 
@@ -47,6 +48,8 @@
 #define SETTING_SCREENSAVER_CMD         3
 #define SETTING_SCREENSAVER_IDLE        4
 #define SETTING_CLIPBOARD               5
+#define SETTING_SHOW_HOSTNAME           6
+#define SETTING_HOSTNAME_COLOR          7
 #define SETTING_DESKTOP_COLOR_BASE      NUM_BASE_SETTINGS
 
 #define SETTING_TYPE_DROPDOWN   0
@@ -82,11 +85,16 @@ base_setting_defs[NUM_BASE_SETTINGS] =
     { "Screensaver Cmd",     SETTING_TYPE_INPUT },
     { "Screensaver Idle",    SETTING_TYPE_INPUT },
     { "Copy to Clipboard",   SETTING_TYPE_DROPDOWN },
+    { "Show Hostname",       SETTING_TYPE_DROPDOWN },
+    { "Hostname Colors",     SETTING_TYPE_COLOR },
 };
 
 /* labels for the dynamic Desktop N Color / Desktop N Wallpaper rows */
 static char desktop_color_labels[VWM_MAX_DESKTOPS][32];
 static char desktop_wallpaper_labels[VWM_MAX_DESKTOPS][32];
+
+/* Show Hostname toggle values (index 0 = off, 1 = on) */
+static const char *hostname_toggle_names[2] = { "Off", "On" };
 
 static const char*
 get_setting_label(int idx)
@@ -226,6 +234,7 @@ static int                 load_last_click_item = -1;
 static void rebuild_listbox(void);
 static void refresh_dialog(void);
 static void refresh_load_popup(void);
+static void parse_fg_bg(const char *val, int *fg_out, int *bg_out);
 static int  manage_settings_kmio(vk_object_t *object, int32_t keystroke);
 
 /* ── app options population ───────────────────────────────── */
@@ -282,6 +291,19 @@ model_load_from_vwm(vwm_t *vwm)
         strncpy(model->values[SETTING_CLIPBOARD],
             vwm_clipboard_mode_names[cidx], NAME_MAX - 1);
         model->values[SETTING_CLIPBOARD][NAME_MAX - 1] = '\0';
+    }
+
+    strncpy(model->values[SETTING_SHOW_HOSTNAME],
+        hostname_toggle_names[vwm->show_hostname ? 1 : 0], NAME_MAX - 1);
+    model->values[SETTING_SHOW_HOSTNAME][NAME_MAX - 1] = '\0';
+
+    {
+        int hf = vwm->hostname_fg;
+        int hb = vwm->hostname_bg;
+        if(hf < 0 || hf > 15) hf = COLOR_WHITE;
+        if(hb < 0 || hb > 15) hb = COLOR_BLUE;
+        snprintf(model->values[SETTING_HOSTNAME_COLOR], NAME_MAX,
+            "%s/%s", vwm_color_names[hf], vwm_color_names[hb]);
     }
 
     /* dynamic rows: Desktop N Color, then Desktop N Wallpaper.  Storage
@@ -364,6 +386,19 @@ model_load_from_config(const char *path)
     if(str != NULL)
         strncpy(model->values[SETTING_CLIPBOARD], str, NAME_MAX - 1);
 
+    item = cJSON_GetObjectItemCaseSensitive(settings, "show_hostname");
+    if(cJSON_IsNumber(item))
+        strncpy(model->values[SETTING_SHOW_HOSTNAME],
+            item->valueint ? "On" : "Off", NAME_MAX - 1);
+
+    {
+        const char *hf = vwm_json_str(settings, "hostname_fg", NULL);
+        const char *hb = vwm_json_str(settings, "hostname_bg", NULL);
+        if(hf != NULL && hb != NULL)
+            snprintf(model->values[SETTING_HOSTNAME_COLOR], NAME_MAX,
+                "%s/%s", hf, hb);
+    }
+
     cJSON_Delete(root);
 }
 
@@ -398,6 +433,16 @@ commit_to_vwm(void)
                 break;
             }
         }
+    }
+
+    vwm->show_hostname =
+        (strcmp(model->values[SETTING_SHOW_HOSTNAME], "On") == 0) ? 1 : 0;
+
+    {
+        int fg = COLOR_WHITE, bg = COLOR_BLUE;
+        parse_fg_bg(model->values[SETTING_HOSTNAME_COLOR], &fg, &bg);
+        vwm->hostname_fg = (short)fg;
+        vwm->hostname_bg = (short)bg;
     }
 
     /* commit each visible Desktop N Color and Desktop N Wallpaper row
@@ -568,6 +613,15 @@ cycle_value(int setting_idx, int direction)
             strncpy(model->values[setting_idx],
                 model->app_titles[curr - 1], NAME_MAX - 1);
     }
+    else if(setting_idx == SETTING_SHOW_HOSTNAME)
+    {
+        /* two-state toggle -- direction is irrelevant */
+        (void)direction;
+        strncpy(model->values[setting_idx],
+            (strcmp(model->values[setting_idx], "On") == 0) ? "Off" : "On",
+            NAME_MAX - 1);
+        model->values[setting_idx][NAME_MAX - 1] = '\0';
+    }
 
     model->dirty = true;
     rebuild_listbox();
@@ -718,6 +772,12 @@ modify_popup_apply(void)
                     if(curr >= 0 && curr < VWM_CLIPBOARD_COUNT)
                         strncpy(model->values[modify_setting_idx],
                             vwm_clipboard_mode_names[curr], NAME_MAX - 1);
+                }
+                else if(modify_setting_idx == SETTING_SHOW_HOSTNAME)
+                {
+                    if(curr >= 0 && curr < 2)
+                        strncpy(model->values[modify_setting_idx],
+                            hostname_toggle_names[curr], NAME_MAX - 1);
                 }
                 else if(curr < VWM_WALLPAPER_COUNT)
                 {
@@ -1120,6 +1180,17 @@ modify_popup_open(int setting_idx)
                     (char *)vwm_clipboard_mode_names[i], NULL, NULL);
                 if(strcmp(model->values[setting_idx],
                     vwm_clipboard_mode_names[i]) == 0)
+                    sel_idx = i;
+            }
+        }
+        else if(setting_idx == SETTING_SHOW_HOSTNAME)
+        {
+            for(i = 0; i < 2; i++)
+            {
+                vk_listbox_add_item(modify_listbox,
+                    (char *)hostname_toggle_names[i], NULL, NULL);
+                if(strcmp(model->values[setting_idx],
+                    hostname_toggle_names[i]) == 0)
                     sel_idx = i;
             }
         }

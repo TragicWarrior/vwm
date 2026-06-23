@@ -186,6 +186,30 @@ vwm_settings_load_general(vwm_t *vwm)
         }
     }
 
+    /* bottom-left hostname label: on/off flag plus its fg/bg colors
+       (stored as color names like the desktop colors). */
+    val = vwm_json_int(settings, "show_hostname", -1);
+    if(val == 0 || val == 1)
+        vwm->show_hostname = (short)val;
+
+    str = vwm_json_str(settings, "hostname_fg", NULL);
+    if(str != NULL)
+    {
+        int j;
+        for(j = 0; j < 16; j++)
+            if(strcmp(str, vwm_color_names[j]) == 0)
+            { vwm->hostname_fg = (short)j; break; }
+    }
+
+    str = vwm_json_str(settings, "hostname_bg", NULL);
+    if(str != NULL)
+    {
+        int j;
+        for(j = 0; j < 16; j++)
+            if(strcmp(str, vwm_color_names[j]) == 0)
+            { vwm->hostname_bg = (short)j; break; }
+    }
+
     /* per-desktop colors and wallpapers -- both stored as string arrays
        (color and pattern names).  Missing or malformed entries keep
        whatever vwm_init seeded.  Unknown names also keep the default. */
@@ -297,6 +321,21 @@ vwm_settings_save_general(vwm_t *vwm)
             idx = VWM_CLIPBOARD_NEVER;
         cJSON_AddStringToObject(settings, "clipboard",
             vwm_clipboard_mode_names[idx]);
+    }
+
+    cJSON_AddNumberToObject(settings, "show_hostname",
+        vwm->show_hostname ? 1 : 0);
+    {
+        int idx = vwm->hostname_fg;
+        if(idx < 0 || idx > 15) idx = COLOR_WHITE;
+        cJSON_AddStringToObject(settings, "hostname_fg",
+            vwm_color_names[idx]);
+    }
+    {
+        int idx = vwm->hostname_bg;
+        if(idx < 0 || idx > 15) idx = COLOR_BLUE;
+        cJSON_AddStringToObject(settings, "hostname_bg",
+            vwm_color_names[idx]);
     }
 
     /* persist the full VWM_MAX_DESKTOPS slot range so that shrinking
