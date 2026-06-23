@@ -100,26 +100,26 @@ static void
 _bkgd_render_stiple(WINDOW *canvas, int width, int height, short pair)
 {
     int i;
-    int colors = COLOR_PAIR(pair);
 
-    wattron(canvas, colors | A_ALTCHARSET);
+    /* apply the pair as a separate short so bright (8-15) colors, whose
+       pair numbers exceed 255, are not truncated by COLOR_PAIR */
+    wattr_set(canvas, A_ALTCHARSET, pair, NULL);
     wmove(canvas, 0, 0);
     for(i = 0; i < width * height; i++)
         waddch(canvas, ACS_CKBOARD);
-    wattroff(canvas, colors | A_ALTCHARSET);
+    wattr_set(canvas, A_NORMAL, 0, NULL);
 }
 
 static void
 _bkgd_render_dots_1(WINDOW *canvas, int width, int height, short pair)
 {
     int i;
-    int colors = COLOR_PAIR(pair);
 
-    wattron(canvas, colors);
+    wattr_set(canvas, A_NORMAL, pair, NULL);
     wmove(canvas, 0, 0);
     for(i = 0; i < width * height; i++)
         waddch(canvas, '.');
-    wattroff(canvas, colors);
+    wattr_set(canvas, A_NORMAL, 0, NULL);
 }
 
 /*
@@ -129,10 +129,9 @@ _bkgd_render_dots_1(WINDOW *canvas, int width, int height, short pair)
 static void
 _bkgd_render_dots_2(WINDOW *canvas, int width, int height, short pair)
 {
-    int colors = COLOR_PAIR(pair);
     int x, y;
 
-    wattron(canvas, colors);
+    wattr_set(canvas, A_NORMAL, pair, NULL);
     for(y = 0; y < height; y++)
     {
         for(x = 0; x < width; x++)
@@ -141,7 +140,7 @@ _bkgd_render_dots_2(WINDOW *canvas, int width, int height, short pair)
             mvwaddch(canvas, y, x, ch);
         }
     }
-    wattroff(canvas, colors);
+    wattr_set(canvas, A_NORMAL, 0, NULL);
 }
 
 /*
@@ -152,10 +151,9 @@ _bkgd_render_dots_2(WINDOW *canvas, int width, int height, short pair)
 static void
 _bkgd_render_crosses(WINDOW *canvas, int width, int height, short pair)
 {
-    int colors = COLOR_PAIR(pair);
     int x, y;
 
-    wattron(canvas, colors);
+    wattr_set(canvas, A_NORMAL, pair, NULL);
     for(y = 0; y < height; y++)
     {
         for(x = 0; x < width; x++)
@@ -165,7 +163,7 @@ _bkgd_render_crosses(WINDOW *canvas, int width, int height, short pair)
             mvwaddch(canvas, y, x, ch);
         }
     }
-    wattroff(canvas, colors);
+    wattr_set(canvas, A_NORMAL, 0, NULL);
 }
 
 /*
@@ -313,12 +311,11 @@ _bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
         case VWM_WALLPAPER_NONE:
         {
             /* solid fill: just the desktop color, no overlay glyph */
-            int colors = COLOR_PAIR(pair);
             int i;
-            wattron(target, colors);
+            wattr_set(target, A_NORMAL, pair, NULL);
             wmove(target, 0, 0);
             for(i = 0; i < width * height; i++) waddch(target, ' ');
-            wattroff(target, colors);
+            wattr_set(target, A_NORMAL, 0, NULL);
             break;
         }
         case VWM_WALLPAPER_SMALL_BRICKS:
