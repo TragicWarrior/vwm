@@ -1,3 +1,20 @@
+Version 4.5.0
+
+*  [Bryan Christ] Settings: the Desktop color option now picks both a
+   foreground and a background ("Desktop Colors ... [White/Blue]") via a
+   dual-swatch Modify picker (Tab between the two swatches), instead of
+   background only.  The chosen foreground is the wallpaper glyph color.
+
+*  [Bryan Christ] Add the "Crosses" wallpaper -- a 2x6 staggered '+'
+   pattern.
+
+*  [Bryan Christ] Render bright (8-15) desktop foreground/background
+   colors correctly.  The wallpaper renderers packed the color pair into
+   an 8-bit chtype via COLOR_PAIR(), truncating pair numbers above 255
+   (bright backgrounds 12-15) to the wrong color; they now apply the pair
+   as a separate short via wattr_set.  Requires libviper 5.3.0, which
+   carries the matching fix for the picker's own widgets.
+
 Version 4.4.0
 
 *  [Bryan Christ] Manage Apps: add the "%fd" Params launch token.  An app
