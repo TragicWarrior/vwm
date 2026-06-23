@@ -179,6 +179,10 @@ static vk_color_t          *modify_color_bg = NULL;
 static vk_label_t          *modify_fg_label = NULL;
 static vk_label_t          *modify_bg_label = NULL;
 static vk_label_t          *modify_preview = NULL;
+static vk_box_t            *modify_fg_group = NULL;
+static vk_box_t            *modify_bg_group = NULL;
+static vk_box_t            *modify_pickers = NULL;
+static vk_box_t            *modify_preview_row = NULL;
 static vk_box_t            *modify_client = NULL;
 static int                 modify_color_active = 0;  /* 0 = fg, 1 = bg */
 
@@ -664,6 +668,10 @@ modify_popup_close(void)
     modify_fg_label = NULL;
     modify_bg_label = NULL;
     modify_preview = NULL;
+    modify_fg_group = NULL;
+    modify_bg_group = NULL;
+    modify_pickers = NULL;
+    modify_preview_row = NULL;
     modify_client = NULL;
     modify_color_active = 0;
     modify_setting_idx = -1;
@@ -816,6 +824,17 @@ refresh_modify_popup(void)
     vwm_t *vwm;
 
     if(modify_popup == NULL) return;
+
+    /* COLOR popups nest boxes; vk_box_update composites only one level
+       per call, so rebuild bottom-up (leaf groups -> pickers/preview ->
+       client) before the client itself. */
+    if(modify_pickers != NULL)
+    {
+        vk_box_update(modify_fg_group);
+        vk_box_update(modify_bg_group);
+        vk_box_update(modify_pickers);
+        vk_box_update(modify_preview_row);
+    }
 
     if(modify_client != NULL)
         vk_box_update(modify_client);
@@ -1302,6 +1321,15 @@ modify_popup_open(int setting_idx)
                 COLOR_WHITE, COLOR_BLUE);
             vk_box_set_widget(modify_client, 0, VK_WIDGET(pickers));
             vk_box_set_widget(modify_client, 1, VK_WIDGET(preview_row));
+
+            /* vk_box_update does NOT recurse into nested boxes -- canvases
+               only composite one level up per update.  Keep handles to the
+               inner boxes so refresh_modify_popup can rebuild the tree
+               bottom-up after a swatch/preview change. */
+            modify_fg_group    = fg_group;
+            modify_bg_group    = bg_group;
+            modify_pickers     = pickers;
+            modify_preview_row = preview_row;
         }
 
         vk_popup_set_client(modify_popup, VK_WIDGET(modify_client));
