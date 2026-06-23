@@ -20,11 +20,10 @@
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
 #define MANAGE_WINDOWS_HELP \
-    "Tab cycles list / Close / Reorient / Cancel.  " \
-    "Reorient moves the selected window to (1,1)."
+    "Space/click checks windows.  Tab cycles fields.  " \
+    "Close/Move Selected act on every checked window."
 
-#define WARNING_LINE_1  "Close the selected window?"
-#define WARNING_LINE_2  "Any unsaved work in it will be lost."
+#define WARNING_LINE_2  "Any unsaved work will be lost."
 
 enum
 {
@@ -59,7 +58,7 @@ static vk_frame_t           *listbox_frame = NULL;
 static vk_scroller_t        *listbox_scroller = NULL;
 static vk_box_t             *main_vbox = NULL;
 static vk_box_t             *button_hbox = NULL;
-static vk_listbox_t         *windows_listbox = NULL;
+static vk_selectbox_t       *windows_selectbox = NULL;
 static vk_button_t          *buttons[NUM_BUTTONS];
 
 /* ── warning popup ─────────────────────────────────────────── */
@@ -109,21 +108,42 @@ static void     on_cancel(void);
 
 /* ── listbox helpers ───────────────────────────────────────── */
 
-static vk_widget_t*
-get_selected_widget(void)
+static int
+count_checked(void)
+{
+    int i, n = 0;
+
+    for(i = 0; i < list_count; i++)
+        if(vk_selectbox_item_is_checked(windows_selectbox, i)) n++;
+
+    return n;
+}
+
+/*
+    snapshot the deck widgets for every checked row into out[].  the
+    selectbox row index matches the deck index, so row i maps to
+    vk_deck_get_widget(deck, i).  callers MUST snapshot before closing
+    or moving windows, since those mutate the deck and shift indices.
+*/
+static int
+collect_checked(vk_widget_t **out, int max)
 {
     vwm_t   *vwm;
-    int     idx;
+    int     i, n = 0;
 
     vwm = vwm_get_instance();
-    if(vwm == NULL || vwm->deck == NULL) return NULL;
+    if(vwm == NULL || vwm->deck == NULL) return 0;
 
-    if(list_count == 0) return NULL;
+    for(i = 0; i < list_count && n < max; i++)
+    {
+        if(vk_selectbox_item_is_checked(windows_selectbox, i))
+        {
+            vk_widget_t *w = vk_deck_get_widget(vwm->deck, i);
+            if(w != NULL) out[n++] = w;
+        }
+    }
 
-    idx = vk_listbox_get_curr(windows_listbox);
-    if(idx < 0 || idx >= list_count) return NULL;
-
-    return vk_deck_get_widget(vwm->deck, idx);
+    return n;
 }
 
 static void
@@ -146,11 +166,11 @@ rebuild_listbox(void)
         count = vk_deck_count(vwm->deck);
     }
 
-    vk_listbox_reset(windows_listbox);
+    vk_listbox_reset(VK_LISTBOX(windows_selectbox));
 
     if(count == 0)
     {
-        vk_listbox_add_item(windows_listbox, "None", NULL, NULL);
+        vk_selectbox_add_item(windows_selectbox, "None", NULL, NULL);
         list_count = 0;
         return;
     }
@@ -165,7 +185,7 @@ rebuild_listbox(void)
             title = "(untitled)";
 
         snprintf(label, sizeof(label), "%s", title);
-        vk_listbox_add_item(windows_listbox, label, NULL, NULL);
+        vk_selectbox_add_item(windows_selectbox, label, NULL, NULL);
     }
 
     list_count = count;
@@ -189,7 +209,8 @@ update_button_highlights(void)
         vk_button_update(buttons[i]);
     }
 
-    vk_listbox_set_focused(windows_listbox, focus_zone == FOCUS_LIST);
+    vk_listbox_set_focused(VK_LISTBOX(windows_selectbox),
+        focus_zone == FOCUS_LIST);
 }
 
 
@@ -203,7 +224,7 @@ refresh_dialog(void)
     if(dialog_window == NULL) return;
 
     update_button_highlights();
-    vk_listbox_update(windows_listbox);
+    vk_selectbox_update(windows_selectbox);
     vk_scroller_update(listbox_scroller);
     vk_frame_update(listbox_frame);
     vk_box_update(button_hbox);
@@ -220,8 +241,11 @@ refresh_dialog(void)
 static void
 on_close(void)
 {
-    vk_widget_t *w = get_selected_widget();
-    if(w == NULL) return;            /* empty list or invalid selection */
+    if(count_checked() == 0)
+    {
+        vwm_panel_set_status("Check one or more windows to close");
+        return;
+    }
 
     warning_popup_open();
 }
@@ -229,8 +253,11 @@ on_close(void)
 static void
 on_move_to(void)
 {
-    vk_widget_t *w = get_selected_widget();
-    if(w == NULL) return;
+    if(count_checked() == 0)
+    {
+        vwm_panel_set_status("Check one or more windows to move");
+        return;
+    }
 
     move_popup_open();
 }
@@ -244,26 +271,39 @@ on_cancel(void)
 static void
 do_close_selected(void)
 {
-    vk_widget_t *w = get_selected_widget();
-    if(w == NULL) return;
+    vk_widget_t **checked;
+    int          n, i;
 
-    vwm_default_WINDOW_CLOSE(w);
+    n = count_checked();
+    if(n == 0) return;
+
+    checked = malloc((size_t)n * sizeof(vk_widget_t *));
+    if(checked == NULL) return;
+
+    /* snapshot before closing -- closing mutates the deck and would
+       invalidate the row->deck index mapping mid-loop */
+    n = collect_checked(checked, n);
+
+    for(i = 0; i < n; i++)
+        vwm_default_WINDOW_CLOSE(checked[i]);
+
+    free(checked);
 
     /*
-        the listbox is now stale -- rebuild it from the new deck state
-        and clamp the selection.
+        the selectbox is now stale -- rebuild it from the new deck state
+        and clamp the cursor row.
     */
     rebuild_listbox();
 
     if(list_count == 0)
     {
-        vk_listbox_set_curr(windows_listbox, 0);
+        vk_selectbox_set_curr(windows_selectbox, 0);
     }
     else
     {
-        int curr = vk_listbox_get_curr(windows_listbox);
+        int curr = vk_selectbox_get_curr(windows_selectbox);
         if(curr >= list_count)
-            vk_listbox_set_curr(windows_listbox, list_count - 1);
+            vk_selectbox_set_curr(windows_selectbox, list_count - 1);
     }
 }
 
@@ -335,7 +375,13 @@ warning_popup_open(void)
 
         warning_label_1 = vk_label_create(pw - 4);
         vk_label_set_justify(warning_label_1, VK_JUSTIFY_CENTER);
-        vk_label_set_text(warning_label_1, WARNING_LINE_1);
+        {
+            int  nsel = count_checked();
+            char msg[64];
+            snprintf(msg, sizeof(msg), "Close the %d selected window%s?",
+                nsel, nsel == 1 ? "" : "s");
+            vk_label_set_text(warning_label_1, msg);
+        }
         vk_widget_set_colors(VK_WIDGET(warning_label_1),
             COLOR_RED, COLOR_WHITE);
         vk_label_update(warning_label_1);
@@ -477,11 +523,11 @@ move_update_focus(void)
 static void
 move_apply(void)
 {
-    vwm_t       *vwm;
-    vk_widget_t *w;
-    int         idx;
-    int         active_surface;
-    int         target_surface;
+    vwm_t        *vwm;
+    vk_widget_t **checked;
+    int          n, i, idx;
+    int          active_surface;
+    int          target_surface;
 
     /*
         move_listbox must still be live when this runs.  callers must
@@ -490,18 +536,28 @@ move_apply(void)
     */
     if(move_listbox == NULL) return;
 
-    w = get_selected_widget();
-    if(w == NULL) return;
+    n = count_checked();
+    if(n == 0) return;
 
     vwm = vwm_get_instance();
-
     idx = vk_listbox_get_curr(move_listbox);
+
+    checked = malloc((size_t)n * sizeof(vk_widget_t *));
+    if(checked == NULL) return;
+
+    /* snapshot the checked windows before we mutate the deck */
+    n = collect_checked(checked, n);
 
     if(idx == 0)
     {
-        /* Home coordinates -- move to (1, 1) on the current desktop */
-        vk_widget_move(w, 1, 1);
-        vk_window_update(VK_WINDOW(w));
+        /* Home coordinates -- move every checked window to (1, 1) on the
+           current desktop (they stack) */
+        for(i = 0; i < n; i++)
+        {
+            vk_widget_move(checked[i], 1, 1);
+            vk_window_update(VK_WINDOW(checked[i]));
+        }
+        free(checked);
         vk_screen_refresh(vwm->screen);
         return;
     }
@@ -513,27 +569,47 @@ move_apply(void)
     target_surface = idx - 1;
     active_surface = vk_screen_get_active_surface(vwm->screen);
 
-    if(target_surface == active_surface) return;          /* no-op */
-    if(target_surface < 0
-        || target_surface >= vwm->surface_count) return;
+    if(target_surface != active_surface
+        && target_surface >= 0
+        && target_surface < vwm->surface_count)
+    {
+        for(i = 0; i < n; i++)
+        {
+            vk_deck_remove_widget(vwm->decks[active_surface], checked[i]);
+            vk_deck_add_widget(vwm->decks[target_surface],
+                checked[i], VK_DECK_TOP);
+        }
+    }
 
-    vk_deck_remove_widget(vwm->decks[active_surface], w);
-    vk_deck_add_widget(vwm->decks[target_surface], w, VK_DECK_TOP);
+    free(checked);
 
     /*
-        the listbox in the main dialog is now stale (one fewer window
-        in the active deck).  rebuild it and reset selection.
+        if the focused (top) window was among those moved away, the
+        active deck's new top is left un-decorated as focused -- we used
+        the raw deck remove, not vwm_default_WINDOW_CLOSE.  Re-focus the
+        new top the same way WINDOW_CLOSE does so the desktop isn't left
+        with nothing in focus.
+    */
+    {
+        vk_widget_t *new_top = vk_deck_get_top(vwm->decks[active_surface]);
+        if(new_top != NULL)
+            vk_window_update(VK_WINDOW(new_top));
+    }
+
+    /*
+        the active deck shrank -- rebuild the selectbox and clamp the
+        cursor row.
     */
     rebuild_listbox();
     if(list_count == 0)
     {
-        vk_listbox_set_curr(windows_listbox, 0);
+        vk_selectbox_set_curr(windows_selectbox, 0);
     }
     else
     {
-        int curr = vk_listbox_get_curr(windows_listbox);
+        int curr = vk_selectbox_get_curr(windows_selectbox);
         if(curr >= list_count)
-            vk_listbox_set_curr(windows_listbox, list_count - 1);
+            vk_selectbox_set_curr(windows_selectbox, list_count - 1);
     }
 
     vk_screen_refresh(vwm->screen);
@@ -770,7 +846,33 @@ manage_windows_kmio(vk_object_t *object, int32_t keystroke)
             /* nothing in the deck; nudge to the buttons */
             return 0;
         }
-        vk_object_push_keystroke(VK_OBJECT(windows_listbox), keystroke);
+
+        /*
+            the listbox/selectbox install no kmio of their own, so drive
+            navigation here (the way vk_filedialog does): arrows move the
+            cursor row; Space/Enter toggle the row's checkbox.
+        */
+        switch(keystroke)
+        {
+            case KEY_UP:
+                vk_selectbox_set_prev(windows_selectbox);
+                break;
+
+            case KEY_DOWN:
+                vk_selectbox_set_next(windows_selectbox);
+                break;
+
+            case ' ':
+            case '\n':
+            case KEY_ENTER:
+                vk_selectbox_toggle_item(windows_selectbox,
+                    vk_selectbox_get_curr(windows_selectbox));
+                break;
+
+            default:
+                break;
+        }
+
         refresh_dialog();
         return 0;
     }
@@ -819,11 +921,13 @@ build_dialog(void)
 
     lb_height = INTERIOR_HEIGHT - 3 - 2;
 
-    windows_listbox = vk_listbox_create(INTERIOR_WIDTH - 2, lb_height);
-    vk_listbox_set_wrap(windows_listbox, FALSE);
-    vk_listbox_set_highlight(windows_listbox, COLOR_BLACK, COLOR_RED);
-    vk_listbox_set_unfocused(windows_listbox, COLOR_BLACK, COLOR_WHITE);
-    vk_widget_set_colors(VK_WIDGET(windows_listbox),
+    windows_selectbox = vk_selectbox_create(INTERIOR_WIDTH - 2, lb_height,
+        VK_SELECTBOX_CHECKBOX);
+    vk_selectbox_set_wrap(windows_selectbox, FALSE);
+    vk_selectbox_set_highlight(windows_selectbox, COLOR_BLACK, COLOR_RED);
+    vk_listbox_set_unfocused(VK_LISTBOX(windows_selectbox),
+        COLOR_BLACK, COLOR_WHITE);
+    vk_widget_set_colors(VK_WIDGET(windows_selectbox),
         COLOR_BLACK, COLOR_CYAN);
 
     listbox_frame = vk_frame_create(INTERIOR_WIDTH, lb_height + 2);
@@ -831,7 +935,7 @@ build_dialog(void)
         VK_BORDER_SINGLE | VK_RELIEF_SUNKEN);
     vk_frame_set_border_colors(listbox_frame, COLOR_BLACK, COLOR_CYAN);
     vk_frame_set_border_attrs(listbox_frame, A_BOLD);
-    vk_frame_set_child(listbox_frame, VK_WIDGET(windows_listbox));
+    vk_frame_set_child(listbox_frame, VK_WIDGET(windows_selectbox));
     vk_widget_set_expand(VK_WIDGET(listbox_frame));
 
     listbox_scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
@@ -839,8 +943,8 @@ build_dialog(void)
     vk_scroller_set_border_colors(listbox_scroller,
         COLOR_BLACK, COLOR_CYAN);
     vk_scroller_set_scroll_source(listbox_scroller,
-        VK_WIDGET(windows_listbox));
-    vk_widget_attach_scroller(VK_WIDGET(windows_listbox),
+        VK_WIDGET(windows_selectbox));
+    vk_widget_attach_scroller(VK_WIDGET(windows_selectbox),
         listbox_scroller);
 
     button_hbox = vk_box_create(INTERIOR_WIDTH, 3,
@@ -848,9 +952,9 @@ build_dialog(void)
     vk_box_set_homogeneous(button_hbox, false);
     vk_widget_set_colors(VK_WIDGET(button_hbox), COLOR_BLACK, COLOR_CYAN);
 
-    buttons[BTN_CLOSE]    = vk_button_create("Close Window");
-    buttons[BTN_MOVE_TO]  = vk_button_create("Move Window");
-    buttons[BTN_CANCEL]   = vk_button_create("Cancel");
+    buttons[BTN_CLOSE]    = vk_button_create("Close Selected");
+    buttons[BTN_MOVE_TO]  = vk_button_create("Move Selected");
+    buttons[BTN_CANCEL]   = vk_button_create("Close");
 
     for(i = 0; i < NUM_BUTTONS; i++)
     {
@@ -878,7 +982,7 @@ build_dialog(void)
     vk_object_set_kmio(VK_OBJECT(dialog_window), manage_windows_kmio);
 
     rebuild_listbox();
-    vk_listbox_set_curr(windows_listbox, 0);
+    vk_selectbox_set_curr(windows_selectbox, 0);
 
     focus_zone = FOCUS_LIST;
     update_button_highlights();
@@ -957,7 +1061,7 @@ vwm_manage_windows_close(void)
     button_hbox = NULL;
     listbox_frame = NULL;
     listbox_scroller = NULL;
-    windows_listbox = NULL;
+    windows_selectbox = NULL;
     memset(buttons, 0, sizeof(buttons));
 
     vwm->tool_window = NULL;
@@ -1129,25 +1233,25 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
     */
     if(rel_y >= wh - 4)
     {
-        /* button bar:  Close | Reorient | <spacer> | Cancel */
+        /* button bar:  Close Selected | Move Selected | <spacer> | Close */
         int interior_x = rel_x - 1;     /* skip left border */
 
         if(!(mouse_event->bstate & (BUTTON1_CLICKED | BUTTON1_RELEASED)))
             return 0;
 
-        if(interior_x < 14)
+        if(interior_x < 16)             /* "Close Selected" ~16 wide */
         {
             focus_zone = FOCUS_BTN_CLOSE;
             update_button_highlights();
             on_close();
         }
-        else if(interior_x < 27)
+        else if(interior_x < 35)        /* "Move Selected" + gap */
         {
             focus_zone = FOCUS_BTN_MOVE_TO;
             update_button_highlights();
             on_move_to();
         }
-        else if(interior_x >= INTERIOR_WIDTH - 8)
+        else if(interior_x >= INTERIOR_WIDTH - 7)   /* "Close" right-aligned */
         {
             focus_zone = FOCUS_BTN_CANCEL;
             update_button_highlights();
@@ -1167,14 +1271,22 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
     focus_zone = FOCUS_LIST;
     update_button_highlights();
 
-    if(mouse_event->bstate & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+    /* a left press toggles the clicked row's checkbox (and makes it the
+       cursor row).  gate on PRESSED only so one physical click is a
+       single toggle, even if CLICKED/RELEASED also arrive. */
+    if(mouse_event->bstate & BUTTON1_PRESSED)
     {
         int lb_row = rel_y - 2;
         if(lb_row >= 0)
         {
-            int item = vk_listbox_get_scroll_pos(windows_listbox) + lb_row;
+            int item =
+                vk_listbox_get_scroll_pos(VK_LISTBOX(windows_selectbox))
+                + lb_row;
             if(item >= 0 && item < list_count)
-                vk_listbox_set_curr(windows_listbox, item);
+            {
+                vk_selectbox_set_curr(windows_selectbox, item);
+                vk_selectbox_toggle_item(windows_selectbox, item);
+            }
         }
     }
 
