@@ -433,6 +433,11 @@ vwm_error_popup_show(const char *msg, int popup_w, int popup_h)
     vwm = vwm_get_instance();
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
+    /* the filler / message / filler client below needs >= 3 rows
+       (popup_h - 5) to render the message with a gap above it; clamp
+       short callers so the text always shows */
+    if(popup_h < 8) popup_h = 8;
+
     popup = vk_popup_create(popup_w, popup_h,
         VK_BORDER_SINGLE, "OK", NULL);
     vk_popup_set_title(popup, " Error ");
@@ -449,16 +454,35 @@ vwm_error_popup_show(const char *msg, int popup_w, int popup_h)
     }
 
     client = vk_box_create(popup_w - 2, popup_h - 5,
-        VK_BOX_VERTICAL, 1);
+        VK_BOX_VERTICAL, 3);
     vk_box_set_homogeneous(client, true);
     vk_widget_set_colors(VK_WIDGET(client), COLOR_RED, COLOR_WHITE);
+
+    /*
+        top filler / message / bottom filler, exactly like
+        vwm_warning_popup_show: the homogeneous box splits the client
+        evenly so the message sits a row below the top border (and a row
+        above the button bar) and renders reliably.  an empty spacer
+        label here did not render the message.
+    */
+    {
+        vk_filler_t *top_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_RED, COLOR_WHITE);
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+    }
 
     label = vk_label_create(popup_w - 2);
     vk_label_set_justify(label, VK_JUSTIFY_CENTER);
     vk_label_set_text(label, msg);
     vk_widget_set_colors(VK_WIDGET(label), COLOR_RED, COLOR_WHITE);
     vk_label_update(label);
-    vk_box_set_widget(client, 0, VK_WIDGET(label));
+    vk_box_set_widget(client, 1, VK_WIDGET(label));
+
+    {
+        vk_filler_t *bot_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_RED, COLOR_WHITE);
+        vk_box_set_widget(client, 2, VK_WIDGET(bot_pad));
+    }
 
     vk_popup_set_client(popup, VK_WIDGET(client));
 
