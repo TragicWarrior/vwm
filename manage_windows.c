@@ -12,6 +12,7 @@
 #include "winman.h"
 #include "panel.h"
 #include "manage_windows.h"
+#include "manage_ui_common.h"
 
 
 #define DIALOG_WIDTH        48
@@ -69,6 +70,10 @@ static vk_label_t           *warning_label_2 = NULL;
 static vk_box_t             *warning_client = NULL;
 static int                  warning_active_btn = 0;   /* 0 = Yes, 1 = No */
 
+/* ── error popup ───────────────────────────────────────────── */
+
+static vk_popup_t           *error_popup = NULL;
+
 /* ── move-to picker popup ──────────────────────────────────── */
 
 static vk_popup_t           *move_popup = NULL;
@@ -94,6 +99,10 @@ static void     warning_popup_open(void);
 static void     warning_popup_close(void);
 static int      warning_popup_kmio(vk_object_t *object, int32_t keystroke);
 static void     warning_update_buttons(void);
+
+static void     error_popup_open(void);
+static void     error_popup_close(void);
+static int      error_popup_kmio(vk_object_t *object, int32_t keystroke);
 
 static void     move_popup_open(void);
 static void     move_popup_close(void);
@@ -243,7 +252,7 @@ on_close(void)
 {
     if(count_checked() == 0)
     {
-        vwm_panel_set_status("Check one or more windows to close");
+        error_popup_open();
         return;
     }
 
@@ -255,7 +264,7 @@ on_move_to(void)
 {
     if(count_checked() == 0)
     {
-        vwm_panel_set_status("Check one or more windows to move");
+        error_popup_open();
         return;
     }
 
@@ -475,7 +484,7 @@ warning_popup_kmio(vk_object_t *object, int32_t keystroke)
         {
             warning_popup_close();
             do_close_selected();
-            refresh_dialog();
+            vwm_manage_windows_close();   /* close the tool after the op */
         }
         else
         {
@@ -483,6 +492,52 @@ warning_popup_kmio(vk_object_t *object, int32_t keystroke)
             refresh_dialog();
         }
         return 0;
+    }
+
+    return 0;
+}
+
+
+/* ── error popup ───────────────────────────────────────────── */
+
+static void
+error_popup_open(void)
+{
+    if(error_popup != NULL) return;
+
+    error_popup = vwm_error_popup_show("No windows selected.", 40, 7);
+    if(error_popup == NULL) return;
+
+    vk_object_set_kmio(VK_OBJECT(error_popup), error_popup_kmio);
+}
+
+static void
+error_popup_close(void)
+{
+    vwm_t *vwm;
+
+    if(error_popup == NULL) return;
+
+    vwm = vwm_get_instance();
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen),
+        VK_WIDGET(error_popup));
+
+    vk_popup_destroy(error_popup);
+    error_popup = NULL;
+
+    refresh_dialog();
+}
+
+static int
+error_popup_kmio(vk_object_t *object, int32_t keystroke)
+{
+    (void)object;
+
+    if(keystroke == 27 || keystroke == '\n'
+        || keystroke == KEY_ENTER || keystroke == ' ')
+    {
+        error_popup_close();
     }
 
     return 0;
@@ -770,6 +825,9 @@ move_popup_kmio(vk_object_t *object, int32_t keystroke)
         {
             /* apply must happen before close -- close frees move_listbox */
             move_apply();
+            move_popup_close();
+            vwm_manage_windows_close();   /* close the tool after the op */
+            return 0;
         }
         move_popup_close();
         refresh_dialog();
@@ -810,6 +868,9 @@ manage_windows_kmio(vk_object_t *object, int32_t keystroke)
         vwm_manage_windows_mouse(vk_kmio_get_mouse_event());
         return 0;
     }
+
+    if(error_popup != NULL)
+        return error_popup_kmio(NULL, keystroke);
 
     if(warning_popup != NULL)
         return warning_popup_kmio(NULL, keystroke);
@@ -954,7 +1015,7 @@ build_dialog(void)
 
     buttons[BTN_CLOSE]    = vk_button_create("Close Selected");
     buttons[BTN_MOVE_TO]  = vk_button_create("Move Selected");
-    buttons[BTN_CANCEL]   = vk_button_create("Close");
+    buttons[BTN_CANCEL]   = vk_button_create("Cancel");
 
     for(i = 0; i < NUM_BUTTONS; i++)
     {
@@ -1049,6 +1110,9 @@ vwm_manage_windows_close(void)
     if(move_popup != NULL)
         move_popup_close();
 
+    if(error_popup != NULL)
+        error_popup_close();
+
     vwm = vwm_get_instance();
 
     vk_screen_detach_widget(vwm->screen,
@@ -1117,6 +1181,14 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
 
     if(dialog_window == NULL || mouse_event == NULL) return 0;
 
+    if(error_popup != NULL)
+    {
+        /* single-OK acknowledgement -- a press anywhere dismisses it */
+        if(mouse_event->bstate & BUTTON1_PRESSED)
+            error_popup_close();
+        return 0;
+    }
+
     if(move_popup != NULL)
     {
         int pw, ph, px, py;
@@ -1148,6 +1220,9 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
                 move_update_focus();
                 /* apply must happen before close -- close frees move_listbox */
                 move_apply();
+                move_popup_close();
+                vwm_manage_windows_close();   /* close the tool after the op */
+                return 0;
             }
             move_popup_close();
             refresh_dialog();
@@ -1204,11 +1279,10 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
         {
             warning_popup_close();
             do_close_selected();
+            vwm_manage_windows_close();   /* close the tool after the op */
+            return 0;
         }
-        else
-        {
-            warning_popup_close();
-        }
+        warning_popup_close();
         refresh_dialog();
         return 0;
     }
@@ -1233,7 +1307,7 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
     */
     if(rel_y >= wh - 4)
     {
-        /* button bar:  Close Selected | Move Selected | <spacer> | Close */
+        /* button bar:  Close Selected | Move Selected | <spacer> | Cancel */
         int interior_x = rel_x - 1;     /* skip left border */
 
         if(!(mouse_event->bstate & (BUTTON1_CLICKED | BUTTON1_RELEASED)))
@@ -1251,7 +1325,7 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
             update_button_highlights();
             on_move_to();
         }
-        else if(interior_x >= INTERIOR_WIDTH - 7)   /* "Close" right-aligned */
+        else if(interior_x >= INTERIOR_WIDTH - 8)   /* "Cancel" right-aligned */
         {
             focus_zone = FOCUS_BTN_CANCEL;
             update_button_highlights();
