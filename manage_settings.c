@@ -174,14 +174,21 @@ static vk_button_t          *buttons[NUM_BUTTONS];
 static vk_popup_t          *modify_popup = NULL;
 static vk_listbox_t        *modify_listbox = NULL;
 static vk_input_t          *modify_input = NULL;
-static vk_color_t          *modify_color = NULL;
+static vk_color_t          *modify_color_fg = NULL;
+static vk_color_t          *modify_color_bg = NULL;
+static vk_label_t          *modify_fg_label = NULL;
+static vk_label_t          *modify_bg_label = NULL;
+static vk_label_t          *modify_preview = NULL;
 static vk_box_t            *modify_client = NULL;
+static int                 modify_color_active = 0;  /* 0 = fg, 1 = bg */
 
-/* 2x8 picker with 1x1 cells and gap=1 -> 17 wide x 5 tall.
-   popup interior = popup_w - 2 wide and popup_h - 5 tall, so we
-   size the popup so the interior height exactly fits the picker. */
-#define MODIFY_COLOR_WIDTH      30
-#define MODIFY_COLOR_HEIGHT     10
+/* two 2x8 swatches (17 wide x 5 tall each), side by side, each with a
+   label above and a Sample preview below.  popup interior = popup_w - 2
+   wide and popup_h - 5 tall. */
+#define MODIFY_COLOR_WIDTH      44
+#define MODIFY_COLOR_HEIGHT     12
+#define COLOR_SWATCH_W          17
+#define COLOR_SWATCH_H          5
 static int                 modify_setting_idx = -1;
 static int                 modify_active_btn = 0;
 static int                 modify_focus = 0;
@@ -282,16 +289,18 @@ model_load_from_vwm(vwm_t *vwm)
 
         for(i = 0; i < VWM_MAX_DESKTOPS; i++)
         {
-            int cidx = vwm->desktop_color[i];
+            int cidx = vwm->desktop_color[i];   /* background */
+            int fidx = vwm->desktop_fg[i];      /* foreground */
             int widx = vwm->desktop_wallpaper[i];
 
             if(cidx < 0 || cidx > 15) cidx = COLOR_BLUE;
+            if(fidx < 0 || fidx > 15) fidx = COLOR_BLACK;
             if(widx < 0 || widx >= VWM_WALLPAPER_COUNT)
                 widx = VWM_WALLPAPER_STIPLE;
 
             snprintf(desktop_color_labels[i],
                 sizeof(desktop_color_labels[i]),
-                "Desktop %d Color", i + 1);
+                "Desktop %d Colors", i + 1);
 
             snprintf(desktop_wallpaper_labels[i],
                 sizeof(desktop_wallpaper_labels[i]),
@@ -299,10 +308,10 @@ model_load_from_vwm(vwm_t *vwm)
 
             if(i < vwm->surface_count)
             {
-                strncpy(model->values[SETTING_DESKTOP_COLOR_BASE + i],
-                    vwm_color_names[cidx], NAME_MAX - 1);
-                model->values[SETTING_DESKTOP_COLOR_BASE + i][NAME_MAX - 1]
-                    = '\0';
+                /* value is "Foreground/Background" -- shown as [Fg/Bg] */
+                snprintf(model->values[SETTING_DESKTOP_COLOR_BASE + i],
+                    NAME_MAX, "%s/%s",
+                    vwm_color_names[fidx], vwm_color_names[cidx]);
 
                 strncpy(model->values[wp_base + i],
                     vwm_wallpaper_names[widx], NAME_MAX - 1);
@@ -400,18 +409,45 @@ commit_to_vwm(void)
             bool color_changed = false;
             bool pattern_changed = false;
 
-            for(i = 0; i < 16; i++)
+            /* value is "Foreground/Background" -- split and map each name
+               back to its color index */
             {
-                if(strcmp(
-                    model->values[SETTING_DESKTOP_COLOR_BASE + d],
-                    vwm_color_names[i]) == 0)
+                char       *val =
+                    model->values[SETTING_DESKTOP_COLOR_BASE + d];
+                char       *slash = strchr(val, '/');
+                const char *bg_name = val;
+                char        fg_name[NAME_MAX];
+                int         fg_i = -1, bg_i = -1;
+
+                if(slash != NULL)
                 {
-                    if(vwm->desktop_color[d] != (short)i)
-                        color_changed = true;
-                    vwm->desktop_color[d] = (short)i;
-                    if(color_changed) vwm_apply_desktop_bkgd(d);
-                    break;
+                    int len = (int)(slash - val);
+                    if(len >= (int)sizeof(fg_name))
+                        len = sizeof(fg_name) - 1;
+                    memcpy(fg_name, val, len);
+                    fg_name[len] = '\0';
+                    bg_name = slash + 1;
+
+                    for(i = 0; i < 16; i++)
+                        if(strcmp(fg_name, vwm_color_names[i]) == 0)
+                        { fg_i = i; break; }
                 }
+
+                for(i = 0; i < 16; i++)
+                    if(strcmp(bg_name, vwm_color_names[i]) == 0)
+                    { bg_i = i; break; }
+
+                if(fg_i >= 0 && vwm->desktop_fg[d] != (short)fg_i)
+                {
+                    color_changed = true;
+                    vwm->desktop_fg[d] = (short)fg_i;
+                }
+                if(bg_i >= 0 && vwm->desktop_color[d] != (short)bg_i)
+                {
+                    color_changed = true;
+                    vwm->desktop_color[d] = (short)bg_i;
+                }
+                if(color_changed) vwm_apply_desktop_bkgd(d);
             }
             for(i = 0; i < VWM_WALLPAPER_COUNT; i++)
             {
@@ -536,6 +572,74 @@ cycle_value(int setting_idx, int direction)
     refresh_dialog();
 }
 
+/* ── desktop color (fg/bg) helpers ───────────────────────────── */
+
+/* split a "Foreground/Background" value into colour indices; defaults
+   to Black fg / Blue bg when a half is missing or unknown */
+static void
+parse_fg_bg(const char *val, int *fg_out, int *bg_out)
+{
+    char        fg_name[NAME_MAX];
+    const char *bg_name = val;
+    const char *slash = strchr(val, '/');
+    int         i, fg = COLOR_BLACK, bg = COLOR_BLUE;
+
+    if(slash != NULL)
+    {
+        int len = (int)(slash - val);
+        if(len >= (int)sizeof(fg_name)) len = sizeof(fg_name) - 1;
+        memcpy(fg_name, val, len);
+        fg_name[len] = '\0';
+        bg_name = slash + 1;
+        for(i = 0; i < 16; i++)
+            if(strcmp(fg_name, vwm_color_names[i]) == 0) { fg = i; break; }
+    }
+    for(i = 0; i < 16; i++)
+        if(strcmp(bg_name, vwm_color_names[i]) == 0) { bg = i; break; }
+
+    *fg_out = fg;
+    *bg_out = bg;
+}
+
+/* repaint the " Sample " preview in the currently-selected fg on bg */
+static void
+update_modify_preview(void)
+{
+    short fg, bg;
+
+    if(modify_preview == NULL) return;
+    if(modify_color_fg == NULL || modify_color_bg == NULL) return;
+
+    fg = vk_color_get_selected(modify_color_fg);
+    bg = vk_color_get_selected(modify_color_bg);
+    if(fg < 0 || fg > 15) fg = COLOR_BLACK;
+    if(bg < 0 || bg > 15) bg = COLOR_BLUE;
+
+    vk_widget_set_colors(VK_WIDGET(modify_preview), fg, bg);
+    vk_label_set_text(modify_preview, " Sample ");
+    vk_label_update(modify_preview);
+}
+
+/* highlight the label of the swatch Tab is currently on */
+static void
+update_modify_color_labels(void)
+{
+    if(modify_fg_label != NULL)
+    {
+        vk_widget_set_colors(VK_WIDGET(modify_fg_label),
+            modify_color_active == 0 ? COLOR_YELLOW : COLOR_WHITE,
+            COLOR_BLUE);
+        vk_label_update(modify_fg_label);
+    }
+    if(modify_bg_label != NULL)
+    {
+        vk_widget_set_colors(VK_WIDGET(modify_bg_label),
+            modify_color_active == 1 ? COLOR_YELLOW : COLOR_WHITE,
+            COLOR_BLUE);
+        vk_label_update(modify_bg_label);
+    }
+}
+
 /* ── modify popup ────────────────────────────────────────────── */
 
 static void
@@ -555,8 +659,13 @@ modify_popup_close(void)
     modify_popup = NULL;
     modify_listbox = NULL;
     modify_input = NULL;
-    modify_color = NULL;
+    modify_color_fg = NULL;
+    modify_color_bg = NULL;
+    modify_fg_label = NULL;
+    modify_bg_label = NULL;
+    modify_preview = NULL;
     modify_client = NULL;
+    modify_color_active = 0;
     modify_setting_idx = -1;
 
     refresh_dialog();
@@ -627,15 +736,14 @@ modify_popup_apply(void)
     }
     else if(get_setting_type(modify_setting_idx) == SETTING_TYPE_COLOR)
     {
-        if(modify_color != NULL)
+        if(modify_color_fg != NULL && modify_color_bg != NULL)
         {
-            short idx = vk_color_get_selected(modify_color);
-            if(idx >= 0 && idx <= 15)
-            {
-                strncpy(model->values[modify_setting_idx],
-                    vwm_color_names[idx], NAME_MAX - 1);
-                model->values[modify_setting_idx][NAME_MAX - 1] = '\0';
-            }
+            short fg = vk_color_get_selected(modify_color_fg);
+            short bg = vk_color_get_selected(modify_color_bg);
+            if(fg < 0 || fg > 15) fg = COLOR_BLACK;
+            if(bg < 0 || bg > 15) bg = COLOR_BLUE;
+            snprintf(model->values[modify_setting_idx], NAME_MAX,
+                "%s/%s", vwm_color_names[fg], vwm_color_names[bg]);
         }
     }
 
@@ -731,39 +839,38 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
 
     if(keystroke == '\t')
     {
-        /* COLOR popup: each cell is a tab stop.  Tab advances cell
-           within the picker; on the last cell, Tab handoffs to the
-           buttons; Tab from the last button wraps back to cell 0. */
+        /* COLOR popup: Tab cycles Foreground swatch -> Background swatch
+           -> Apply -> Cancel -> back to Foreground.  Arrows move the
+           highlight inside whichever swatch is active. */
         if(get_setting_type(modify_setting_idx) == SETTING_TYPE_COLOR
-            && modify_color != NULL)
+            && modify_color_fg != NULL)
         {
             if(modify_focus == 0)
             {
-                short cur = vk_color_get_selected(modify_color);
-                if(cur < 15)
+                if(modify_color_active == 0)
                 {
-                    vk_color_set_selected(modify_color, cur + 1);
-                    vk_color_update(modify_color);
-                    refresh_modify_popup();
-                    return 0;
+                    modify_color_active = 1;        /* fg -> bg */
                 }
-                modify_focus = 1;
-                modify_active_btn = 0;
+                else
+                {
+                    modify_focus = 1;               /* bg -> buttons */
+                    modify_active_btn = 0;
+                }
             }
             else
             {
                 if(modify_active_btn == 0)
                 {
-                    modify_active_btn = 1;
+                    modify_active_btn = 1;          /* Apply -> Cancel */
                 }
                 else
                 {
-                    modify_focus = 0;
-                    vk_color_set_selected(modify_color, 0);
-                    vk_color_update(modify_color);
+                    modify_focus = 0;               /* Cancel -> fg */
+                    modify_color_active = 0;
                 }
             }
 
+            update_modify_color_labels();
             update_modify_button_highlights();
             refresh_modify_popup();
             return 0;
@@ -814,16 +921,20 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
             }
         }
         else if(get_setting_type(modify_setting_idx) == SETTING_TYPE_COLOR
-            && modify_color != NULL)
+            && modify_color_fg != NULL)
         {
+            vk_color_t *active = modify_color_active
+                ? modify_color_bg : modify_color_fg;
+
             if(keystroke == KEY_CRLF || keystroke == ' ')
             {
                 modify_popup_apply();
                 return 0;
             }
-            /* arrow keys + Tab move the highlight inside the picker */
-            vk_object_push_keystroke(VK_OBJECT(modify_color), keystroke);
-            vk_color_update(modify_color);
+            /* arrow keys move the highlight inside the active swatch */
+            vk_object_push_keystroke(VK_OBJECT(active), keystroke);
+            vk_color_update(active);
+            update_modify_preview();
             refresh_modify_popup();
             return 0;
         }
@@ -1065,8 +1176,7 @@ modify_popup_open(int setting_idx)
     }
     else if(get_setting_type(setting_idx) == SETTING_TYPE_COLOR)
     {
-        int     curr_idx = 0;
-        int     i;
+        int     fg_idx, bg_idx;
 
         popup_w = MODIFY_COLOR_WIDTH;
         popup_h = MODIFY_COLOR_HEIGHT;
@@ -1080,45 +1190,118 @@ modify_popup_open(int setting_idx)
         vk_popup_set_button_colors(modify_popup, COLOR_WHITE, COLOR_BLUE);
         vk_popup_set_button_attrs(modify_popup, A_BOLD);
 
-        /* 2 rows x 8 cols, 1x1 cells, gap=1 ->
-              w = 8*1 + (8+1)*1 = 17
-              h = 2*1 + (2+1)*1 = 5
-           horizontal centering inside the wider client area is done
-           via a 3-slot vk_box with expanding fillers on either side. */
-        modify_color = vk_color_create(17, 5, 8, 2, VK_BORDER_SINGLE);
-        vk_widget_set_colors(VK_WIDGET(modify_color),
-            COLOR_WHITE, COLOR_BLUE);
-        vk_color_set_focus_colors(modify_color, COLOR_YELLOW, COLOR_BLUE);
-        vk_color_set_focus_attrs(modify_color, A_BOLD);
+        /* current "Fg/Bg" value -> swatch selections */
+        parse_fg_bg(model->values[setting_idx], &fg_idx, &bg_idx);
 
-        for(i = 0; i < 16; i++)
-        {
-            if(strcmp(model->values[setting_idx],
-                vwm_color_names[i]) == 0)
-            {
-                curr_idx = i;
-                break;
-            }
-        }
-        vk_color_set_selected(modify_color, (short)curr_idx);
-        vk_color_update(modify_color);
+        /* foreground: label (active = yellow) over an 8x2 swatch */
+        modify_fg_label = vk_label_create(COLOR_SWATCH_W);
+        vk_label_set_justify(modify_fg_label, VK_JUSTIFY_CENTER);
+        vk_label_set_text(modify_fg_label, "Foreground");
+        vk_widget_set_colors(VK_WIDGET(modify_fg_label),
+            COLOR_YELLOW, COLOR_BLUE);
+        vk_label_update(modify_fg_label);
 
-        /* horizontal centering wrapper: filler | picker | filler */
-        modify_client = vk_box_create(popup_w - 2, popup_h - 5,
-            VK_BOX_HORIZONTAL, 3);
-        vk_box_set_homogeneous(modify_client, false);
-        vk_widget_set_colors(VK_WIDGET(modify_client),
+        modify_color_fg = vk_color_create(COLOR_SWATCH_W, COLOR_SWATCH_H,
+            8, 2, VK_BORDER_SINGLE);
+        vk_widget_set_colors(VK_WIDGET(modify_color_fg),
             COLOR_WHITE, COLOR_BLUE);
+        vk_color_set_focus_colors(modify_color_fg, COLOR_YELLOW, COLOR_BLUE);
+        vk_color_set_focus_attrs(modify_color_fg, A_BOLD);
+        vk_color_set_selected(modify_color_fg, (short)fg_idx);
+        vk_color_update(modify_color_fg);
+
+        /* background: label over an 8x2 swatch */
+        modify_bg_label = vk_label_create(COLOR_SWATCH_W);
+        vk_label_set_justify(modify_bg_label, VK_JUSTIFY_CENTER);
+        vk_label_set_text(modify_bg_label, "Background");
+        vk_widget_set_colors(VK_WIDGET(modify_bg_label),
+            COLOR_WHITE, COLOR_BLUE);
+        vk_label_update(modify_bg_label);
+
+        modify_color_bg = vk_color_create(COLOR_SWATCH_W, COLOR_SWATCH_H,
+            8, 2, VK_BORDER_SINGLE);
+        vk_widget_set_colors(VK_WIDGET(modify_color_bg),
+            COLOR_WHITE, COLOR_BLUE);
+        vk_color_set_focus_colors(modify_color_bg, COLOR_YELLOW, COLOR_BLUE);
+        vk_color_set_focus_attrs(modify_color_bg, A_BOLD);
+        vk_color_set_selected(modify_color_bg, (short)bg_idx);
+        vk_color_update(modify_color_bg);
+
+        /* live preview of the chosen fg-on-bg */
+        modify_preview = vk_label_create(12);
+        vk_label_set_justify(modify_preview, VK_JUSTIFY_CENTER);
+        vk_label_set_text(modify_preview, " Sample ");
+        vk_widget_set_colors(VK_WIDGET(modify_preview),
+            (short)fg_idx, (short)bg_idx);
+        vk_label_update(modify_preview);
+
+        modify_color_active = 0;
+
+        /* layout: two label+swatch groups side by side (centered with
+           expanding fillers), with the preview centered on the row
+           below.  the client is a 2-slot vertical box. */
         {
-            vk_filler_t *l = vk_filler_create();
-            vk_filler_t *r = vk_filler_create();
+            vk_box_t    *fg_group, *bg_group, *pickers, *preview_row;
+            vk_filler_t *l, *m, *r, *pl, *pr;
+
+            fg_group = vk_box_create(COLOR_SWATCH_W, COLOR_SWATCH_H + 1,
+                VK_BOX_VERTICAL, 2);
+            vk_box_set_homogeneous(fg_group, false);
+            vk_widget_set_colors(VK_WIDGET(fg_group),
+                COLOR_WHITE, COLOR_BLUE);
+            vk_box_set_widget(fg_group, 0, VK_WIDGET(modify_fg_label));
+            vk_box_set_widget(fg_group, 1, VK_WIDGET(modify_color_fg));
+
+            bg_group = vk_box_create(COLOR_SWATCH_W, COLOR_SWATCH_H + 1,
+                VK_BOX_VERTICAL, 2);
+            vk_box_set_homogeneous(bg_group, false);
+            vk_widget_set_colors(VK_WIDGET(bg_group),
+                COLOR_WHITE, COLOR_BLUE);
+            vk_box_set_widget(bg_group, 0, VK_WIDGET(modify_bg_label));
+            vk_box_set_widget(bg_group, 1, VK_WIDGET(modify_color_bg));
+
+            l = vk_filler_create(); m = vk_filler_create();
+            r = vk_filler_create();
             vk_widget_set_colors(VK_WIDGET(l), COLOR_WHITE, COLOR_BLUE);
+            vk_widget_set_colors(VK_WIDGET(m), COLOR_WHITE, COLOR_BLUE);
             vk_widget_set_colors(VK_WIDGET(r), COLOR_WHITE, COLOR_BLUE);
             vk_widget_set_expand(VK_WIDGET(l));
+            vk_widget_set_expand(VK_WIDGET(m));
             vk_widget_set_expand(VK_WIDGET(r));
-            vk_box_set_widget(modify_client, 0, VK_WIDGET(l));
-            vk_box_set_widget(modify_client, 1, VK_WIDGET(modify_color));
-            vk_box_set_widget(modify_client, 2, VK_WIDGET(r));
+
+            pickers = vk_box_create(popup_w - 2, COLOR_SWATCH_H + 1,
+                VK_BOX_HORIZONTAL, 5);
+            vk_box_set_homogeneous(pickers, false);
+            vk_widget_set_colors(VK_WIDGET(pickers),
+                COLOR_WHITE, COLOR_BLUE);
+            vk_box_set_widget(pickers, 0, VK_WIDGET(l));
+            vk_box_set_widget(pickers, 1, VK_WIDGET(fg_group));
+            vk_box_set_widget(pickers, 2, VK_WIDGET(m));
+            vk_box_set_widget(pickers, 3, VK_WIDGET(bg_group));
+            vk_box_set_widget(pickers, 4, VK_WIDGET(r));
+
+            pl = vk_filler_create(); pr = vk_filler_create();
+            vk_widget_set_colors(VK_WIDGET(pl), COLOR_WHITE, COLOR_BLUE);
+            vk_widget_set_colors(VK_WIDGET(pr), COLOR_WHITE, COLOR_BLUE);
+            vk_widget_set_expand(VK_WIDGET(pl));
+            vk_widget_set_expand(VK_WIDGET(pr));
+
+            preview_row = vk_box_create(popup_w - 2, 1,
+                VK_BOX_HORIZONTAL, 3);
+            vk_box_set_homogeneous(preview_row, false);
+            vk_widget_set_colors(VK_WIDGET(preview_row),
+                COLOR_WHITE, COLOR_BLUE);
+            vk_box_set_widget(preview_row, 0, VK_WIDGET(pl));
+            vk_box_set_widget(preview_row, 1, VK_WIDGET(modify_preview));
+            vk_box_set_widget(preview_row, 2, VK_WIDGET(pr));
+
+            modify_client = vk_box_create(popup_w - 2, popup_h - 5,
+                VK_BOX_VERTICAL, 2);
+            vk_box_set_homogeneous(modify_client, false);
+            vk_widget_set_colors(VK_WIDGET(modify_client),
+                COLOR_WHITE, COLOR_BLUE);
+            vk_box_set_widget(modify_client, 0, VK_WIDGET(pickers));
+            vk_box_set_widget(modify_client, 1, VK_WIDGET(preview_row));
         }
 
         vk_popup_set_client(modify_popup, VK_WIDGET(modify_client));
@@ -2450,32 +2633,50 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
                 }
             }
             else if(get_setting_type(modify_setting_idx)
-                == SETTING_TYPE_COLOR && modify_color != NULL)
+                == SETTING_TYPE_COLOR && modify_color_fg != NULL)
             {
-                /* picker is centered in the client area; left filler
-                   takes (client_w - picker_w) / 2.  cells are 1 char
-                   wide with 1-char dividers, so local x in [0..16]
-                   maps to col = local_x / 2 (clamped). */
-                int client_w  = mp_w - 2;
-                int picker_w  = 17;
-                int picker_h  = 5;
-                int filler_lw = (client_w - picker_w) / 2;
-                int lx = mx_r - filler_lw;
-                int ly = my_r;
+                /* two swatches sit in a [filler|fg|filler|bg|filler] row,
+                   each label on the row above the swatch.  the three
+                   leading fillers each take (client_w - 2*sw)/3, so the
+                   fg swatch starts at fw and the bg swatch at 2*fw+sw.
+                   the label occupies my_r 0, swatches my_r 1..sh. */
+                int sw       = COLOR_SWATCH_W;
+                int leftover = (mp_w - 2) - 2 * sw;
+                int fw       = (leftover < 0) ? 0 : leftover / 3;
+                int sy       = my_r - 1;
 
-                if(lx >= 0 && lx < picker_w &&
-                   ly >= 0 && ly < picker_h)
+                if(sy >= 0 && sy < COLOR_SWATCH_H)
                 {
-                    int col = lx / 2;
-                    int row = ly / 2;
-                    if(col < 0) col = 0;
-                    if(col > 7) col = 7;
-                    if(row < 0) row = 0;
-                    if(row > 1) row = 1;
-                    vk_color_set_selected(modify_color,
-                        (short)(row * 8 + col));
-                    vk_color_update(modify_color);
-                    refresh_modify_popup();
+                    int  srow = sy / 2;
+                    int  col  = -1;
+                    vk_color_t *sb = NULL;
+
+                    if(srow > 1) srow = 1;
+
+                    if(mx_r >= fw && mx_r < fw + sw)
+                    {
+                        col = (mx_r - fw) / 2;
+                        sb = modify_color_fg;
+                        modify_color_active = 0;
+                    }
+                    else if(mx_r >= 2 * fw + sw &&
+                            mx_r < 2 * fw + 2 * sw)
+                    {
+                        col = (mx_r - (2 * fw + sw)) / 2;
+                        sb = modify_color_bg;
+                        modify_color_active = 1;
+                    }
+
+                    if(sb != NULL)
+                    {
+                        if(col < 0) col = 0;
+                        if(col > 7) col = 7;
+                        vk_color_set_selected(sb, (short)(srow * 8 + col));
+                        vk_color_update(sb);
+                        update_modify_color_labels();
+                        update_modify_preview();
+                        refresh_modify_popup();
+                    }
                 }
             }
         }

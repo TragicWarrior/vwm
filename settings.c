@@ -215,6 +215,30 @@ vwm_settings_load_general(vwm_t *vwm)
     }
     {
         cJSON *arr = cJSON_GetObjectItemCaseSensitive(settings,
+            "desktop_fgs");
+        if(cJSON_IsArray(arr))
+        {
+            int n = cJSON_GetArraySize(arr);
+            int i;
+            if(n > VWM_MAX_DESKTOPS) n = VWM_MAX_DESKTOPS;
+            for(i = 0; i < n; i++)
+            {
+                cJSON *item = cJSON_GetArrayItem(arr, i);
+                int    j;
+                if(!cJSON_IsString(item)) continue;
+                for(j = 0; j < 16; j++)
+                {
+                    if(strcmp(item->valuestring, vwm_color_names[j]) == 0)
+                    {
+                        vwm->desktop_fg[i] = (short)j;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    {
+        cJSON *arr = cJSON_GetObjectItemCaseSensitive(settings,
             "desktop_wallpapers");
         if(cJSON_IsArray(arr))
         {
@@ -286,6 +310,17 @@ vwm_settings_save_general(vwm_t *vwm)
         {
             int idx = vwm->desktop_color[i];
             if(idx < 0 || idx > 15) idx = COLOR_BLUE;
+            cJSON_AddItemToArray(arr,
+                cJSON_CreateString(vwm_color_names[idx]));
+        }
+    }
+    {
+        cJSON *arr = cJSON_AddArrayToObject(settings, "desktop_fgs");
+        int i;
+        for(i = 0; i < VWM_MAX_DESKTOPS; i++)
+        {
+            int idx = vwm->desktop_fg[i];
+            if(idx < 0 || idx > 15) idx = COLOR_BLACK;
             cJSON_AddItemToArray(arr,
                 cJSON_CreateString(vwm_color_names[idx]));
         }

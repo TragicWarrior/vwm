@@ -281,20 +281,23 @@ static void
 _bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
 {
     vwm_t       *vwm;
+    short       fg;
     short       bg;
     short       pattern;
     short       pair;
 
     vwm = vwm_get_instance();
 
+    fg = COLOR_BLACK;
     bg = COLOR_BLUE;
     pattern = VWM_WALLPAPER_STIPLE;
     if(vwm != NULL && surface_id >= 0 && surface_id < VWM_MAX_DESKTOPS)
     {
+        fg = vwm->desktop_fg[surface_id];
         bg = vwm->desktop_color[surface_id];
         pattern = vwm->desktop_wallpaper[surface_id];
     }
-    pair = vdk_color_pair(COLOR_BLACK, bg);
+    pair = vdk_color_pair(fg, bg);
 
     /* fall back to Stiple if the saved pattern needs wide-char box
        drawing but the terminal doesn't support UTF-8 */

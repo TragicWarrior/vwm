@@ -63,8 +63,11 @@ struct _vwm_s
     int                     screensaver_timeout;        /* idle minutes; 0=off */
 
     /* per-surface ANSI color (0..15).  index by surface id; up to
-       VWM_MAX_DESKTOPS entries -- only [0..surface_count-1] are live */
+       VWM_MAX_DESKTOPS entries -- only [0..surface_count-1] are live.
+       desktop_color is the wallpaper background, desktop_fg the glyph
+       (pattern) foreground. */
     short                   desktop_color[VWM_MAX_DESKTOPS];
+    short                   desktop_fg[VWM_MAX_DESKTOPS];
 
     /* per-surface wallpaper pattern (VWM_WALLPAPER_*) */
     short                   desktop_wallpaper[VWM_MAX_DESKTOPS];
