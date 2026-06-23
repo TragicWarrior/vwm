@@ -58,6 +58,7 @@ const char *vwm_wallpaper_names[VWM_WALLPAPER_COUNT] =
     "Large Bricks",
     "Dots 1",
     "Dots 2",
+    "Crosses",
 };
 
 /* host clipboard sync mode names (parallel to VWM_CLIPBOARD_* values) */
@@ -137,6 +138,30 @@ _bkgd_render_dots_2(WINDOW *canvas, int width, int height, short pair)
         for(x = 0; x < width; x++)
         {
             chtype ch = ((y + x) & 1) ? '.' : ' ';
+            mvwaddch(canvas, y, x, ch);
+        }
+    }
+    wattroff(canvas, colors);
+}
+
+/*
+    Crosses -- 2x6 tile, a single '+' staggered between the two rows:
+        row 0: '+' in the middle of the right half  (x % 6 == 4)
+        row 1: '+' in the middle of the left half   (x % 6 == 1)
+*/
+static void
+_bkgd_render_crosses(WINDOW *canvas, int width, int height, short pair)
+{
+    int colors = COLOR_PAIR(pair);
+    int x, y;
+
+    wattron(canvas, colors);
+    for(y = 0; y < height; y++)
+    {
+        for(x = 0; x < width; x++)
+        {
+            int    target = (y & 1) ? 1 : 4;
+            chtype ch = ((x % 6) == target) ? '+' : ' ';
             mvwaddch(canvas, y, x, ch);
         }
     }
@@ -304,6 +329,9 @@ _bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
             break;
         case VWM_WALLPAPER_DOTS_2:
             _bkgd_render_dots_2(target, width, height, pair);
+            break;
+        case VWM_WALLPAPER_CROSSES:
+            _bkgd_render_crosses(target, width, height, pair);
             break;
         case VWM_WALLPAPER_STIPLE:
         default:

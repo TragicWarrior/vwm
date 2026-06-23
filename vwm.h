@@ -46,7 +46,8 @@
 #define VWM_WALLPAPER_LARGE_BRICKS  3
 #define VWM_WALLPAPER_DOTS_1        4
 #define VWM_WALLPAPER_DOTS_2        5
-#define VWM_WALLPAPER_COUNT         6
+#define VWM_WALLPAPER_CROSSES       6
+#define VWM_WALLPAPER_COUNT         7
 
 /* host clipboard sync mode (picked in Settings).  Controls whether a
    SELECT-mode copy is also pushed to the host clipboard, and by what
