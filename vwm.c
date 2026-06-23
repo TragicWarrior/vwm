@@ -255,6 +255,7 @@ vwm_init(void)
             for(k = 0; k < VWM_MAX_DESKTOPS; k++)
             {
                 vwm->desktop_color[k] = defaults[k];
+                vwm->desktop_fg[k] = COLOR_BLACK;
                 vwm->desktop_wallpaper[k] = VWM_WALLPAPER_STIPLE;
             }
         }

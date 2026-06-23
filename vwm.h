@@ -11,7 +11,7 @@
 #include <vkmio.h>
 
 
-#define VWM_VERSION					"4.4.0"
+#define VWM_VERSION					"4.5.0"
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
    outer terminal may have changed under us -- teleport to a new PTY, a
@@ -46,7 +46,8 @@
 #define VWM_WALLPAPER_LARGE_BRICKS  3
 #define VWM_WALLPAPER_DOTS_1        4
 #define VWM_WALLPAPER_DOTS_2        5
-#define VWM_WALLPAPER_COUNT         6
+#define VWM_WALLPAPER_CROSSES       6
+#define VWM_WALLPAPER_COUNT         7
 
 /* host clipboard sync mode (picked in Settings).  Controls whether a
    SELECT-mode copy is also pushed to the host clipboard, and by what
