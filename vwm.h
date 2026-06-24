@@ -133,6 +133,19 @@ int             vwm_scrsaver_timeout_get(void);
 /*	helper functions	*/
 void            vwm_post_help(char *msg);
 
+/* big-font hostname hook.  The optional vwmfont module registers a
+   renderer on load (vwm_mod_init); the bottom-left hostname label uses it
+   when its font size is not "Basic".  All NULL until a module registers,
+   in which case the hostname falls back to the plain one-row label. */
+typedef vk_widget_t* (*vwm_font_render_fn)(const char *text, int size,
+                        int fill);
+typedef void         (*vwm_font_apply_fn)(vk_widget_t *widget, short fg,
+                        short bg);
+typedef void         (*vwm_font_free_fn)(vk_widget_t *widget);
+
+void                vwm_register_font_renderer(vwm_font_render_fn render,
+                        vwm_font_apply_fn apply, vwm_font_free_fn free_fn);
+
 /* helper macros  */
 
 

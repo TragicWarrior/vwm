@@ -55,6 +55,8 @@ endif()
 
 find_package(Freetype REQUIRED)
 
+find_package(ZLIB REQUIRED)
+
 find_package(Cups REQUIRED)
 
 add_library(vwmterm SHARED
@@ -80,6 +82,13 @@ add_library(vwmprint SHARED
     )
 target_include_directories(vwmprint PRIVATE ${CUPS_INCLUDE_DIRS})
 target_link_libraries(vwmprint ${CUPS_LIBRARIES})
+
+add_library(vwmfont SHARED
+    modules/vwmfont/vwmfont.c
+    modules/vwmfont/init.c
+    )
+target_include_directories(vwmfont PRIVATE ${ZLIB_INCLUDE_DIRS})
+target_link_libraries(vwmfont ${ZLIB_LIBRARIES})
 
 add_executable(vwm
     bkgd.c
@@ -138,6 +147,7 @@ install (TARGETS vwm DESTINATION bin)
 install (TARGETS vwmterm DESTINATION lib/vwm/)
 install (TARGETS vwmscrshot DESTINATION lib/vwm/)
 install (TARGETS vwmprint DESTINATION lib/vwm/)
+install (TARGETS vwmfont DESTINATION lib/vwm/)
 
 # dtach session launchers -- PROGRAMS installs them with the execute bit
 # set, alongside the vwm binary so they share its PATH (and tab-complete

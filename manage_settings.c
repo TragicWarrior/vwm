@@ -21,6 +21,7 @@
 #include "manage_ui_common.h"
 #include "winman.h"
 #include "bkgd.h"
+#include "modules/vwmfont/vwmfont.h"    /* vwmfont_size_t for the font menu */
 
 #define MANAGE_SETTINGS_HELP \
 "[Tab] cycle  [Up/Dn] select  " \
@@ -38,7 +39,7 @@
    where B = SETTING_DESKTOP_COLOR_BASE (= NUM_BASE_SETTINGS) and
    sc = vwm->surface_count.  Storage covers the max so the array size
    never grows; positions beyond active_setting_count are unused. */
-#define NUM_BASE_SETTINGS               8
+#define NUM_BASE_SETTINGS               10
 #define NUM_SETTINGS                    (NUM_BASE_SETTINGS + 2 * VWM_MAX_DESKTOPS)
 #define MAX_APP_OPTIONS                 64
 
@@ -50,6 +51,8 @@
 #define SETTING_CLIPBOARD               5
 #define SETTING_SHOW_HOSTNAME           6
 #define SETTING_HOSTNAME_COLOR          7
+#define SETTING_HOSTNAME_FONT           8
+#define SETTING_HOSTNAME_FILL           9
 #define SETTING_DESKTOP_COLOR_BASE      NUM_BASE_SETTINGS
 
 #define SETTING_TYPE_DROPDOWN   0
@@ -87,6 +90,8 @@ base_setting_defs[NUM_BASE_SETTINGS] =
     { "Copy to Clipboard",   SETTING_TYPE_DROPDOWN },
     { "Show Hostname",       SETTING_TYPE_DROPDOWN },
     { "Hostname Colors",     SETTING_TYPE_COLOR },
+    { "Hostname Font",       SETTING_TYPE_DROPDOWN },
+    { "Hostname Fill",       SETTING_TYPE_DROPDOWN },
 };
 
 /* labels for the dynamic Desktop N Color / Desktop N Wallpaper rows */
@@ -95,6 +100,26 @@ static char desktop_wallpaper_labels[VWM_MAX_DESKTOPS][32];
 
 /* Show Hostname toggle values (index 0 = off, 1 = on) */
 static const char *hostname_toggle_names[2] = { "Off", "On" };
+
+/* Hostname Font: "Basic" (plain one-row label) plus the nine Terminus
+   grids (normal weight).  hostname_font_sizes[] maps each option to a
+   vwmfont size index (-1 = Basic).  Keep the two arrays in lockstep. */
+static const char *hostname_font_names[] =
+{
+    "Basic", "6x12", "8x14", "8x16", "10x18", "10x20",
+    "11x22", "12x24", "14x28", "16x32"
+};
+static const int hostname_font_sizes[] =
+{
+    -1, VWMFONT_112N, VWMFONT_114N, VWMFONT_116N, VWMFONT_118N,
+    VWMFONT_120N, VWMFONT_122N, VWMFONT_124N, VWMFONT_128N, VWMFONT_132N
+};
+#define NUM_HOSTNAME_FONTS \
+    (int)(sizeof(hostname_font_names) / sizeof(hostname_font_names[0]))
+
+/* Hostname Fill: index maps directly to vwmfont_fill_t (0/1/2) */
+static const char *hostname_fill_names[3] = { "Full Block", "O", "X" };
+#define NUM_HOSTNAME_FILLS 3
 
 static const char*
 get_setting_label(int idx)
@@ -306,6 +331,23 @@ model_load_from_vwm(vwm_t *vwm)
             "%s/%s", vwm_color_names[hf], vwm_color_names[hb]);
     }
 
+    {
+        int i, fi = 0;          /* hostname font index -> option name */
+        for(i = 0; i < NUM_HOSTNAME_FONTS; i++)
+            if(hostname_font_sizes[i] == vwm->hostname_font) { fi = i; break; }
+        strncpy(model->values[SETTING_HOSTNAME_FONT],
+            hostname_font_names[fi], NAME_MAX - 1);
+        model->values[SETTING_HOSTNAME_FONT][NAME_MAX - 1] = '\0';
+    }
+
+    {
+        int fl = vwm->hostname_fill;
+        if(fl < 0 || fl >= NUM_HOSTNAME_FILLS) fl = 0;
+        strncpy(model->values[SETTING_HOSTNAME_FILL],
+            hostname_fill_names[fl], NAME_MAX - 1);
+        model->values[SETTING_HOSTNAME_FILL][NAME_MAX - 1] = '\0';
+    }
+
     /* dynamic rows: Desktop N Color, then Desktop N Wallpaper.  Storage
        is dense, packed right after the base rows in surface_count-
        dependent positions.  Labels are built per row for both groups. */
@@ -399,6 +441,25 @@ model_load_from_config(const char *path)
                 "%s/%s", hf, hb);
     }
 
+    item = cJSON_GetObjectItemCaseSensitive(settings, "hostname_font");
+    if(cJSON_IsNumber(item))
+    {
+        int i;
+        for(i = 0; i < NUM_HOSTNAME_FONTS; i++)
+            if(hostname_font_sizes[i] == item->valueint)
+            {
+                strncpy(model->values[SETTING_HOSTNAME_FONT],
+                    hostname_font_names[i], NAME_MAX - 1);
+                break;
+            }
+    }
+
+    item = cJSON_GetObjectItemCaseSensitive(settings, "hostname_fill");
+    if(cJSON_IsNumber(item) && item->valueint >= 0 &&
+       item->valueint < NUM_HOSTNAME_FILLS)
+        strncpy(model->values[SETTING_HOSTNAME_FILL],
+            hostname_fill_names[item->valueint], NAME_MAX - 1);
+
     cJSON_Delete(root);
 }
 
@@ -443,6 +504,24 @@ commit_to_vwm(void)
         parse_fg_bg(model->values[SETTING_HOSTNAME_COLOR], &fg, &bg);
         vwm->hostname_fg = (short)fg;
         vwm->hostname_bg = (short)bg;
+    }
+
+    {
+        int i;                  /* hostname font name -> vwmfont size */
+        vwm->hostname_font = -1;
+        for(i = 0; i < NUM_HOSTNAME_FONTS; i++)
+            if(strcmp(model->values[SETTING_HOSTNAME_FONT],
+                hostname_font_names[i]) == 0)
+            { vwm->hostname_font = (short)hostname_font_sizes[i]; break; }
+    }
+
+    {
+        int i;                  /* hostname fill name -> index */
+        vwm->hostname_fill = 0;
+        for(i = 0; i < NUM_HOSTNAME_FILLS; i++)
+            if(strcmp(model->values[SETTING_HOSTNAME_FILL],
+                hostname_fill_names[i]) == 0)
+            { vwm->hostname_fill = (short)i; break; }
     }
 
     /* commit each visible Desktop N Color and Desktop N Wallpaper row
@@ -622,6 +701,32 @@ cycle_value(int setting_idx, int direction)
             NAME_MAX - 1);
         model->values[setting_idx][NAME_MAX - 1] = '\0';
     }
+    else if(setting_idx == SETTING_HOSTNAME_FONT)
+    {
+        int i, curr = 0;
+        for(i = 0; i < NUM_HOSTNAME_FONTS; i++)
+            if(strcmp(model->values[setting_idx], hostname_font_names[i]) == 0)
+            { curr = i; break; }
+        curr += direction;
+        if(curr < 0) curr = NUM_HOSTNAME_FONTS - 1;
+        if(curr >= NUM_HOSTNAME_FONTS) curr = 0;
+        strncpy(model->values[setting_idx], hostname_font_names[curr],
+            NAME_MAX - 1);
+        model->values[setting_idx][NAME_MAX - 1] = '\0';
+    }
+    else if(setting_idx == SETTING_HOSTNAME_FILL)
+    {
+        int i, curr = 0;
+        for(i = 0; i < NUM_HOSTNAME_FILLS; i++)
+            if(strcmp(model->values[setting_idx], hostname_fill_names[i]) == 0)
+            { curr = i; break; }
+        curr += direction;
+        if(curr < 0) curr = NUM_HOSTNAME_FILLS - 1;
+        if(curr >= NUM_HOSTNAME_FILLS) curr = 0;
+        strncpy(model->values[setting_idx], hostname_fill_names[curr],
+            NAME_MAX - 1);
+        model->values[setting_idx][NAME_MAX - 1] = '\0';
+    }
 
     model->dirty = true;
     rebuild_listbox();
@@ -778,6 +883,18 @@ modify_popup_apply(void)
                     if(curr >= 0 && curr < 2)
                         strncpy(model->values[modify_setting_idx],
                             hostname_toggle_names[curr], NAME_MAX - 1);
+                }
+                else if(modify_setting_idx == SETTING_HOSTNAME_FONT)
+                {
+                    if(curr >= 0 && curr < NUM_HOSTNAME_FONTS)
+                        strncpy(model->values[modify_setting_idx],
+                            hostname_font_names[curr], NAME_MAX - 1);
+                }
+                else if(modify_setting_idx == SETTING_HOSTNAME_FILL)
+                {
+                    if(curr >= 0 && curr < NUM_HOSTNAME_FILLS)
+                        strncpy(model->values[modify_setting_idx],
+                            hostname_fill_names[curr], NAME_MAX - 1);
                 }
                 else if(curr < VWM_WALLPAPER_COUNT)
                 {
@@ -1191,6 +1308,28 @@ modify_popup_open(int setting_idx)
                     (char *)hostname_toggle_names[i], NULL, NULL);
                 if(strcmp(model->values[setting_idx],
                     hostname_toggle_names[i]) == 0)
+                    sel_idx = i;
+            }
+        }
+        else if(setting_idx == SETTING_HOSTNAME_FONT)
+        {
+            for(i = 0; i < NUM_HOSTNAME_FONTS; i++)
+            {
+                vk_listbox_add_item(modify_listbox,
+                    (char *)hostname_font_names[i], NULL, NULL);
+                if(strcmp(model->values[setting_idx],
+                    hostname_font_names[i]) == 0)
+                    sel_idx = i;
+            }
+        }
+        else if(setting_idx == SETTING_HOSTNAME_FILL)
+        {
+            for(i = 0; i < NUM_HOSTNAME_FILLS; i++)
+            {
+                vk_listbox_add_item(modify_listbox,
+                    (char *)hostname_fill_names[i], NULL, NULL);
+                if(strcmp(model->values[setting_idx],
+                    hostname_fill_names[i]) == 0)
                     sel_idx = i;
             }
         }

@@ -210,6 +210,14 @@ vwm_settings_load_general(vwm_t *vwm)
             { vwm->hostname_bg = (short)j; break; }
     }
 
+    /* big-font hostname: font is a vwmfont size index (-1 = Basic), fill
+       is a vwmfont_fill_t (0..2).  Out-of-range size is handled by the
+       renderer (falls back to the plain label). */
+    val = vwm_json_int(settings, "hostname_font", -2);
+    if(val >= -1) vwm->hostname_font = (short)val;
+    val = vwm_json_int(settings, "hostname_fill", -1);
+    if(val >= 0 && val <= 2) vwm->hostname_fill = (short)val;
+
     /* per-desktop colors and wallpapers -- both stored as string arrays
        (color and pattern names).  Missing or malformed entries keep
        whatever vwm_init seeded.  Unknown names also keep the default. */
@@ -337,6 +345,8 @@ vwm_settings_save_general(vwm_t *vwm)
         cJSON_AddStringToObject(settings, "hostname_bg",
             vwm_color_names[idx]);
     }
+    cJSON_AddNumberToObject(settings, "hostname_font", vwm->hostname_font);
+    cJSON_AddNumberToObject(settings, "hostname_fill", vwm->hostname_fill);
 
     /* persist the full VWM_MAX_DESKTOPS slot range so that shrinking
        num_desktops and then growing it again keeps the user's earlier
