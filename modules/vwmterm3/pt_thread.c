@@ -101,8 +101,12 @@ pt_t vwmterm_thd(void * const env)
         {
             if(vwmterm_data->redraw_pending)
             {
+                /* render this tile's own window now (cheap), but defer
+                   the screen composite: mark it dirty and let the
+                   scheduler's per-step hook coalesce every busy tile
+                   into a single vk_screen_refresh (item 5). */
                 vk_window_update(window);
-                vk_screen_refresh(vwm->screen);
+                vwm->screen_dirty = 1;
                 vwmterm_data->redraw_pending = 0;
             }
 

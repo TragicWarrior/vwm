@@ -91,6 +91,18 @@ int             vwm_sched_task_create(vwm_sched_t *sched,
 void            vwm_sched_run(vwm_sched_t *sched, int *shutdown);
 
 /*
+    optional per-step callback.  fired once at the end of every
+    scheduler step, after all ready tasks have run.  vwm uses it to
+    coalesce vterm screen composites: drain tasks mark the screen dirty
+    and the callback issues a single vk_screen_refresh per step instead
+    of one per busy tile.  pass cb = NULL to disable.  the scheduler
+    stays vdk-agnostic -- it only invokes the hook, it does not composite.
+*/
+typedef void    (*vwm_sched_step_cb_t)(void *arg);
+void            vwm_sched_set_step_cb(vwm_sched_t *sched,
+                    vwm_sched_step_cb_t cb, void *arg);
+
+/*
     number of slots currently in use (active tasks).  cheap O(N) scan
     of the ring; safe to call from anywhere on the main thread.
 */
