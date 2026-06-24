@@ -108,7 +108,7 @@ MEDIUM IMPACT
        composites once instead of 2-3.  (Verified all switch(zone) cases
        break -- no early continue -- so the close is always painted.)
 
-[ ] 5. pt_thread.c refreshes per drain cycle, not per scheduler tick
+[x] 5. pt_thread.c refreshes per drain cycle, not per scheduler tick
        modules/vwmterm3/pt_thread.c lines 100-107
        Every vwmterm thread calls vk_screen_refresh whenever its own
        drain produced bytes.  With multiple busy vwmterms (split-screen
@@ -121,6 +121,28 @@ MEDIUM IMPACT
        after all threads have run, or (b) coalesce by checking whether
        any other tile is already redraw_pending and skip if so (the
        last one wins).
+
+       DONE (approach a): split the two concerns the drain path used to
+       fuse.  Each tile still renders its own window immediately
+       (vk_window_update, cheap), but instead of compositing the whole
+       screen it sets vwm->screen_dirty.  The scheduler grew a generic
+       per-step hook (vwm_sched_set_step_cb) -- it stays vdk-agnostic,
+       only invoking the callback after each step's dispatch -- and
+       vwm.c registers vwm_sched_render, which issues one
+       vk_screen_refresh per step when the flag is set, then clears it.
+       All ready tiles run inside a single protothread_run() per step,
+       so N busy tiles now cost one composite per step instead of N.
+       The hook is gated only by screen_dirty (not did_work), so the
+       deferred-refresh turn -- which deliberately doesn't report
+       did_work -- still composites in the same step.  Single-tile
+       behavior is unchanged (same refresh count, same step, just routed
+       through the hook); the startup composites and the terminal
+       close/EPIPE refresh paths are untouched.  Builds clean; module +
+       binary recompiled against the shared struct.  Branch
+       vwmterm-coalesce-refresh.  Verified interactively: htop, a caca
+       video (continuous high-rate output -- the heaviest coalescing
+       case), ps aux, and scrollback (the history-render branch) all
+       behaved normally; no stalls, tearing, or missed repaints.
 
 [ ] 6. vk_window_set_title called on no-op transitions
        modules/vwmterm3/events.c lines 300, 322, 403

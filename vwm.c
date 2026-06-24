@@ -65,6 +65,9 @@ vwm_on_surface_change(vk_object_t *object, int event, void *anything);
 static int
 vwm_on_teleport(vk_object_t *object, int event, void *anything);
 
+static void
+vwm_sched_render(void *arg);
+
 vwm_sched_t             *sched = NULL;
 int                     shutdown = 0;
 
@@ -212,6 +215,10 @@ int main(int argc,char **argv)
 
     vk_screen_refresh(vwm->screen);
 
+    /* coalesce vterm composites: drain tasks mark the screen dirty and
+       this hook issues one refresh per scheduler step (see item 5). */
+    vwm_sched_set_step_cb(sched, vwm_sched_render, vwm);
+
     vwm_sched_run(sched, &shutdown);
 
     vwm_sched_deinit(sched);
@@ -222,6 +229,25 @@ int main(int argc,char **argv)
 	close(fd);
 
 	return 0;
+}
+
+/*
+    scheduler per-step render hook.  the vterm drain tasks update their
+    own windows and set vwm->screen_dirty rather than each compositing
+    the whole screen; this fires once per step and collapses N busy
+    tiles into a single vk_screen_refresh.  cheap no-op when nothing
+    drained this step.
+*/
+static void
+vwm_sched_render(void *arg)
+{
+    vwm_t   *vwm = (vwm_t *)arg;
+
+    if(vwm->screen_dirty)
+    {
+        vk_screen_refresh(vwm->screen);
+        vwm->screen_dirty = 0;
+    }
 }
 
 vwm_t*

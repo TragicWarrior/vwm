@@ -56,6 +56,8 @@ struct _vwm_sched_s
 {
     protothread_t           pt_normal;
     protothread_t           pt_high;
+    vwm_sched_step_cb_t     step_cb;
+    void                    *step_cb_arg;
     vwm_sched_slot_t        slots[VWM_SCHED_MAX_TASKS];
 };
 
@@ -85,6 +87,15 @@ vwm_sched_deinit(vwm_sched_t *sched)
     protothread_free(sched->pt_high);
 
     free(sched);
+}
+
+void
+vwm_sched_set_step_cb(vwm_sched_t *sched, vwm_sched_step_cb_t cb, void *arg)
+{
+    if(sched == NULL) return;
+
+    sched->step_cb = cb;
+    sched->step_cb_arg = arg;
 }
 
 int
@@ -247,6 +258,15 @@ vwm_sched_run(vwm_sched_t *sched, int *shutdown)
                 }
             }
         }
+
+        /*
+            coalesced render hook.  every ready NORMAL task (the vterm
+            tiles) ran inside the protothread_run() calls above, each
+            updating only its own window; any that produced output marked
+            the screen dirty.  fire the hook once here so a step with N
+            busy tiles costs a single screen composite instead of N.
+        */
+        if(sched->step_cb != NULL) sched->step_cb(sched->step_cb_arg);
 
         sweep_pos++;
 
