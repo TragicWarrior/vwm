@@ -1,3 +1,16 @@
+Version 4.6.0
+
+*  [Bryan Christ] Big-font host name.  The bottom-left hostname label can
+   now render as large "pixel-art" text from a Terminus PSF console font,
+   via the new loadable vwmfont module (modules/vwmfont, built and loaded
+   like vwmterm/vwmprint).  Settings add "Hostname Font" (Basic plus the
+   nine Terminus grids) and "Hostname Fill" (Full Block / O / X); the
+   existing Hostname Colors still apply.  Falls back to the plain one-row
+   label when the font is Basic or the vwmfont module is not installed.
+   No font package is required -- discovery uses the console-setup
+   Terminus PSFs already present (Uni3/Uni2-Terminus*) and also matches
+   upstream ter-*.psf.gz.
+
 Version 4.5.0
 
 *  [Bryan Christ] Settings: the Desktop color option now picks both a
