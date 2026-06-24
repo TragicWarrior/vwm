@@ -29,6 +29,21 @@
 #include "private.h"
 #include "bkgd.h"
 
+/* big-font hostname renderer, registered by the vwmfont module on load
+   (NULL until then; the hostname falls back to the plain one-row label). */
+static vwm_font_render_fn   g_font_render = NULL;
+static vwm_font_apply_fn    g_font_apply  = NULL;
+static vwm_font_free_fn     g_font_free   = NULL;
+
+void
+vwm_register_font_renderer(vwm_font_render_fn render,
+    vwm_font_apply_fn apply, vwm_font_free_fn free_fn)
+{
+    g_font_render = render;
+    g_font_apply  = apply;
+    g_font_free   = free_fn;
+}
+
 /*
     Cheap, cached "does the terminal speak UTF-8?" check.  Used to fall
     back the brick wallpapers (WACS box drawing) to Stiple (ACS_CKBOARD)
@@ -342,6 +357,61 @@ _bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
 }
 
 /*
+    Big-font host name via the registered vwmfont renderer.  Renders the
+    name into a cached vk_widget and blits its canvas into the bottom-left,
+    bottom row at height-3 (one blank row above the status line).  Returns
+    1 on success, 0 to fall back to the plain one-row label.  The widget is
+    re-rendered only when the text/size/fill changes and recolored only
+    when the colors change, so the steady-state cost is a single copywin.
+*/
+static int
+_bkgd_draw_hostname_big(WINDOW *canvas, vwm_t *vwm, const char *host,
+    int width, int height)
+{
+    static vk_widget_t  *cached = NULL;
+    static int          c_font = -2, c_fill = -2;
+    static short        c_fg = -2, c_bg = -2;
+    static char         c_host[256] = "";
+    WINDOW              *src;
+    int                 W, H, top, left, right;
+
+    if(c_font != vwm->hostname_font || c_fill != vwm->hostname_fill ||
+       strcmp(c_host, host) != 0)
+    {
+        if(cached != NULL && g_font_free != NULL) g_font_free(cached);
+        cached = g_font_render(host, vwm->hostname_font, vwm->hostname_fill);
+        c_font = vwm->hostname_font;
+        c_fill = vwm->hostname_fill;
+        snprintf(c_host, sizeof(c_host), "%s", host);
+        c_fg = -2;                  /* force a recolor */
+    }
+    if(cached == NULL) return 0;    /* render failed -> fall back */
+
+    if(c_fg != vwm->hostname_fg || c_bg != vwm->hostname_bg)
+    {
+        if(g_font_apply != NULL)
+            g_font_apply(cached, vwm->hostname_fg, vwm->hostname_bg);
+        c_fg = vwm->hostname_fg;
+        c_bg = vwm->hostname_bg;
+    }
+
+    src = vk_widget_get_canvas(cached);
+    if(src == NULL) return 0;
+    getmaxyx(src, H, W);
+
+    left = 1;                       /* one column in from the left edge */
+    top  = height - 2 - H;          /* bottom row at height-3 */
+    if(top < 0) return 0;           /* too tall for this screen */
+
+    right = left + W - 1;
+    if(right > width - 1) right = width - 1;     /* clip to screen width */
+    if(right < left) return 0;
+
+    copywin(src, canvas, 0, 0, top, left, top + H - 1, right, FALSE);
+    return 1;
+}
+
+/*
     Draw the host name in the desktop's bottom-left corner: one column in
     from the left edge, with one blank row between it and the bottom
     status line (status sits at height-1, so the name goes at height-3).
@@ -375,6 +445,14 @@ _bkgd_draw_hostname(WINDOW *canvas, int surface_id, int width, int height)
     }
 
     if(height < 3 || width < 2) return;
+
+    /* big-font path: a registered vwmfont renderer and a non-Basic size */
+    if(vwm->hostname_font >= 0 && g_font_render != NULL)
+    {
+        if(_bkgd_draw_hostname_big(canvas, vwm, host, width, height))
+            return;
+        /* unavailable / didn't fit -- fall through to the plain label */
+    }
 
     row = height - 3;       /* status at height-1, blank row at height-2 */
     col = 1;                /* one column in from the left edge */

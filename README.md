@@ -10,14 +10,17 @@ FEATURES
 ========
 
 *  Multiple virtual desktops, each with its own color and wallpaper pattern
-   (Stiple, Small Bricks, Large Bricks, Dots).  Switch desktops with Alt+d.
+   (Stiple, Small Bricks, Large Bricks, Dots, Crosses).  Switch desktops
+   with Alt+d.
 *  Embedded terminal windows (vwmterm) with scrollback (Alt+PgUp / Alt+PgDn),
    click-drag SELECT-mode copy to the host clipboard, and middle-click paste.
 *  Menubar with two dropdowns: VWM (system tools) and Apps (user-configured
    launchers).  Reach it with the menubar hotkey or mouse.
 *  In-app configuration dialogs -- no editor required for common changes:
-   -  Settings: per-desktop colors and wallpapers, screensaver command and
-      idle timeout, copy-to-clipboard transport (xclip / host / both).
+   -  Settings: per-desktop foreground/background colors and wallpapers,
+      screensaver command and idle timeout, copy-to-clipboard transport
+      (xclip / host / both), and an optional bottom-left host name with a
+      choice of size (basic, or a large Terminus font), fill, and colors.
    -  Manage Apps Menu: add, edit, or hide launcher entries that appear under
       the Apps dropdown; Load Config imports a JSON profile.
    -  Manage Hotkeys: rebind built-in shortcuts and persist them.
@@ -33,6 +36,9 @@ FEATURES
       restarting.
 *  Permanent status bar with clock, hotkey hints, version, and a GPM-driven
    mouse cursor overlay.
+*  Optional host name in the desktop's bottom-left corner (off by default),
+   in a chosen color and -- via the loadable vwmfont module -- a large
+   Terminus pixel-font at one of nine grid sizes.
 *  Remote-friendly: run under dtach via the bundled vwm-start / vwm-resume
    launchers to detach and reattach a session across SSH disconnects.
 *  Configuration persisted to JSON at ~/.config/vwm/config.json; a sane
@@ -43,11 +49,12 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-libviper 5.1.1+  - https://github.com/TragicWarrior/libviper
+libviper 5.3.0+  - https://github.com/TragicWarrior/libviper
 libgpm (optional)
 libvterm 10.0+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for the screen-capture module; "make all")
 libcups2-dev     (for the print module; "make all")
+zlib             (for the big-font hostname module, vwmfont)
 xclip (optional) - for "xclip" / "Both" Copy-to-Clipboard modes under X
 dtach (optional) - for remote detach/reattach (vwm-start / vwm-resume)
 
@@ -68,8 +75,9 @@ CONFIGURATION
 
 Most settings are managed from within vwm via the VWM dropdown in the
 menubar -- no editing required.  Open Settings to adjust per-desktop colors
-and wallpapers, the screensaver program and idle timeout, and the
-copy-to-clipboard transport.  Open Manage Apps Menu to add or modify the
+and wallpapers, the screensaver program and idle timeout, the
+copy-to-clipboard transport, and the optional bottom-left host name.  Open
+Manage Apps Menu to add or modify the
 launcher entries shown under the Apps dropdown.  Open Manage Hotkeys to
 rebind the built-in shortcuts.  Each dialog persists its changes to the
 JSON config on Save.

@@ -247,6 +247,8 @@ vwm_init(void)
         vwm->show_hostname = 0;             /* off by default */
         vwm->hostname_fg = COLOR_WHITE;
         vwm->hostname_bg = COLOR_BLUE;
+        vwm->hostname_font = -1;            /* Basic (plain one-row label) */
+        vwm->hostname_fill = 0;             /* full block */
         {
             /* sensible defaults per desktop -- diverse colors so a
                fresh vwm still has the original per-surface identity */

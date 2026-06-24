@@ -81,6 +81,12 @@ struct _vwm_s
     short                   hostname_fg;
     short                   hostname_bg;
 
+    /* big-font hostname via the vwmfont module.  hostname_font: -1 =
+       Basic (plain one-row label, default), else a vwmfont size index.
+       hostname_fill: 0 = full block, 1 = 'O', 2 = 'X'. */
+    short                   hostname_font;
+    short                   hostname_fill;
+
     uint32_t                state;
 
     int                     cursor_x;

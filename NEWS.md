@@ -1,3 +1,37 @@
+2026-06-23
+
+vwm can show the machine's host name in the bottom-left corner of the
+desktop, one row above the status line.  It is off by default; turn it on
+under Settings with "Show Hostname" and choose its colors with "Hostname
+Colors".  For something you can read across the room, "Hostname Font"
+renders the name as large pixel-art using a Terminus console font at one
+of nine grid sizes, with a "Hostname Fill" choice of a solid block, O, or
+X -- that path is the new loadable vwmfont module.  Left at Basic, or with
+the module not installed, you get a plain one-row label.  No extra font
+package is required.
+
+Desktops now control both colors.  The Settings "Desktop Colors" row
+picks a foreground (the wallpaper glyph) and a background together from a
+two-swatch chooser, and a new "Crosses" pattern joins the wallpapers.
+Bright (8-15) colors that used to come out wrong now render correctly.
+
+Managing windows gained two conveniences.  Manage Desktop can act on
+several windows at once -- tick them in the list and use Close Selected or
+Move Selected -- and a window left off-screen (for example after resuming
+a dtach session in a smaller terminal) is pulled back onto the screen so
+you can grab its frame again.
+
+
+2026-06-22
+
+The modal tool dialogs -- Manage Desktop, Print File, Capture Screenshot
+and the rest -- no longer close when you click outside them; only their
+own buttons or Esc dismiss them.
+
+The file picker's selected-row highlight is now grey instead of red,
+matching the one shown by Capture Screenshot and the "%fd" launch token.
+
+
 2026-06-20
 
 Manage Apps can prompt for a file at launch.  Put the token "%fd"
