@@ -24,6 +24,10 @@
 
 #define KEY_PASTE       0x561B
 
+/* history lines scrolled per mouse-wheel notch.  the Alt+PgUp/PgDn
+   hotkeys still page (a full window height); the wheel is fine-grained. */
+#define VWMTERM_WHEEL_SCROLL_LINES  1
+
 static int      key_alt_pgup;
 static int      key_alt_pgdn;
 static int      key_sel_up;
@@ -459,7 +463,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             vterm_wnd_size(vterm, &width, &height);
             history_sz = vterm_get_history_size(vterm);
 
-            vwmterm_data->scroll_offset += 3;
+            vwmterm_data->scroll_offset += VWMTERM_WHEEL_SCROLL_LINES;
             if(vwmterm_data->scroll_offset > history_sz - height)
                 vwmterm_data->scroll_offset = history_sz - height;
             if(vwmterm_data->scroll_offset < 0)
@@ -486,7 +490,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             vterm_wnd_size(vterm, &width, &height);
             history_sz = vterm_get_history_size(vterm);
 
-            vwmterm_data->scroll_offset -= 3;
+            vwmterm_data->scroll_offset -= VWMTERM_WHEEL_SCROLL_LINES;
             if(vwmterm_data->scroll_offset <= 0)
             {
                 vwmterm_data->scroll_offset = 0;
