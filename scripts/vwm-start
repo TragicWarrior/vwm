@@ -117,4 +117,8 @@ fi
 # mouse on every (re)attach; -z keeps Ctrl-Z from orphaning dtach.
 trap disable_mouse EXIT
 
+# Mark the environment so vwm can show a "dtach active" panel indicator
+# (vwm reads getenv("VWM_SOCK")).  This is the supported entry point.
+export VWM_SOCK="$SOCK"
+
 dtach -c "$SOCK" -r winch -z "$VWM_BIN"

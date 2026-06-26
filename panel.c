@@ -165,7 +165,7 @@ vwm_panel_init(vwm_t *vwm)
         version_len = strlen(version_str);
 
         vwm_panel->status_box = vk_box_create(max_x, 1,
-            VK_BOX_HORIZONTAL, 3);
+            VK_BOX_HORIZONTAL, 5);
         vk_box_set_homogeneous(vwm_panel->status_box, false);
         vk_widget_set_colors(VK_WIDGET(vwm_panel->status_box),
             COLOR_BLACK, COLOR_WHITE);
@@ -195,9 +195,46 @@ vwm_panel_init(vwm_t *vwm)
         vk_label_set_text(vwm_panel->version_label, version_str);
         vk_label_update(vwm_panel->version_label);
 
+        /*
+            dtach status indicator -- bottom-right, just left of the VWM
+            version label.  Circle: bright green = running under the
+            bundled dtach launcher, plain red = not.  Bright-white text on
+            a dark-gray field.  Static for the process lifetime, so it's a
+            box-owned local (no struct field / updater).  Dark gray wants
+            a 16-colour terminal; falls back to the base palette.
+        */
+        {
+            int         under_dtach = (getenv("VWM_SOCK") != NULL);
+            int         gray  = (COLORS >= 16) ? 8  : COLOR_BLACK;
+            int         white = (COLORS >= 16) ? 15 : COLOR_WHITE;
+            int         dot   = under_dtach ? COLOR_GREEN : COLOR_RED;
+            const char  *txt  = under_dtach
+                                    ? "dtach active " : "dtach inactive ";
+            vk_label_t  *dtach_dot = vk_label_create(3);
+            vk_label_t  *dtach_txt = vk_label_create((int)strlen(txt));
+
+            /* bold (bright) green for active; a plain, true red for
+               inactive -- the bright red read wrong. */
+            vk_widget_set_colors(VK_WIDGET(dtach_dot), dot, gray);
+            vk_widget_set_attrs(VK_WIDGET(dtach_dot),
+                under_dtach ? A_BOLD : A_NORMAL);
+            vk_label_set_text(dtach_dot, has_utf8 ? " \xe2\x97\x8f " : " o ");
+            vk_label_update(dtach_dot);
+
+            vk_widget_set_colors(VK_WIDGET(dtach_txt), white, gray);
+            vk_widget_set_attrs(VK_WIDGET(dtach_txt), A_BOLD);
+            vk_label_set_text(dtach_txt, txt);
+            vk_label_update(dtach_txt);
+
+            vk_box_set_widget(vwm_panel->status_box, 2,
+                VK_WIDGET(dtach_dot));
+            vk_box_set_widget(vwm_panel->status_box, 3,
+                VK_WIDGET(dtach_txt));
+        }
+
         vk_box_set_widget(vwm_panel->status_box, 1,
             VK_WIDGET(vwm_panel->status_marquee));
-        vk_box_set_widget(vwm_panel->status_box, 2,
+        vk_box_set_widget(vwm_panel->status_box, 4,
             VK_WIDGET(vwm_panel->version_label));
 
         vk_widget_move(VK_WIDGET(vwm_panel->status_box), 0, max_y - 1);
