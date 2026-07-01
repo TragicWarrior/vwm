@@ -9,6 +9,8 @@
 
 void    vwmterm_init_keycodes(void);
 
+void    vwmterm_window_update(vwmterm_data_t *vwmterm_data);
+
 int     vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke);
 
 int     vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything);

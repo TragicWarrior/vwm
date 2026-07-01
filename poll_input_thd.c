@@ -22,6 +22,7 @@ enum
     DRAG_NONE = 0,
     DRAG_MOVE,
     DRAG_RESIZE,
+    DRAG_SCROLL,
 };
 
 enum
@@ -50,6 +51,12 @@ static int      drag_orig_wh;
 static vk_widget_t *drag_widget = NULL;
 static bool     menubar_ate_press = false;
 
+/* module-supplied handler for a DRAG_SCROLL (scrollbar-thumb) drag: the poll
+   loop owns the capture and release, and calls this with the live cursor
+   position so the widget can update its scroll offset.  set via
+   vwm_set_scroll_drag_cb(); NULL until a scroll-capable module registers. */
+static void (*scroll_drag_cb)(vk_widget_t *widget, int mx, int my) = NULL;
+
 /*
     Cancel any active drag if its target widget matches.  Called from
     vwmterm_ON_CLOSE before vterm_destroy: without this, a queued mouse
@@ -65,6 +72,24 @@ vwm_cancel_drag_for_widget(vk_widget_t *widget)
         drag_widget = NULL;
         drag_mode = DRAG_NONE;
     }
+}
+
+/* register the handler invoked while a scrollbar-thumb drag is active */
+void
+vwm_set_scroll_drag_cb(void (*cb)(vk_widget_t *widget, int mx, int my))
+{
+    scroll_drag_cb = cb;
+}
+
+/* begin a captured scrollbar-thumb drag on `widget`.  the poll loop then
+   routes every mouse event to scroll_drag_cb until the button is released, so
+   an off-window or coalesced release can't leave the thumb stuck to the
+   cursor. */
+void
+vwm_begin_scroll_drag(vk_widget_t *widget)
+{
+    drag_mode = DRAG_SCROLL;
+    drag_widget = widget;
 }
 
 static void
@@ -87,6 +112,11 @@ apply_drag_position(MEVENT *mouse_event)
         if(new_h < 3) new_h = 3;
 
         vk_widget_resize(drag_widget, new_w, new_h);
+    }
+    else if(drag_mode == DRAG_SCROLL)
+    {
+        if(scroll_drag_cb != NULL)
+            scroll_drag_cb(drag_widget, mouse_event->x, mouse_event->y);
     }
 }
 
