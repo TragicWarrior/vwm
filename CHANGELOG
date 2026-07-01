@@ -1,3 +1,14 @@
+Version 4.8.0
+
+*  [Bryan Christ] vwmterm scrollback now reveals less than one screenful of
+   history.  Scrolling back into a short capture -- fewer lines than the
+   window is tall, e.g. a brief `ls -l` -- previously did nothing, because
+   the render clamped to whole screens of evicted rows.  It now composes the
+   scrolled-back history above the live screen (via libvterm's new
+   vterm_wnd_scrollback), so the wheel, Alt+PgUp/PgDn, and the bar all reach
+   the very first captured line the way a hardware terminal scrolls back.
+   Requires libvterm 10.4+.
+
 Version 4.7.0
 
 *  [Bryan Christ] vwmterm scrollbar.  Bordered terminal windows show a
