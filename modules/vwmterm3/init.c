@@ -44,11 +44,106 @@ vwm_mod_init(const char *modpath);
 static vk_window_t*
 vwmterm_main(vwm_module_t *mod);
 
+/* interior columns that are chrome rather than terminal (the scrollbar) --
+   handed to vwm_window_decorate so its border size label reports the real
+   vterm size, not the interior width (which now includes the bar) */
+static const int vwmterm_frame_reserved = 1;
+
 static short
 vwmterm_pair_selector(vterm_t *vterm, short fg, short bg)
 {
     (void)vterm;
     return vdk_color_pair(fg, bg);
+}
+
+/*
+    scroll_info callback for the window's vertical scrollbar.  libviper calls
+    this each time it updates the scroller (once per window paint) to learn the
+    scroll range and current position.  The terminal still drives the actual
+    scrolling, so this only reads vwmterm state back out.
+
+    Range is the history buffer (same figure the wheel / Alt+PgUp math uses);
+    position is the top-of-view line within it -- history_sz - height -
+    scroll_offset -- which is 0 when scrolled fully back and history_sz -
+    height (bottom) when live.  It also tints the bar to the window's frame
+    accent colour (on black) so it reads as part of the frame.
+*/
+static void
+vwmterm_scroll_info(vk_widget_t *source, int *content_h, int *content_w,
+    int *scroll_y, int *scroll_x)
+{
+    vwm_t           *vwm;
+    vwmterm_data_t  *vwmterm_data;
+    vterm_t         *vterm;
+    int             width, height;
+    int             used;
+    int             offset;
+
+    if(content_h != NULL) *content_h = 0;
+    if(content_w != NULL) *content_w = 0;
+    if(scroll_y != NULL) *scroll_y = 0;
+    if(scroll_x != NULL) *scroll_x = 0;
+
+    vwmterm_data = (vwmterm_data_t *)vk_widget_get_userptr(source);
+    if(vwmterm_data == NULL) return;
+
+    vterm = vwmterm_data->vterm;
+    if(vterm == NULL) return;
+
+    /* tint the bar to the window's frame accent -- magenta when focused, cyan
+       otherwise (matching vwm_window_decorate) -- on a black field */
+    vwm = vwm_get_instance();
+    if(vwm != NULL && vwmterm_data->scroller != NULL)
+    {
+        if(vk_deck_get_top(vwm->deck) == source)
+            vk_scroller_set_border_colors(vwmterm_data->scroller,
+                COLOR_MAGENTA, COLOR_BLACK);
+        else
+            vk_scroller_set_border_colors(vwmterm_data->scroller,
+                COLOR_CYAN, COLOR_BLACK);
+    }
+
+    /* the alternate screen buffer (vim, less, myman, ...) has no scrollback --
+       report an empty range so the bar shows a full, static thumb */
+    if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
+    {
+        if(content_h != NULL) *content_h = 0;
+        if(scroll_y != NULL) *scroll_y = 0;
+        return;
+    }
+
+    vterm_wnd_size(vterm, &width, &height);
+    used = vterm_get_history_used(vterm);
+
+    /* the scroller works in real-history coordinates: content = used rows,
+       visible window = height.  scroll position 0 = oldest (top), used-height
+       = live (bottom); scroll_offset counts back from live, so invert it. */
+    offset = (used - height) - vwmterm_data->scroll_offset;
+    if(offset < 0) offset = 0;
+
+    if(content_h != NULL) *content_h = used;
+    if(scroll_y != NULL) *scroll_y = offset;
+}
+
+/*
+    Window decorator for vterm windows: the standard vwm chrome plus a redraw
+    of the scrollbar.  decorate runs on every window paint -- including a bare
+    focus change, which repaints the frame but not the content-attached
+    scroller -- so refreshing the bar here keeps its focus-dependent colour
+    (set in vwmterm_scroll_info) in lockstep with the border.
+*/
+static void
+vwmterm_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
+{
+    vwmterm_data_t  *vwmterm_data = (vwmterm_data_t *)anything;
+
+    vwm_window_decorate(window, canvas, (void *)&vwmterm_frame_reserved);
+
+    if(vwmterm_data != NULL && vwmterm_data->scroller != NULL)
+    {
+        if(vk_scroller_update(vwmterm_data->scroller) > 0)
+            vk_widget_draw(VK_WIDGET(vwmterm_data->scroller));
+    }
 }
 
 int
@@ -200,7 +295,8 @@ vwmterm_main(vwm_module_t *mod)
        reports itself).  Without this, libvterm's mouse driver sees
        has_mouse()==FALSE and seizes mousemask(ALL) when a child app (e.g.
        mc) enables mouse, re-cooking events and breaking vk_kmio's parser. */
-    vterm_init(vterm, width, height, vwmterm_mod->flags | VTERM_FLAG_EXTMOUSE);
+    vterm_init(vterm, width, height,
+        vwmterm_mod->flags | VTERM_FLAG_EXTMOUSE);
     vterm_set_pair_selector(vterm, vwmterm_pair_selector);
     vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
 
@@ -219,12 +315,15 @@ vwmterm_main(vwm_module_t *mod)
         vwm_module_get_title(mod, raw_title, sizeof(raw_title));
         snprintf(title, sizeof(title), " %s ", raw_title);
 
-        window = vk_window_create(width + 2, height + 2);
+        /* one extra interior column holds the scrollbar, so the vterm keeps
+           the full requested width and the frame reports the real terminal
+           size.  vwmterm_frame_reserved tells the decorator to discount that
+           column in the [w x h] label it paints on the border. */
+        window = vk_window_create(width + 3, height + 2);
         vk_window_set_title(window, title);
         vk_window_set_border_style(window, VK_BORDER_SINGLE);
-        vk_window_set_decorate(window, vwm_window_decorate, NULL);
 
-        content = vk_widget_create(width, height);
+        content = vk_widget_create(width + 1, height);
         vk_widget_set_state(content,
             vk_widget_get_state(content) | VK_STATE_EXPAND);
     }
@@ -284,9 +383,44 @@ vwmterm_main(vwm_module_t *mod)
     vk_object_register_event(VK_OBJECT(window), VK_EVENT_ON_RECREATE,
         vwmterm_ON_RECREATE, (void *)vwmterm_data);
 
+    /*
+        Attach a vertical scrollbar to the content widget's last column.  The
+        content is one column wider than the vterm, so that column is free
+        while the vterm keeps its full width.  The content is a plain widget,
+        so -- unlike a window or listbox -- libviper won't drive
+        the scroller for us; vwmterm_window_update() re-composites it by hand
+        on every repaint.  scroll_source is the window, whose userptr is the
+        vwmterm_data the scroll_info callback reads.  The bar is display-only:
+        the wheel / Alt+PgUp paths keep driving scroll_offset.  A fullscreen
+        terminal has no scrollbar.
+    */
     if(vwmterm_mod->fullscreen == FALSE)
     {
-        int pos_x = (scr_width - (width + 2)) / 2;
+        vwmterm_data->scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
+        vk_scroller_set_border_style(vwmterm_data->scroller, VK_BORDER_SINGLE);
+        /* keep the trough on screen even with no scrollback -- a full-height
+           thumb when there's nothing to scroll (xfce4-style) */
+        vk_scroller_set_always_visible(vwmterm_data->scroller, 1);
+        vk_widget_set_attrs(VK_WIDGET(vwmterm_data->scroller), A_BOLD);
+        vk_scroller_set_scroll_source(vwmterm_data->scroller,
+            VK_WIDGET(window));
+        vk_scroller_set_scroll_info(vwmterm_data->scroller,
+            vwmterm_scroll_info);
+        vk_widget_attach_scroller(content, vwmterm_data->scroller);
+
+        /* pre-draw so the bar is present on the first composite, before any
+           child output triggers a repaint */
+        if(vk_scroller_update(vwmterm_data->scroller) > 0)
+            vk_widget_draw(VK_WIDGET(vwmterm_data->scroller));
+
+        /* decorate now that the scroller exists -- vwmterm_decorate redraws
+           the bar on every window paint so its colour tracks focus */
+        vk_window_set_decorate(window, vwmterm_decorate, (void *)vwmterm_data);
+    }
+
+    if(vwmterm_mod->fullscreen == FALSE)
+    {
+        int pos_x = (scr_width - (width + 3)) / 2;
         int pos_y = (scr_height - (height + 2)) / 2;
         vk_widget_move(VK_WIDGET(window), pos_x, pos_y);
     }

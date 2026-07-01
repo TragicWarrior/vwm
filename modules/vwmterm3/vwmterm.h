@@ -15,6 +15,7 @@ struct _vwmterm_data_s
 {
     vk_window_t     *window;
     vterm_t         *vterm;
+    vk_scroller_t   *scroller;
     char            title[64];
     unsigned int    state;
     int             redraw_pending;

@@ -48,8 +48,11 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
     attr_t      attrs;
     short       dummy;
     int         row, col;
+    int         reserved;
 
-    (void)anything;
+    /* interior columns that are chrome, not terminal (a vterm's scrollbar);
+       discounted from the size label so it reports the real terminal size */
+    reserved = (anything != NULL) ? *(const int *)anything : 0;
 
     vwm = vwm_get_instance();
     top = vk_deck_get_top(vwm->deck);
@@ -100,7 +103,7 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
 
     mvwprintw(canvas, 0, x - (int)sizeof("[X]") + 1, "[X]");
 
-    snprintf(buf, sizeof(buf), "[%d x %d]", x - 2, y - 2);
+    snprintf(buf, sizeof(buf), "[%d x %d]", x - 2 - reserved, y - 2);
     len = strlen(buf);
     mvwprintw(canvas, y - 1, (x / 2) - (len / 2), "%s", buf);
 

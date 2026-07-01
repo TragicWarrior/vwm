@@ -1,3 +1,18 @@
+Version 4.7.0
+
+*  [Bryan Christ] vwmterm scrollbar.  Bordered terminal windows show a
+   vertical scrollbar down the right edge, built on libviper's vk_scroller.
+   The thumb is proportional to the real scrollback and reaches the top at
+   the oldest captured line; scrolling (wheel, Alt+PgUp/PgDn, and dragging
+   or clicking the bar) is clamped to what has actually been captured, so it
+   no longer runs past into blank rows.  On the alternate screen (vim, less,
+   myman) there is no scrollback, so the bar parks at a full thumb and
+   scrolling is disabled.  The bar's color tracks window focus, and thumb
+   drags are captured by the input loop so a release is never missed.  The
+   terminal keeps its full size -- the bar takes its own column and the
+   frame size label reports the real dimensions.  Requires libvterm 10.3+
+   and libviper 5.4.0+.
+
 Version 4.6.0
 
 *  [Bryan Christ] Big-font host name.  The bottom-left hostname label can

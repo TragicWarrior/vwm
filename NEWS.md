@@ -1,3 +1,19 @@
+2026-07-01
+
+Terminal windows now have a scrollbar.  A bordered vwmterm shows a vertical
+bar down its right edge whose thumb reflects how much scrollback you have --
+full when there is nothing to scroll, shrinking as history builds, and
+reaching the top at the oldest line captured.  Drag the thumb, click the
+track, or use the wheel and Alt+PgUp / Alt+PgDn as before; either way you
+can no longer scroll past real history into blank rows.  Full-screen
+programs like vim, less, or myman have no scrollback, so there the bar parks
+at a full thumb and scrolling is disabled, and the bar's color follows the
+focused window.  The terminal keeps its full size -- the bar takes its own
+column, and the frame's size label reports the real terminal dimensions.
+
+Building this release needs libvterm 10.3+ and libviper 5.4.0+.
+
+
 2026-06-23
 
 vwm can show the machine's host name in the bottom-left corner of the

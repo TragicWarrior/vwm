@@ -12,8 +12,9 @@ FEATURES
 *  Multiple virtual desktops, each with its own color and wallpaper pattern
    (Stiple, Small Bricks, Large Bricks, Dots, Crosses).  Switch desktops
    with Alt+d.
-*  Embedded terminal windows (vwmterm) with scrollback (Alt+PgUp / Alt+PgDn),
-   click-drag SELECT-mode copy to the host clipboard, and middle-click paste.
+*  Embedded terminal windows (vwmterm) with scrollback -- a mouse scrollbar,
+   wheel, and Alt+PgUp / Alt+PgDn -- click-drag SELECT-mode copy to the host
+   clipboard, and middle-click paste.
 *  Menubar with two dropdowns: VWM (system tools) and Apps (user-configured
    launchers).  Reach it with the menubar hotkey or mouse.
 *  In-app configuration dialogs -- no editor required for common changes:
@@ -49,9 +50,9 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-libviper 5.3.0+  - https://github.com/TragicWarrior/libviper
+libviper 5.4.0+  - https://github.com/TragicWarrior/libviper
 libgpm (optional)
-libvterm 10.0+ - https://github.com/TragicWarrior/libvterm
+libvterm 10.3+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for the screen-capture module; "make all")
 libcups2-dev     (for the print module; "make all")
 zlib             (for the big-font hostname module, vwmfont)

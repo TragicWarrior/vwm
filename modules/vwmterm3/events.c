@@ -40,6 +40,8 @@ static int      key_sel_end;
 static char     *clipboard = NULL;
 static size_t   clipboard_len = 0;
 
+static void     vwmterm_scroll_drag_apply(vk_widget_t *widget, int mx, int my);
+
 void
 vwmterm_init_keycodes(void)
 {
@@ -51,6 +53,10 @@ vwmterm_init_keycodes(void)
     key_sel_right = key_defined("\033[1;4C");
     key_sel_home  = key_defined("\033[1;4H");
     key_sel_end   = key_defined("\033[1;4F");
+
+    /* let the poll loop capture scrollbar-thumb drags so a release is never
+       missed -- the thumb can't stick to the cursor after a sloppy let-go */
+    vwm_set_scroll_drag_cb(vwmterm_scroll_drag_apply);
 }
 
 /*
@@ -152,6 +158,26 @@ vwmterm_highlight_cell(WINDOW *win, int row, int col)
     mvwadd_wch(win, row, col, &cc);
 }
 
+/*
+    The vterm's usable grid size.  vterm_wnd_size reports the attached canvas,
+    which on a bordered terminal is one column wider than the vterm grid -- that
+    extra column holds the scrollbar.  Selection bounds and scrollbar
+    hit-testing work in grid coordinates, so they use this rather than
+    vterm_wnd_size directly (the scrollbar then sits at exactly column *width).
+*/
+static void
+vwmterm_grid_size(vwmterm_data_t *vwmterm_data, int *width, int *height)
+{
+    int     w = 0, h = 0;
+
+    vterm_wnd_size(vwmterm_data->vterm, &w, &h);
+    if(vwmterm_data->scroller != NULL && w > 0)
+        w -= 1;                             /* reserved scrollbar column */
+
+    if(width != NULL) *width = w;
+    if(height != NULL) *height = h;
+}
+
 static void
 vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
 {
@@ -164,7 +190,7 @@ vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
     vwm = vwm_get_instance();
     vterm = vwmterm_data->vterm;
     win = vterm_wnd_get(vterm);
-    vterm_wnd_size(vterm, &width, &height);
+    vwmterm_grid_size(vwmterm_data, &width, &height);
 
     vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
 
@@ -194,7 +220,7 @@ vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
             vwmterm_highlight_cell(win, r, c);
     }
 
-    vk_window_update(vwmterm_data->window);
+    vwmterm_window_update(vwmterm_data);
     vk_screen_refresh(vwm->screen);
 }
 
@@ -324,7 +350,7 @@ vwmterm_exit_selection(vwmterm_data_t *vwmterm_data)
 
     vwm_panel_set_status(VWM_WINDOW_HELP);
 
-    vk_window_update(vwmterm_data->window);
+    vwmterm_window_update(vwmterm_data);
     vk_screen_refresh(vwm->screen);
 }
 
@@ -341,6 +367,128 @@ vwmterm_write_mouse(vterm_t *vterm, vk_window_t *window, MEVENT *me)
     return vterm_write_mouse_event(vterm, &adjusted);
 }
 
+/*
+    Update the vterm window.  The scrollbar is redrawn by vwmterm_decorate
+    (init.c), which libviper invokes on every window paint, so a plain window
+    update refreshes the bar in lockstep with the frame -- including on a bare
+    focus change (which repaints the frame but not the content-attached
+    scroller).
+*/
+void
+vwmterm_window_update(vwmterm_data_t *vwmterm_data)
+{
+    vk_window_update(vwmterm_data->window);
+}
+
+/*
+    Render the vterm at the current scroll_offset: the history buffer when
+    scrolled back, the live buffer at the bottom.  Same offset math the wheel
+    and Alt+PgUp paths use.
+*/
+static void
+vwmterm_scroll_render(vwmterm_data_t *vwmterm_data)
+{
+    vterm_t     *vterm = vwmterm_data->vterm;
+    int         width, height;
+    int         history_sz;
+    int         offset;
+
+    if(vwmterm_data->scroll_offset > 0)
+    {
+        vwmterm_grid_size(vwmterm_data, &width, &height);
+        history_sz = vterm_get_history_size(vterm);
+        offset = history_sz - height - vwmterm_data->scroll_offset;
+        if(offset < 0) offset = 0;
+        vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
+            VTERM_WND_RENDER_ALL);
+    }
+    else
+    {
+        vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
+    }
+}
+
+/*
+    Move the scroll position from a click or drag on the scrollbar column.
+    row is the 0-based interior row under the pointer.  On a press the top and
+    bottom rows are the up / down arrows and step one line; any other row --
+    and every drag update -- picks a track position, top = oldest history,
+    bottom = live.  This is the inverse of vk_scroller's thumb placement
+    (its viewport is height - 2, with an arrow at each end).
+*/
+static void
+vwmterm_scrollbar_to(vwmterm_data_t *vwmterm_data, int row, int is_press)
+{
+    vterm_t     *vterm = vwmterm_data->vterm;
+    vwm_t       *vwm;
+    int         width, height;
+    int         used;
+    int         track_len, p, scroll_range, scroll_y;
+    int         new_offset;
+
+    vwmterm_grid_size(vwmterm_data, &width, &height);
+    used = vterm_get_history_used(vterm);
+
+    if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE) return;
+    if(used <= height) return;                  /* nothing scrolled off yet */
+
+    if(is_press && row <= 0)
+    {
+        new_offset = vwmterm_data->scroll_offset + 1;           /* up arrow */
+    }
+    else if(is_press && row >= height - 1)
+    {
+        new_offset = vwmterm_data->scroll_offset - 1;           /* down arrow */
+    }
+    else
+    {
+        track_len = height - 2;                 /* vk_scroller's viewport */
+        if(row < 1) row = 1;
+        if(row > height - 2) row = height - 2;
+        p = row - 1;                            /* 0 .. track_len-1 */
+        scroll_range = used - height;
+        scroll_y = (track_len > 1) ? p * scroll_range / (track_len - 1) : 0;
+        new_offset = (used - height) - scroll_y;
+    }
+
+    if(new_offset > used - height) new_offset = used - height;
+    if(new_offset < 0) new_offset = 0;
+
+    if(new_offset == vwmterm_data->scroll_offset) return;
+
+    vwmterm_data->scroll_offset = new_offset;
+
+    vwmterm_scroll_render(vwmterm_data);
+    vwmterm_window_update(vwmterm_data);
+
+    vwm = vwm_get_instance();
+    if(vwm != NULL) vk_screen_refresh(vwm->screen);
+}
+
+/*
+    Callback for a captured scrollbar-thumb drag (registered via
+    vwm_set_scroll_drag_cb).  The poll loop owns the mouse from the initial
+    press until the button is released -- even if the pointer wanders off the
+    window -- and feeds us the live cursor position here, which we map to a
+    track row and scroll.  So the thumb follows the pointer smoothly and lets
+    go the instant the button does.
+*/
+static void
+vwmterm_scroll_drag_apply(vk_widget_t *widget, int mx, int my)
+{
+    vwmterm_data_t  *vwmterm_data;
+    int             win_x, win_y;
+
+    (void)mx;
+
+    vwmterm_data = (vwmterm_data_t *)vk_widget_get_userptr(widget);
+    if(vwmterm_data == NULL) return;
+
+    vk_widget_get_position(widget, &win_x, &win_y);
+
+    vwmterm_scrollbar_to(vwmterm_data, my - win_y - 1, 0);
+}
+
 int
 vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 {
@@ -350,6 +498,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
     vterm_t         *vterm;
     int             width, height;
     int             history_sz;
+    int             used;
     int             offset;
 
     window = VK_WINDOW(object);
@@ -362,6 +511,40 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 
         vwmterm_data = (vwmterm_data_t *)vk_widget_get_userptr(VK_WIDGET(window));
         vterm = vwmterm_data->vterm;
+
+        /*
+            Scrollbar interaction.  The bar occupies the interior column just
+            right of the vterm grid (col == vterm width); it is vwm chrome, so
+            handle press / drag / release here -- ahead of selection and of any
+            pass-through to the child.  A press on the track starts a drag and
+            jumps to it; the arrows step one line.  Skipped in selection mode
+            and for fullscreen terminals (which have no scrollbar).
+        */
+        if(vwmterm_data->scroller != NULL && !vwmterm_data->frozen &&
+           (me->bstate & BUTTON1_PRESSED))
+        {
+            int sb_win_x, sb_win_y;
+            int sb_row, sb_col;
+            int sb_w, sb_h;
+
+            vk_widget_get_position(VK_WIDGET(window), &sb_win_x, &sb_win_y);
+            sb_row = me->y - sb_win_y - 1;
+            sb_col = me->x - sb_win_x - 1;
+            vwmterm_grid_size(vwmterm_data, &sb_w, &sb_h);
+
+            if(sb_col == sb_w && sb_row >= 0 && sb_row < sb_h)
+            {
+                /* arrows line-step; a press on the track jumps there and hands
+                   the drag to the poll loop (vwm_begin_scroll_drag), which
+                   captures the mouse and feeds motion to
+                   vwmterm_scroll_drag_apply until release -- so the thumb can't
+                   stay glued to the pointer after a sloppy let-go */
+                if(sb_row > 0 && sb_row < sb_h - 1)
+                    vwm_begin_scroll_drag(VK_WIDGET(window));
+                vwmterm_scrollbar_to(vwmterm_data, sb_row, 1);
+                return KMIO_HANDLED;
+            }
+        }
 
         if(me->bstate & BUTTON1_PRESSED)
         {
@@ -378,7 +561,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             row = me->y - win_y - 1;
             col = me->x - win_x - 1;
 
-            vterm_wnd_size(vterm, &width, &height);
+            vwmterm_grid_size(vwmterm_data, &width, &height);
 
             if(row >= 0 && row < height && col >= 0 && col < width)
             {
@@ -408,7 +591,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             row = me->y - win_y - 1;
             col = me->x - win_x - 1;
 
-            vterm_wnd_size(vterm, &width, &height);
+            vwmterm_grid_size(vwmterm_data, &width, &height);
             if(row < 0) row = 0;
             if(row >= height) row = height - 1;
             if(col < 0) col = 0;
@@ -460,21 +643,20 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             if(vwmterm_write_mouse(vterm, window, me) > 0)
                 return KMIO_HANDLED;
 
-            vterm_wnd_size(vterm, &width, &height);
-            history_sz = vterm_get_history_size(vterm);
+            if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
+                return KMIO_HANDLED;
+
+            vwmterm_grid_size(vwmterm_data, &width, &height);
+            used = vterm_get_history_used(vterm);
 
             vwmterm_data->scroll_offset += VWMTERM_WHEEL_SCROLL_LINES;
-            if(vwmterm_data->scroll_offset > history_sz - height)
-                vwmterm_data->scroll_offset = history_sz - height;
+            if(vwmterm_data->scroll_offset > used - height)
+                vwmterm_data->scroll_offset = used - height;
             if(vwmterm_data->scroll_offset < 0)
                 vwmterm_data->scroll_offset = 0;
 
-            offset = history_sz - height - vwmterm_data->scroll_offset;
-            if(offset < 0) offset = 0;
-
-            vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
-                VTERM_WND_RENDER_ALL);
-            vk_window_update(vwmterm_data->window);
+            vwmterm_scroll_render(vwmterm_data);
+            vwmterm_window_update(vwmterm_data);
             vk_screen_refresh(vwm->screen);
 
             return KMIO_HANDLED;
@@ -485,9 +667,12 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             if(vwmterm_write_mouse(vterm, window, me) > 0)
                 return KMIO_HANDLED;
 
+            if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
+                return KMIO_HANDLED;
+
             if(vwmterm_data->scroll_offset == 0) return KMIO_HANDLED;
 
-            vterm_wnd_size(vterm, &width, &height);
+            vwmterm_grid_size(vwmterm_data, &width, &height);
             history_sz = vterm_get_history_size(vterm);
 
             vwmterm_data->scroll_offset -= VWMTERM_WHEEL_SCROLL_LINES;
@@ -495,7 +680,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             {
                 vwmterm_data->scroll_offset = 0;
                 vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
-                vk_window_update(vwmterm_data->window);
+                vwmterm_window_update(vwmterm_data);
                 vk_screen_refresh(vwm->screen);
                 return KMIO_HANDLED;
             }
@@ -505,7 +690,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 
             vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
                 VTERM_WND_RENDER_ALL);
-            vk_window_update(vwmterm_data->window);
+            vwmterm_window_update(vwmterm_data);
             vk_screen_refresh(vwm->screen);
 
             return KMIO_HANDLED;
@@ -521,7 +706,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
        keystroke == key_sel_left || keystroke == key_sel_right ||
        keystroke == key_sel_home || keystroke == key_sel_end)
     {
-        vterm_wnd_size(vterm, &width, &height);
+        vwmterm_grid_size(vwmterm_data, &width, &height);
 
         if(!vwmterm_data->frozen)
             vwmterm_enter_selection(vwmterm_data);
@@ -597,21 +782,20 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 
     if(keystroke == key_alt_pgup)
     {
-        vterm_wnd_size(vterm, &width, &height);
-        history_sz = vterm_get_history_size(vterm);
+        if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
+            return KMIO_HANDLED;
+
+        vwmterm_grid_size(vwmterm_data, &width, &height);
+        used = vterm_get_history_used(vterm);
 
         vwmterm_data->scroll_offset += height;
-        if(vwmterm_data->scroll_offset > history_sz - height)
-            vwmterm_data->scroll_offset = history_sz - height;
+        if(vwmterm_data->scroll_offset > used - height)
+            vwmterm_data->scroll_offset = used - height;
         if(vwmterm_data->scroll_offset < 0)
             vwmterm_data->scroll_offset = 0;
 
-        offset = history_sz - height - vwmterm_data->scroll_offset;
-        if(offset < 0) offset = 0;
-
-        vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
-            VTERM_WND_RENDER_ALL);
-        vk_window_update(vwmterm_data->window);
+        vwmterm_scroll_render(vwmterm_data);
+        vwmterm_window_update(vwmterm_data);
         vk_screen_refresh(vwm->screen);
 
         return KMIO_HANDLED;
@@ -619,9 +803,12 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 
     if(keystroke == key_alt_pgdn)
     {
+        if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
+            return KMIO_HANDLED;
+
         if(vwmterm_data->scroll_offset == 0) return KMIO_HANDLED;
 
-        vterm_wnd_size(vterm, &width, &height);
+        vwmterm_grid_size(vwmterm_data, &width, &height);
         history_sz = vterm_get_history_size(vterm);
 
         vwmterm_data->scroll_offset -= height;
@@ -629,7 +816,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
         {
             vwmterm_data->scroll_offset = 0;
             vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
-            vk_window_update(vwmterm_data->window);
+            vwmterm_window_update(vwmterm_data);
             vk_screen_refresh(vwm->screen);
             return KMIO_HANDLED;
         }
@@ -639,7 +826,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 
         vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
             VTERM_WND_RENDER_ALL);
-        vk_window_update(vwmterm_data->window);
+        vwmterm_window_update(vwmterm_data);
         vk_screen_refresh(vwm->screen);
 
         return KMIO_HANDLED;
@@ -649,7 +836,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
     {
         vwmterm_data->scroll_offset = 0;
         vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
-        vk_window_update(vwmterm_data->window);
+        vwmterm_window_update(vwmterm_data);
         vk_screen_refresh(vwm->screen);
     }
 
@@ -709,7 +896,20 @@ vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything)
 
     content = vk_window_get_child(VK_WINDOW(object));
     getmaxyx(vk_widget_get_canvas(content), height, width);
-    vterm_resize(vterm, width, height);
+
+    /* the scrollbar (if any) owns the content's last column; the vterm takes
+       the remaining width-1, and the bar is re-fitted to the new height */
+    if(vwmterm_data->scroller != NULL)
+    {
+        vterm_resize(vterm, width - 1, height);
+        vk_widget_resize(VK_WIDGET(vwmterm_data->scroller), 1, height);
+        vk_widget_move(VK_WIDGET(vwmterm_data->scroller), width - 1, 0);
+    }
+    else
+    {
+        vterm_resize(vterm, width, height);
+    }
+
     vterm_wnd_update(vterm, -1, 0, 0);
 
 	return 0;
@@ -744,12 +944,22 @@ vwmterm_ON_RECREATE(vk_object_t *object, int event, void *anything)
 
     vterm_wnd_set(vterm, vk_widget_get_canvas(content));
 
+    /* the teleport rebuilt the content's canvas; re-point the scroller at it
+       and rebuild the scroller's own backing window (a plain widget's
+       recreate does not follow its attached scroller) */
+    if(vwmterm_data->scroller != NULL)
+    {
+        vk_widget_set_surface(VK_WIDGET(vwmterm_data->scroller),
+            vk_widget_get_canvas(content));
+        vk_widget_recreate(VK_WIDGET(vwmterm_data->scroller));
+    }
+
     vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
 
     vwm = vwm_get_instance();
     if(vwm != NULL)
     {
-        vk_window_update(vwmterm_data->window);
+        vwmterm_window_update(vwmterm_data);
         vk_screen_refresh(vwm->screen);
     }
 
@@ -768,6 +978,22 @@ vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything)
     vwmterm_data = (vwmterm_data_t*)anything;
 
     vwmterm_data->state = VWMTERM_STATE_EXITING;
+
+    /*
+        Tear down the scrollbar before the window goes away.  Nothing else
+        frees an attached scroller, so we must; detaching first clears
+        content->vscroller.  NULL for fullscreen vterms, which never got one.
+    */
+    if(vwmterm_data->scroller != NULL)
+    {
+        vk_widget_t *content = vk_window_get_child(vwmterm_data->window);
+
+        if(content != NULL)
+            vk_widget_detach_scroller(content, vwmterm_data->scroller);
+
+        vk_scroller_destroy(vwmterm_data->scroller);
+        vwmterm_data->scroller = NULL;
+    }
 
     if(vwmterm_data->vterm != NULL)
     {
