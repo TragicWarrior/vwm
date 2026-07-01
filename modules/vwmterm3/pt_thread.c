@@ -50,9 +50,6 @@ pt_t vwmterm_thd(void * const env)
     vterm_t             *vterm;
     ssize_t             bytes_read = 0;
     int                 i;
-    int                 history_sz;
-    int                 width, height;
-    int                 offset;
 
     vwm_sched_ctx_t     *ctx_vwmterm;
     vwmterm_data_t      *vwmterm_data;
@@ -83,11 +80,7 @@ pt_t vwmterm_thd(void * const env)
 
             if(vwmterm_data->scroll_offset > 0)
             {
-                vterm_wnd_size(vterm, &width, &height);
-                history_sz = vterm_get_history_size(vterm);
-                offset = history_sz - height - vwmterm_data->scroll_offset;
-                if(offset < 0) offset = 0;
-                vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
+                vterm_wnd_scrollback(vterm, vwmterm_data->scroll_offset,
                     VTERM_WND_RENDER_ALL);
             }
             else

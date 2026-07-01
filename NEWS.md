@@ -1,5 +1,17 @@
 2026-07-01
 
+Terminal scrollback now shows short histories too.  Scrolling back through
+output that only slightly overflowed the window -- fewer lines than the
+terminal is tall, like a quick `ls -l` -- used to do nothing; now the wheel,
+Alt+PgUp / Alt+PgDn, and the scrollbar reveal those lines above the live
+screen, just like a hardware terminal, all the way to the first line
+captured.
+
+Building this release needs libvterm 10.4+ and libviper 5.4.0+.
+
+
+2026-07-01
+
 Terminal windows now have a scrollbar.  A bordered vwmterm shows a vertical
 bar down its right edge whose thumb reflects how much scrollback you have --
 full when there is nothing to scroll, shrinking as history builds, and

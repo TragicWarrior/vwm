@@ -381,25 +381,20 @@ vwmterm_window_update(vwmterm_data_t *vwmterm_data)
 }
 
 /*
-    Render the vterm at the current scroll_offset: the history buffer when
-    scrolled back, the live buffer at the bottom.  Same offset math the wheel
-    and Alt+PgUp paths use.
+    Render the vterm at the current scroll_offset.  scroll_offset is the
+    scroll-back distance in rows; libvterm's vterm_wnd_scrollback composes the
+    newest N evicted rows above the head of the live screen -- so even less
+    than one screenful of history shows, with the live buffer beneath it.
+    scroll_offset 0 is the live buffer (drawn with the cursor).
 */
 static void
 vwmterm_scroll_render(vwmterm_data_t *vwmterm_data)
 {
     vterm_t     *vterm = vwmterm_data->vterm;
-    int         width, height;
-    int         history_sz;
-    int         offset;
 
     if(vwmterm_data->scroll_offset > 0)
     {
-        vwmterm_grid_size(vwmterm_data, &width, &height);
-        history_sz = vterm_get_history_size(vterm);
-        offset = history_sz - height - vwmterm_data->scroll_offset;
-        if(offset < 0) offset = 0;
-        vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
+        vterm_wnd_scrollback(vterm, vwmterm_data->scroll_offset,
             VTERM_WND_RENDER_ALL);
     }
     else
@@ -430,7 +425,7 @@ vwmterm_scrollbar_to(vwmterm_data_t *vwmterm_data, int row, int is_press)
     used = vterm_get_history_used(vterm);
 
     if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE) return;
-    if(used <= height) return;                  /* nothing scrolled off yet */
+    if(used <= 0) return;                       /* nothing scrolled off yet */
 
     if(is_press && row <= 0)
     {
@@ -446,12 +441,12 @@ vwmterm_scrollbar_to(vwmterm_data_t *vwmterm_data, int row, int is_press)
         if(row < 1) row = 1;
         if(row > height - 2) row = height - 2;
         p = row - 1;                            /* 0 .. track_len-1 */
-        scroll_range = used - height;
+        scroll_range = used;
         scroll_y = (track_len > 1) ? p * scroll_range / (track_len - 1) : 0;
-        new_offset = (used - height) - scroll_y;
+        new_offset = used - scroll_y;
     }
 
-    if(new_offset > used - height) new_offset = used - height;
+    if(new_offset > used) new_offset = used;
     if(new_offset < 0) new_offset = 0;
 
     if(new_offset == vwmterm_data->scroll_offset) return;
@@ -497,9 +492,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
     vwmterm_data_t  *vwmterm_data;
     vterm_t         *vterm;
     int             width, height;
-    int             history_sz;
     int             used;
-    int             offset;
 
     window = VK_WINDOW(object);
     vwm = vwm_get_instance();
@@ -650,8 +643,8 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             used = vterm_get_history_used(vterm);
 
             vwmterm_data->scroll_offset += VWMTERM_WHEEL_SCROLL_LINES;
-            if(vwmterm_data->scroll_offset > used - height)
-                vwmterm_data->scroll_offset = used - height;
+            if(vwmterm_data->scroll_offset > used)
+                vwmterm_data->scroll_offset = used;
             if(vwmterm_data->scroll_offset < 0)
                 vwmterm_data->scroll_offset = 0;
 
@@ -672,9 +665,6 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 
             if(vwmterm_data->scroll_offset == 0) return KMIO_HANDLED;
 
-            vwmterm_grid_size(vwmterm_data, &width, &height);
-            history_sz = vterm_get_history_size(vterm);
-
             vwmterm_data->scroll_offset -= VWMTERM_WHEEL_SCROLL_LINES;
             if(vwmterm_data->scroll_offset <= 0)
             {
@@ -685,11 +675,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
                 return KMIO_HANDLED;
             }
 
-            offset = history_sz - height - vwmterm_data->scroll_offset;
-            if(offset < 0) offset = 0;
-
-            vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
-                VTERM_WND_RENDER_ALL);
+            vwmterm_scroll_render(vwmterm_data);
             vwmterm_window_update(vwmterm_data);
             vk_screen_refresh(vwm->screen);
 
@@ -789,8 +775,8 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
         used = vterm_get_history_used(vterm);
 
         vwmterm_data->scroll_offset += height;
-        if(vwmterm_data->scroll_offset > used - height)
-            vwmterm_data->scroll_offset = used - height;
+        if(vwmterm_data->scroll_offset > used)
+            vwmterm_data->scroll_offset = used;
         if(vwmterm_data->scroll_offset < 0)
             vwmterm_data->scroll_offset = 0;
 
@@ -809,7 +795,6 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
         if(vwmterm_data->scroll_offset == 0) return KMIO_HANDLED;
 
         vwmterm_grid_size(vwmterm_data, &width, &height);
-        history_sz = vterm_get_history_size(vterm);
 
         vwmterm_data->scroll_offset -= height;
         if(vwmterm_data->scroll_offset <= 0)
@@ -821,11 +806,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             return KMIO_HANDLED;
         }
 
-        offset = history_sz - height - vwmterm_data->scroll_offset;
-        if(offset < 0) offset = 0;
-
-        vterm_wnd_update(vterm, VTERM_BUF_HISTORY, offset,
-            VTERM_WND_RENDER_ALL);
+        vwmterm_scroll_render(vwmterm_data);
         vwmterm_window_update(vwmterm_data);
         vk_screen_refresh(vwm->screen);
 

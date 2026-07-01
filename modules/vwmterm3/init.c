@@ -115,13 +115,14 @@ vwmterm_scroll_info(vk_widget_t *source, int *content_h, int *content_w,
     vterm_wnd_size(vterm, &width, &height);
     used = vterm_get_history_used(vterm);
 
-    /* the scroller works in real-history coordinates: content = used rows,
-       visible window = height.  scroll position 0 = oldest (top), used-height
-       = live (bottom); scroll_offset counts back from live, so invert it. */
-    offset = (used - height) - vwmterm_data->scroll_offset;
+    /* the scroller's content is the scrollback (used rows) plus the live
+       screen (height rows); the viewport is height.  scroll position 0 =
+       oldest at top, used = live at the bottom.  scroll_offset counts back
+       from live, so the position is used - scroll_offset. */
+    offset = used - vwmterm_data->scroll_offset;
     if(offset < 0) offset = 0;
 
-    if(content_h != NULL) *content_h = used;
+    if(content_h != NULL) *content_h = used + height;
     if(scroll_y != NULL) *scroll_y = offset;
 }
 
