@@ -215,10 +215,13 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
     rx = mx - wx;
     ry = my - wy;
 
-    if(ry == 0 && rx >= ww - (int)sizeof("[X]") + 1 && rx < ww)
+    /* top-border controls, right-aligned with a two-column corner margin:
+       [v][X]__ -- [X] spans ww-5..ww-3, [v] spans ww-8..ww-6, each 3 wide
+       (must track the drawing in vwm_window_decorate, private.c) */
+    if(ry == 0 && rx >= ww - 5 && rx <= ww - 3)
         return ZONE_CLOSE_BTN;
 
-    if(ry == 0 && rx == ww - (int)sizeof("[X]"))
+    if(ry == 0 && rx >= ww - 8 && rx <= ww - 6)
         return ZONE_MINIMIZE_BTN;
 
     state = vk_widget_get_state(hit);

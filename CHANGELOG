@@ -1,3 +1,10 @@
+Version 4.9.1
+
+*  [Bryan Christ] Window title-bar controls now render as [v][X] -- the
+   minimize control is bracketed to match close -- and the pair is inset two
+   columns from the top-right corner rather than flush against it.  Each
+   button now has a full three-column click target (minimize was one column).
+
 Version 4.9.0
 
 *  [Bryan Christ] Minimized windows.  A window's title bar gains a minimize
