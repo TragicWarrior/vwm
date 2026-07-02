@@ -67,44 +67,120 @@ vwm_default_VWM_STOP(void)
     flash();
 }
 
+/*
+    VK_EVENT_ON_FINALIZE handler, registered on every deck.  The deck's
+    membership or stacking just changed, so repaint each member's decoration.
+    A window's decorator recolors it from vk_deck_get_top(), so a plain
+    vk_window_update() per member is all it takes to keep the focus borders
+    correct -- no call site has to demote the old top and promote the new one
+    by hand.  Decoration ONLY: this never calls vk_screen_refresh(); the
+    operation that changed the deck owns the single refresh.
+*/
+int
+vwm_on_deck_finalize(vk_object_t *object, int event, void *anything)
+{
+    vk_deck_t   *deck;
+    int          i, n;
+
+    (void)event;
+    (void)anything;
+
+    deck = VK_DECK(object);
+    if(deck == NULL) return 0;
+
+    n = vk_deck_count(deck);
+    for(i = 0; i < n; i++)
+    {
+        vk_widget_t *w = vk_deck_get_widget(deck, i);
+        if(w != NULL) vk_window_update(VK_WINDOW(w));
+    }
+
+    return 0;
+}
+
 void
 vwm_default_WINDOW_CLOSE(vk_widget_t *widget)
 {
-    vwm_t       *vwm;
-    vk_widget_t *new_top;
+    vwm_t   *vwm;
 
     if(widget == NULL) return;
 
     vwm = vwm_get_instance();
 
     vk_object_emit(VK_OBJECT(widget), VWM_EVENT_ON_CLOSE);
+
+    /* removing the widget fires ON_FINALIZE, which re-decorates whatever
+       window is now on top -- no manual focus hand-off needed here */
     vk_deck_remove_widget(vwm->deck, widget);
     vk_widget_destroy(widget);
 
-    new_top = vk_deck_get_top(vwm->deck);
-    if(new_top != NULL)
-        vk_window_update(VK_WINDOW(new_top));
-    else
+    if(vk_deck_get_top(vwm->deck) == NULL)
         vwm_panel_set_status("Press Alt ~ for Menu");
 
+    vwm_minimized_refresh();
+    vk_screen_refresh(vwm->screen);
+}
+
+/*
+    Minimize a window: hide it in place (the deck blitter skips non-visible
+    members) and hand focus to the next visible window.  The window stays in
+    the deck -- the "(N) Minimized" panel item and the manage-windows tool
+    enumerate the hidden members and restore them.
+*/
+void
+vwm_minimize_window(vk_widget_t *widget)
+{
+    vwm_t   *vwm;
+
+    if(widget == NULL) return;
+
+    vwm = vwm_get_instance();
+
+    /* hiding a member isn't a deck mutation, so the deck can't fire
+       ON_FINALIZE on its own -- trigger it so the newly-exposed top window
+       picks up its focused decoration */
+    vk_widget_hide(widget);
+    vk_deck_finalize(vwm->deck);
+
+    if(vk_deck_get_top(vwm->deck) == NULL)
+        vwm_panel_set_status("Press Alt ~ for Menu");
+
+    vwm_minimized_refresh();
+    vk_screen_refresh(vwm->screen);
+}
+
+/*
+    Restore a minimized window: show it again and raise it to the top of the
+    deck (focus).
+*/
+void
+vwm_restore_window(vk_widget_t *widget)
+{
+    vwm_t   *vwm;
+
+    if(widget == NULL) return;
+
+    vwm = vwm_get_instance();
+
+    /* show, then raise: vk_deck_set_top() fires ON_FINALIZE, which repaints
+       the restored window as focused and demotes the previous top */
+    vk_widget_show(widget);
+    vk_deck_set_top(vwm->deck, widget);
+
+    vwm_minimized_refresh();
     vk_screen_refresh(vwm->screen);
 }
 
 void
 vwm_default_WINDOW_CYCLE(void)
 {
-    vwm_t       *vwm;
-    vk_widget_t *old_top;
-    vk_widget_t *new_top;
+    vwm_t   *vwm;
 
     vwm = vwm_get_instance();
 
-    old_top = vk_deck_get_top(vwm->deck);
+    /* cycling rotates the deck, firing ON_FINALIZE -- which repaints the
+       window rotating out of focus and the one rotating into it */
     vk_deck_cycle(vwm->deck, VK_VECTOR_LEFT);
-    new_top = vk_deck_get_top(vwm->deck);
-
-    if(old_top != NULL) vk_window_update(VK_WINDOW(old_top));
-    if(new_top != NULL) vk_window_update(VK_WINDOW(new_top));
 
     vk_screen_refresh(vwm->screen);
 }

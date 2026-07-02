@@ -22,8 +22,12 @@ Press Alt ~ for Menu.  Press Alt+W to manage windows."
 void    vwm_default_VWM_START(void);
 void    vwm_default_VWM_STOP(void);
 
+int     vwm_on_deck_finalize(vk_object_t *object, int event, void *anything);
+
 void    vwm_default_WINDOW_CYCLE(void);
 void    vwm_default_WINDOW_CLOSE(vk_widget_t *widget);
+void    vwm_minimize_window(vk_widget_t *widget);
+void    vwm_restore_window(vk_widget_t *widget);
 
 void    vwm_default_WINDOW_MOVE_UP(vk_widget_t *widget);
 void    vwm_default_WINDOW_MOVE_DOWN(vk_widget_t *widget);

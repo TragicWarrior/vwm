@@ -50,7 +50,7 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-libviper 5.4.0+  - https://github.com/TragicWarrior/libviper
+libviper 5.5.0+  - https://github.com/TragicWarrior/libviper
 libgpm (optional)
 libvterm 10.4+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for the screen-capture module; "make all")

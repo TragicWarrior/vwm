@@ -1,3 +1,20 @@
+Version 4.9.0
+
+*  [Bryan Christ] Minimized windows.  A window's title bar gains a minimize
+   glyph (a down-arrow, "v" on non-UTF-8) left of [X] that hides it in place;
+   the top panel shows a "(N) Minimized" pulldown, next to VWM, that lists the
+   hidden windows and restores one on click.  The Alt+W manage-windows tool
+   gains Minimize and Restore buttons that act on the checked windows and
+   flags already-minimized rows with the same down-arrow.  Restoring a window
+   raises it and returns focus.  Requires libviper 5.5.0+.
+*  [Bryan Christ] Window focus decoration is now driven by libviper's
+   VK_EVENT_ON_FINALIZE deck event.  A single handler repaints the focus
+   borders whenever the deck's membership or stacking changes, replacing the
+   hand-rolled "demote the old top, promote the new top" logic that was
+   duplicated across raise, cycle, close, minimize, restore, cross-desktop
+   move, and window spawn.  Border changes are immediate and can no longer
+   fall out of sync.
+
 Version 4.8.0
 
 *  [Bryan Christ] vwmterm scrollback now reveals less than one screenful of

@@ -166,11 +166,9 @@ launch_picker_launch(const char *fullpath)
     window = module->main(module);
     if(window != NULL)
     {
-        vk_widget_t *old_top = vk_deck_get_top(vwm->deck);
-
+        /* add at top; ON_FINALIZE decorates the new window as focused and
+           demotes the previous top */
         vk_deck_add_widget(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
-        if(old_top != NULL) vk_window_update(VK_WINDOW(old_top));
-        vk_window_update(window);
         vk_screen_refresh(vwm->screen);
     }
 }
