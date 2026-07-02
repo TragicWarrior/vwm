@@ -48,6 +48,7 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
     attr_t      attrs;
     short       dummy;
     int         row, col;
+    int         close_col, min_col;
     int         reserved;
 
     /* interior columns that are chrome, not terminal (a vterm's scrollbar);
@@ -101,18 +102,25 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
 
     wattron(canvas, COLOR_PAIR(pair) | extra);
 
-    mvwprintw(canvas, 0, x - (int)sizeof("[X]") + 1, "[X]");
+    /* window controls, right-aligned with a two-column margin from the
+       corner:  [v][X]__  (v = down arrow, 'v' on non-UTF-8).  Each button is
+       three cells wide -- see the matching hit-test in poll_input_thd.c. */
+    close_col = x - 2 - 3;          /* [X] ends two columns short of the corner */
+    min_col   = close_col - 3;      /* [v] sits immediately left of [X] */
 
-    /* minimize glyph, one column left of [X]: a down arrow (v on non-UTF-8) */
+    mvwprintw(canvas, 0, close_col, "[X]");
+
+    mvwaddch(canvas, 0, min_col, '[');
     if(vwm_has_utf8())
     {
         wch[0] = 0x2193;                        /* U+2193 DOWNWARDS ARROW */
         wch[1] = L'\0';
         setcchar(&cc, wch, extra, pair, NULL);
-        mvwadd_wch(canvas, 0, x - (int)sizeof("[X]"), &cc);
+        mvwadd_wch(canvas, 0, min_col + 1, &cc);
     }
     else
-        mvwaddch(canvas, 0, x - (int)sizeof("[X]"), 'v');
+        mvwaddch(canvas, 0, min_col + 1, 'v');
+    mvwaddch(canvas, 0, min_col + 2, ']');
 
     snprintf(buf, sizeof(buf), "[%d x %d]", x - 2 - reserved, y - 2);
     len = strlen(buf);
