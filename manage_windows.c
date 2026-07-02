@@ -10,6 +10,7 @@
 #include "vwm.h"
 #include "private.h"
 #include "winman.h"
+#include "bkgd.h"
 #include "panel.h"
 #include "manage_windows.h"
 #include "manage_ui_common.h"
@@ -22,7 +23,7 @@
 
 #define MANAGE_WINDOWS_HELP \
     "Space/click checks windows.  Tab cycles fields.  " \
-    "Close/Move Selected act on every checked window."
+    "Close/Move/Minimize/Restore act on the checked windows."
 
 #define WARNING_LINE_2  "Any unsaved work will be lost."
 
@@ -30,6 +31,8 @@ enum
 {
     BTN_CLOSE = 0,
     BTN_MOVE_TO,
+    BTN_MINIMIZE,
+    BTN_RESTORE,
     BTN_CANCEL,
     NUM_BUTTONS
 };
@@ -39,6 +42,8 @@ enum
     FOCUS_LIST = 0,
     FOCUS_BTN_CLOSE,
     FOCUS_BTN_MOVE_TO,
+    FOCUS_BTN_MINIMIZE,
+    FOCUS_BTN_RESTORE,
     FOCUS_BTN_CANCEL,
     FOCUS_MAX
 };
@@ -112,7 +117,11 @@ static void     move_apply(void);
 
 static void     on_close(void);
 static void     on_move_to(void);
+static void     on_minimize(void);
+static void     on_restore(void);
 static void     on_cancel(void);
+static void     do_minimize_selected(void);
+static void     do_restore_selected(void);
 
 
 /* ── listbox helpers ───────────────────────────────────────── */
@@ -186,6 +195,8 @@ rebuild_listbox(void)
 
     for(i = 0; i < count; i++)
     {
+        const char  *mark;
+
         w = vk_deck_get_widget(vwm->deck, i);
         if(w == NULL) continue;
 
@@ -193,7 +204,15 @@ rebuild_listbox(void)
         if(title == NULL || title[0] == '\0')
             title = "(untitled)";
 
-        snprintf(label, sizeof(label), "%s", title);
+        /* flag minimized (hidden) windows with a down-arrow.  every row gets
+           a one-column marker slot -- a space when the window is visible --
+           so the titles stay aligned whether or not the row is minimized */
+        if(!(vk_widget_get_state(w) & VK_STATE_VISIBLE))
+            mark = vwm_has_utf8() ? "\xe2\x86\x93" : "v";   /* U+2193 down arrow */
+        else
+            mark = " ";
+
+        snprintf(label, sizeof(label), "%s %s", mark, title);
         vk_selectbox_add_item(windows_selectbox, label, NULL, NULL);
     }
 
@@ -277,6 +296,37 @@ on_cancel(void)
     vwm_manage_windows_close();
 }
 
+/*
+    Minimize/Restore are non-destructive, so -- unlike Close and Move -- they
+    act immediately and leave the tool open.  The window list refreshes in
+    place so the down-arrow markers update and you can minimize/restore more.
+*/
+static void
+on_minimize(void)
+{
+    if(count_checked() == 0)
+    {
+        error_popup_open();
+        return;
+    }
+
+    do_minimize_selected();
+    refresh_dialog();
+}
+
+static void
+on_restore(void)
+{
+    if(count_checked() == 0)
+    {
+        error_popup_open();
+        return;
+    }
+
+    do_restore_selected();
+    refresh_dialog();
+}
+
 static void
 do_close_selected(void)
 {
@@ -314,6 +364,58 @@ do_close_selected(void)
         if(curr >= list_count)
             vk_selectbox_set_curr(windows_selectbox, list_count - 1);
     }
+}
+
+/*
+    minimize/restore every checked window.  unlike close/move these do NOT
+    change deck membership (minimized windows stay in the deck, just hidden),
+    so the row->deck index mapping is stable -- but we still snapshot first to
+    mirror the close/move pattern, then rebuild the list to refresh the
+    down-arrow markers.  the cursor row is clamped in case it drifted.
+*/
+static void
+do_minimize_restore_selected(bool restore)
+{
+    vk_widget_t **checked;
+    int          n, i;
+
+    n = count_checked();
+    if(n == 0) return;
+
+    checked = malloc((size_t)n * sizeof(vk_widget_t *));
+    if(checked == NULL) return;
+
+    n = collect_checked(checked, n);
+
+    for(i = 0; i < n; i++)
+    {
+        if(restore)
+            vwm_restore_window(checked[i]);
+        else
+            vwm_minimize_window(checked[i]);
+    }
+
+    free(checked);
+
+    rebuild_listbox();
+    if(list_count > 0)
+    {
+        int curr = vk_selectbox_get_curr(windows_selectbox);
+        if(curr >= list_count)
+            vk_selectbox_set_curr(windows_selectbox, list_count - 1);
+    }
+}
+
+static void
+do_minimize_selected(void)
+{
+    do_minimize_restore_selected(false);
+}
+
+static void
+do_restore_selected(void)
+{
+    do_minimize_restore_selected(true);
 }
 
 
@@ -639,19 +741,9 @@ move_apply(void)
     free(checked);
 
     /*
-        if the focused (top) window was among those moved away, the
-        active deck's new top is left un-decorated as focused -- we used
-        the raw deck remove, not vwm_default_WINDOW_CLOSE.  Re-focus the
-        new top the same way WINDOW_CLOSE does so the desktop isn't left
-        with nothing in focus.
-    */
-    {
-        vk_widget_t *new_top = vk_deck_get_top(vwm->decks[active_surface]);
-        if(new_top != NULL)
-            vk_window_update(VK_WINDOW(new_top));
-    }
+        the raw deck remove/add above each fire ON_FINALIZE, so the active
+        deck's new top is already re-decorated -- no manual re-focus needed.
 
-    /*
         the active deck shrank -- rebuild the selectbox and clamp the
         cursor row.
     */
@@ -845,9 +937,11 @@ press_focused_button(void)
 {
     switch(focus_zone)
     {
-        case FOCUS_BTN_CLOSE:    on_close();   break;
-        case FOCUS_BTN_MOVE_TO:  on_move_to(); break;
-        case FOCUS_BTN_CANCEL:   on_cancel();  break;
+        case FOCUS_BTN_CLOSE:     on_close();    break;
+        case FOCUS_BTN_MOVE_TO:   on_move_to();  break;
+        case FOCUS_BTN_MINIMIZE:  on_minimize(); break;
+        case FOCUS_BTN_RESTORE:   on_restore();  break;
+        case FOCUS_BTN_CANCEL:    on_cancel();   break;
     }
 }
 
@@ -1009,12 +1103,17 @@ build_dialog(void)
         listbox_scroller);
 
     button_hbox = vk_box_create(INTERIOR_WIDTH, 3,
-        VK_BOX_HORIZONTAL, 4);
+        VK_BOX_HORIZONTAL, 6);
     vk_box_set_homogeneous(button_hbox, false);
     vk_widget_set_colors(VK_WIDGET(button_hbox), COLOR_BLACK, COLOR_CYAN);
 
-    buttons[BTN_CLOSE]    = vk_button_create("Close Selected");
-    buttons[BTN_MOVE_TO]  = vk_button_create("Move Selected");
+    /* bare verbs -- five buttons + a spacer pack exactly into the 46-col
+       interior; longer "... Selected" labels would overflow.  the checkbox
+       list and help line carry the "acts on every checked window" meaning */
+    buttons[BTN_CLOSE]    = vk_button_create("Close");
+    buttons[BTN_MOVE_TO]  = vk_button_create("Move");
+    buttons[BTN_MINIMIZE] = vk_button_create("Minimize");
+    buttons[BTN_RESTORE]  = vk_button_create("Restore");
     buttons[BTN_CANCEL]   = vk_button_create("Cancel");
 
     for(i = 0; i < NUM_BUTTONS; i++)
@@ -1033,8 +1132,10 @@ build_dialog(void)
 
     vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_CLOSE]));
     vk_box_set_widget(button_hbox, 1, VK_WIDGET(buttons[BTN_MOVE_TO]));
-    vk_box_set_widget(button_hbox, 2, VK_WIDGET(button_spacer));
-    vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_CANCEL]));
+    vk_box_set_widget(button_hbox, 2, VK_WIDGET(buttons[BTN_MINIMIZE]));
+    vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_RESTORE]));
+    vk_box_set_widget(button_hbox, 4, VK_WIDGET(button_spacer));
+    vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_CANCEL]));
 
     vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame));
     vk_box_set_widget(main_vbox, 1, VK_WIDGET(button_hbox));
@@ -1307,25 +1408,39 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
     */
     if(rel_y >= wh - 4)
     {
-        /* button bar:  Close Selected | Move Selected | <spacer> | Cancel */
+        /* button bar:  Close | Move | Minimize | Restore | <spacer> | Cancel
+           natural widths 7/6/10/9 pack from the left; Cancel (8) is right-
+           aligned past a 6-col spacer -- see build_dialog for the layout */
         int interior_x = rel_x - 1;     /* skip left border */
 
         if(!(mouse_event->bstate & (BUTTON1_CLICKED | BUTTON1_RELEASED)))
             return 0;
 
-        if(interior_x < 16)             /* "Close Selected" ~16 wide */
+        if(interior_x < 7)                          /* Close    cols 0..6  */
         {
             focus_zone = FOCUS_BTN_CLOSE;
             update_button_highlights();
             on_close();
         }
-        else if(interior_x < 35)        /* "Move Selected" + gap */
+        else if(interior_x < 13)                    /* Move     cols 7..12 */
         {
             focus_zone = FOCUS_BTN_MOVE_TO;
             update_button_highlights();
             on_move_to();
         }
-        else if(interior_x >= INTERIOR_WIDTH - 8)   /* "Cancel" right-aligned */
+        else if(interior_x < 23)                    /* Minimize cols 13..22 */
+        {
+            focus_zone = FOCUS_BTN_MINIMIZE;
+            update_button_highlights();
+            on_minimize();
+        }
+        else if(interior_x < 32)                    /* Restore  cols 23..31 */
+        {
+            focus_zone = FOCUS_BTN_RESTORE;
+            update_button_highlights();
+            on_restore();
+        }
+        else if(interior_x >= INTERIOR_WIDTH - 8)   /* Cancel   cols 38..45 */
         {
             focus_zone = FOCUS_BTN_CANCEL;
             update_button_highlights();

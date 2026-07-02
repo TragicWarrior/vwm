@@ -103,6 +103,17 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
 
     mvwprintw(canvas, 0, x - (int)sizeof("[X]") + 1, "[X]");
 
+    /* minimize glyph, one column left of [X]: a down arrow (v on non-UTF-8) */
+    if(vwm_has_utf8())
+    {
+        wch[0] = 0x2193;                        /* U+2193 DOWNWARDS ARROW */
+        wch[1] = L'\0';
+        setcchar(&cc, wch, extra, pair, NULL);
+        mvwadd_wch(canvas, 0, x - (int)sizeof("[X]"), &cc);
+    }
+    else
+        mvwaddch(canvas, 0, x - (int)sizeof("[X]"), 'v');
+
     snprintf(buf, sizeof(buf), "[%d x %d]", x - 2 - reserved, y - 2);
     len = strlen(buf);
     mvwprintw(canvas, y - 1, (x / 2) - (len / 2), "%s", buf);

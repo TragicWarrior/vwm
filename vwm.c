@@ -297,16 +297,22 @@ vwm_init(void)
         vwm->decks[0] = vk_deck_create();
         vk_deck_set_shadow(vwm->decks[0], true);
         vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm->decks[0]));
+        vk_object_register_event(VK_OBJECT(vwm->decks[0]),
+            VK_EVENT_ON_FINALIZE, vwm_on_deck_finalize, NULL);
 
         vk_screen_add_surface(vwm->screen);
         vwm->decks[1] = vk_deck_create();
         vk_deck_set_shadow(vwm->decks[1], true);
         vk_screen_attach_widget(vwm->screen, 1, VK_WIDGET(vwm->decks[1]));
+        vk_object_register_event(VK_OBJECT(vwm->decks[1]),
+            VK_EVENT_ON_FINALIZE, vwm_on_deck_finalize, NULL);
 
         vk_screen_add_surface(vwm->screen);
         vwm->decks[2] = vk_deck_create();
         vk_deck_set_shadow(vwm->decks[2], true);
         vk_screen_attach_widget(vwm->screen, 2, VK_WIDGET(vwm->decks[2]));
+        vk_object_register_event(VK_OBJECT(vwm->decks[2]),
+            VK_EVENT_ON_FINALIZE, vwm_on_deck_finalize, NULL);
 
         vwm->deck = vwm->decks[0];
 
@@ -384,6 +390,8 @@ vwm_apply_surface_count(int new_count)
             vk_deck_set_shadow(vwm->decks[i], true);
             vk_screen_attach_widget(vwm->screen, i,
                 VK_WIDGET(vwm->decks[i]));
+            vk_object_register_event(VK_OBJECT(vwm->decks[i]),
+                VK_EVENT_ON_FINALIZE, vwm_on_deck_finalize, NULL);
         }
 
         vwm->surface_count = new_count;
@@ -399,9 +407,9 @@ vwm_apply_surface_count(int new_count)
 
     for(i = old_count - 1; i >= new_count; i--)
     {
-        while(vk_deck_get_top(vwm->decks[i]) != NULL)
+        while(vk_deck_get_widget(vwm->decks[i], 0) != NULL)
         {
-            vk_widget_t *w = vk_deck_get_top(vwm->decks[i]);
+            vk_widget_t *w = vk_deck_get_widget(vwm->decks[i], 0);
             vk_deck_remove_widget(vwm->decks[i], w);
             vk_deck_add_widget(vwm->decks[target], w, VK_DECK_BOTTOM);
         }
@@ -473,6 +481,9 @@ vwm_on_surface_change(vk_object_t *object, int event, void *anything)
             if(w != NULL) vk_window_update(VK_WINDOW(w));
         }
     }
+
+    /* the "(N) Minimized" count is per-desktop -- recount for the new deck */
+    vwm_minimized_refresh();
 
     return 0;
 }

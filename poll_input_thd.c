@@ -36,6 +36,7 @@ enum
     ZONE_MANAGE_SETTINGS,
     ZONE_STATUS_BAR,
     ZONE_CLOSE_BTN,
+    ZONE_MINIMIZE_BTN,
     ZONE_RESIZE_CORNER,
     ZONE_FRAME,
     ZONE_CONTENT,
@@ -217,6 +218,9 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
     if(ry == 0 && rx >= ww - (int)sizeof("[X]") + 1 && rx < ww)
         return ZONE_CLOSE_BTN;
 
+    if(ry == 0 && rx == ww - (int)sizeof("[X]"))
+        return ZONE_MINIMIZE_BTN;
+
     state = vk_widget_get_state(hit);
     if(ry == wh - 1 && rx == ww - 1 && !(state & VK_STATE_NORESIZE))
         return ZONE_RESIZE_CORNER;
@@ -230,14 +234,11 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
 static void
 raise_to_top(vwm_t *vwm, vk_widget_t *widget)
 {
-    vk_widget_t *old_top;
-
     if(widget == vk_deck_get_top(vwm->deck)) return;
 
-    old_top = vk_deck_get_top(vwm->deck);
+    /* set_top fires ON_FINALIZE, which repaints the outgoing and incoming
+       top windows -- no manual re-decoration needed */
     vk_deck_set_top(vwm->deck, widget);
-    if(old_top != NULL) vk_window_update(VK_WINDOW(old_top));
-    vk_window_update(VK_WINDOW(widget));
 }
 
 /*
@@ -601,6 +602,14 @@ vwm_poll_input(void * const env)
                         raise_to_top(vwm, hit);
                         vwm_default_WINDOW_CLOSE(hit);
                     }
+
+                    break;
+                }
+
+                case ZONE_MINIMIZE_BTN:
+                {
+                    if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+                        vwm_minimize_window(hit);
 
                     break;
                 }

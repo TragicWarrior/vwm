@@ -1,5 +1,17 @@
 2026-07-01
 
+Windows can be minimized.  Click the down-arrow on a window's title bar (just
+left of the close box) to tuck it out of the way; the top panel shows a
+"(N) Minimized" button next to VWM that drops down the list of hidden windows,
+and clicking one brings it back on top with focus.  The Alt+W window manager
+also gains Minimize and Restore buttons that act on whichever windows you have
+checked, and marks the rows that are already minimized with the same arrow.
+
+Building this release needs libvterm 10.4+ and libviper 5.5.0+.
+
+
+2026-07-01
+
 Terminal scrollback now shows short histories too.  Scrolling back through
 output that only slightly overflowed the window -- fewer lines than the
 terminal is tall, like a quick `ls -l` -- used to do nothing; now the wheel,

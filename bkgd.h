@@ -15,4 +15,6 @@ void    vwm_invalidate_wallpaper_cache(int surface_id);
 void    vwm_invalidate_wallpaper_cache_all(void);
 void    vwm_invalidate_wallpaper_cache_all_orphan(void);
 
+bool    vwm_has_utf8(void);
+
 #endif

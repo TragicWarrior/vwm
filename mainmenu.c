@@ -36,6 +36,7 @@
 #include "manage_settings.h"
 #include "manage_windows.h"
 #include "screensaver.h"
+#include "winman.h"
 
 /* Has BUTTON1_PRESSED landed inside the open dropdown since it opened?
    The menubar opens the dropdown on its OWN press, and the matching
@@ -177,6 +178,20 @@ vwm_apps_menu_activate(vk_widget_t *widget, void *anything)
 
     vwm = vwm_get_instance();
     open_dropdown(vwm, 0);
+
+    return 0;
+}
+
+static int
+vwm_minimized_menu_activate(vk_widget_t *widget, void *anything)
+{
+    vwm_t   *vwm;
+
+    (void)widget;
+    (void)anything;
+
+    vwm = vwm_get_instance();
+    open_dropdown(vwm, 2);
 
     return 0;
 }
@@ -371,6 +386,85 @@ create_apps_dropdown(vwm_t *vwm)
     return window;
 }
 
+static int
+vwm_restore_minimized(vk_widget_t *widget, void *anything)
+{
+    (void)widget;
+
+    if(anything != NULL) vwm_restore_window(VK_WIDGET(anything));
+
+    return 0;
+}
+
+static vk_window_t*
+create_minimized_dropdown(vwm_t *vwm)
+{
+    vk_listbox_t    *listbox;
+    vk_window_t     *window;
+    vk_widget_t     *w;
+    const char      *title;
+    const char      *caption = " Minimized ";
+    char            buf[NAME_MAX];
+    int             max_width = 0;
+    int             max_height = 0;
+    int             scr_width, scr_height;
+    int             count, i;
+    int             shown = 0;
+
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
+    scr_width -= 4;
+    scr_height = (scr_height * 3) / 4;
+
+    listbox = vk_listbox_create(8, 10);
+    vk_widget_set_colors(VK_WIDGET(listbox), COLOR_WHITE, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(listbox), A_BOLD);
+    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_BLACK);
+    vk_listbox_set_highlight_attrs(listbox, A_BOLD);
+    vk_listbox_set_wrap(listbox, TRUE);
+    vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
+
+    count = vk_deck_count(vwm->deck);
+    for(i = 0; i < count; i++)
+    {
+        w = vk_deck_get_widget(vwm->deck, i);
+        if(w == NULL) continue;
+        if(vk_widget_get_state(w) & VK_STATE_VISIBLE) continue;  /* only hidden */
+
+        title = vk_window_get_title(VK_WINDOW(w));
+        if(title == NULL || title[0] == '\0') title = "(untitled)";
+
+        snprintf(buf, sizeof(buf), "%s", title);
+        vk_listbox_add_item(listbox, buf, vwm_restore_minimized, w);
+        shown++;
+    }
+
+    if(shown == 0)
+        vk_listbox_add_item(listbox, "(none)", NULL, NULL);
+
+    vk_listbox_update(listbox);
+    vk_listbox_get_metrics(listbox, &max_width, &max_height);
+    max_width += 4;
+    /* vk_window centers the caption and truncates it to (window width - 4);
+       window width is max_width + 2, so the usable title span is max_width - 2.
+       Floor to strlen(caption) + 2 or a short app list (e.g. "htop") clips the
+       caption's trailing space against the right frame. */
+    if(max_width < (int)strlen(caption) + 2)
+        max_width = (int)strlen(caption) + 2;
+    if(max_width > scr_width) max_width = scr_width;
+    if(max_height > scr_height) max_height = scr_height;
+
+    vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
+
+    window = vk_window_create(max_width + 2, max_height + 2);
+    vk_window_set_title(window, caption);
+    vk_window_set_border_style(window, VK_BORDER_SINGLE);
+    vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
+    vk_window_set_border_attrs(window, A_BOLD);
+    vk_window_set_child(window, VK_WIDGET(listbox));
+
+    return window;
+}
+
 static void
 open_dropdown(vwm_t *vwm, int idx)
 {
@@ -382,6 +476,8 @@ open_dropdown(vwm_t *vwm, int idx)
 
     if(idx == 0)
         window = create_apps_dropdown(vwm);
+    else if(idx == 2)
+        window = create_minimized_dropdown(vwm);
     else
         window = create_file_dropdown(vwm);
 
@@ -495,12 +591,14 @@ vwm_menubar_init(void)
         vwm_apps_menu_activate, NULL);
     vk_menubar_add_item(vwm->menubar, "VWM",
         vwm_file_menu_activate, NULL);
+    vk_menubar_add_item(vwm->menubar, "(0) Minimized",
+        vwm_minimized_menu_activate, NULL);
 
     vk_object_register_event(VK_OBJECT(vwm->menubar),
         VK_EVENT_ON_SELECT, vwm_menubar_on_select, NULL);
 
-    // " Apps " + "|" + " VWM " = 6 + 1 + 5 = 12
-    menubar_width = 12;
+    // " Apps " + "|" + " VWM " + "|" + " (99) Minimized " = 6+1+5+1+16 = 29
+    menubar_width = 29;
     vk_widget_resize(VK_WIDGET(vwm->menubar), menubar_width, 1);
 
     vk_menubar_update(vwm->menubar);
@@ -512,6 +610,40 @@ vwm_menubar_init(void)
     }
 
     vwm->menu_item_idx = -1;
+}
+
+/*
+    Recount the minimized (hidden) windows and update the "(N) Minimized"
+    menu-bar item, then repaint the panel row.  Called whenever a window is
+    minimized or restored.
+*/
+void
+vwm_minimized_refresh(void)
+{
+    vwm_t       *vwm;
+    vk_widget_t *w;
+    char        label[32];
+    int         count, i, n = 0;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL || vwm->menubar == NULL) return;
+
+    count = vk_deck_count(vwm->deck);
+    for(i = 0; i < count; i++)
+    {
+        w = vk_deck_get_widget(vwm->deck, i);
+        if(w == NULL) continue;
+        if(!(vk_widget_get_state(w) & VK_STATE_VISIBLE)) n++;
+    }
+
+    snprintf(label, sizeof(label), "(%d) Minimized", n);
+    vk_menubar_set_item_label(vwm->menubar, 2, label);
+
+    {
+        VWM_PANEL *panel = vwm_panel_get_data();
+        vk_box_update(panel->box);
+        vk_widget_draw(VK_WIDGET(panel->box));
+    }
 }
 
 int

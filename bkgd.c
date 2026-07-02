@@ -66,6 +66,14 @@ _bkgd_has_utf8(void)
     return cached != 0;
 }
 
+/* public wrapper so other modules (e.g. the window decorator) can pick
+   UTF-8 vs ASCII glyphs off the same cached check */
+bool
+vwm_has_utf8(void)
+{
+    return _bkgd_has_utf8();
+}
+
 const char *vwm_wallpaper_names[VWM_WALLPAPER_COUNT] =
 {
     "None",
