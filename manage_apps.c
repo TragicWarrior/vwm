@@ -1893,7 +1893,9 @@ build_dialog(void)
     scrollback_spin = vk_spinbutton_create(SCROLLBACK_COL_WIDTH);
     vk_spinbutton_set_relief_style(scrollback_spin, VK_BORDER_SINGLE);
     vk_spinbutton_set_field_relief(scrollback_spin, VK_RELIEF_SUNKEN);
-    vk_spinbutton_set_button_relief(scrollback_spin, VK_RELIEF_RAISED);
+    vk_spinbutton_set_button_relief(scrollback_spin, 0);   /* flat: a shared
+        tee cell can't satisfy two relief directions, so the arrow box stays
+        flat and the sunken field carries the 3D */
     vk_spinbutton_set_range(scrollback_spin, 0, 100000);
     vk_spinbutton_set_step(scrollback_spin, SCROLLBACK_STEP);
     vk_spinbutton_set_precision(scrollback_spin, 0);
