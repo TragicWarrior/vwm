@@ -1,3 +1,12 @@
+Version 4.9.2
+
+*  [Bryan Christ] Desktop backgrounds now render bright and 256-colour choices
+   correctly.  The surface background was handed to libviper as a chtype, whose
+   pair went through COLOR_PAIR() and truncated past 255 -- so a bright desktop
+   colour showed the wrong colour in the cells the terminal's hardware-scroll
+   optimisation exposes.  Adopts libviper 5.6.0's widened
+   vk_screen_set_surface_bkgd(wch, attrs, pair).  Requires libviper 5.6.0+.
+
 Version 4.9.1
 
 *  [Bryan Christ] Window title-bar controls now render as [v][X] -- the

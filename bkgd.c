@@ -618,7 +618,7 @@ vwm_apply_desktop_bkgd(int surface_id)
     pair = vdk_color_pair(COLOR_BLACK, bg);
 
     vk_screen_set_surface_bkgd(vwm->screen, surface_id,
-        ' ' | COLOR_PAIR(pair));
+        L' ', A_NORMAL, pair);
 }
 
 void
