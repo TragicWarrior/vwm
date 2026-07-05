@@ -1392,7 +1392,7 @@ modify_popup_open(int setting_idx)
         vk_box_set_widget(modify_client, 0, VK_WIDGET(lbl));
 
         modify_input = vk_input_create(popup_w - 4);
-        vk_input_set_relief_style(modify_input, VK_BORDER_SINGLE);
+        vk_input_set_border_style(modify_input, VK_BORDER_SINGLE);
         vk_widget_set_colors(VK_WIDGET(modify_input),
             COLOR_CYAN, COLOR_BLUE);
         vk_input_set_text(modify_input,
@@ -2447,7 +2447,7 @@ build_dialog(void)
         int i;
         for(i = 0; i < NUM_BUTTONS; i++)
         {
-            vk_button_set_relief_style(buttons[i], VK_BORDER_SINGLE);
+            vk_button_set_border_style(buttons[i], VK_BORDER_SINGLE);
             vk_widget_set_colors(VK_WIDGET(buttons[i]),
                 COLOR_BLACK, COLOR_CYAN);
             vk_widget_set_attrs(VK_WIDGET(buttons[i]), A_BOLD);
