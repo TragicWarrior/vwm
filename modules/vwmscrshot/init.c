@@ -410,7 +410,7 @@ build_save(scrshot_session_t *s)
     vk_widget_set_colors(VK_WIDGET(box), COLOR_WHITE, COLOR_BLUE);
 
     fname = vk_input_create(W - 2);
-    vk_input_set_relief_style(fname, VK_BORDER_SINGLE);
+    vk_input_set_border_style(fname, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(fname), COLOR_WHITE, COLOR_BLUE);
 
     now = time(NULL);

@@ -1,3 +1,17 @@
+Version 4.9.3
+
+*  [Bryan Christ] Track libviper 6.0.0's relief-API rename: the box-style
+   setters vk_button/dropdown/spinbutton/input_set_relief_style became
+   vk_*_set_border_style.  Updated at every call site (manage dialogs, the
+   screenshot module).  No behaviour change.
+*  [Bryan Christ] The scrollback spinner's arrow box is now flat.  A tee cell
+   is shared by two regions and cannot satisfy two relief directions, so the
+   raised arrow buttons' lit edges met the sunken value field's dark ones at
+   the tees and read as glitches; the sunken field now carries the 3D and the
+   arrows sit in a plain box.  Pairs with libviper 6.0.0's centralised relief
+   drawing (which also fixes the manage-dialog dropdowns and the file dialog's
+   input/frame shading).  Requires libviper 6.0.0+.
+
 Version 4.9.2
 
 *  [Bryan Christ] Desktop backgrounds now render bright and 256-colour choices

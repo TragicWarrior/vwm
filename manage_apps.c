@@ -1000,7 +1000,7 @@ edit_popup_open(void)
     vk_box_set_widget(edit_client, 0, VK_WIDGET(lbl));
 
     edit_input_title = vk_input_create(EDIT_INTERIOR_W);
-    vk_input_set_relief_style(edit_input_title, VK_BORDER_SINGLE);
+    vk_input_set_border_style(edit_input_title, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(edit_input_title), COLOR_BLACK, COLOR_BLUE);
     vk_input_set_text(edit_input_title, e->title);
     vk_input_update(edit_input_title);
@@ -1013,7 +1013,7 @@ edit_popup_open(void)
     vk_box_set_widget(edit_client, 2, VK_WIDGET(lbl));
 
     edit_input_binary = vk_input_create(EDIT_INTERIOR_W);
-    vk_input_set_relief_style(edit_input_binary, VK_BORDER_SINGLE);
+    vk_input_set_border_style(edit_input_binary, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(edit_input_binary), COLOR_BLACK, COLOR_BLUE);
     vk_input_set_text(edit_input_binary, e->bin);
     vk_input_update(edit_input_binary);
@@ -1026,7 +1026,7 @@ edit_popup_open(void)
     vk_box_set_widget(edit_client, 4, VK_WIDGET(lbl));
 
     edit_input_params = vk_input_create(EDIT_INTERIOR_W);
-    vk_input_set_relief_style(edit_input_params, VK_BORDER_SINGLE);
+    vk_input_set_border_style(edit_input_params, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(edit_input_params), COLOR_BLACK, COLOR_BLUE);
     vk_input_set_text(edit_input_params, e->params);
     vk_input_update(edit_input_params);
@@ -1847,7 +1847,7 @@ build_dialog(void)
     cat_label_widget = cat_label;
 
     cat_dropdown = vk_dropdown_create(INTERIOR_WIDTH, 6);
-    vk_dropdown_set_relief_style(cat_dropdown, VK_BORDER_SINGLE);
+    vk_dropdown_set_border_style(cat_dropdown, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(cat_dropdown), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_attrs(VK_WIDGET(cat_dropdown), A_BOLD);
     vk_dropdown_set_highlight(cat_dropdown, COLOR_CYAN, COLOR_BLACK);
@@ -1870,7 +1870,7 @@ build_dialog(void)
     term_label_widget = term_label;
 
     term_dropdown = vk_dropdown_create(TERM_COL_WIDTH, 5);
-    vk_dropdown_set_relief_style(term_dropdown, VK_BORDER_SINGLE);
+    vk_dropdown_set_border_style(term_dropdown, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(term_dropdown), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_attrs(VK_WIDGET(term_dropdown), A_BOLD);
     vk_dropdown_set_highlight(term_dropdown, COLOR_CYAN, COLOR_BLACK);
@@ -1891,9 +1891,11 @@ build_dialog(void)
     vk_label_update(scrollback_label_widget);
 
     scrollback_spin = vk_spinbutton_create(SCROLLBACK_COL_WIDTH);
-    vk_spinbutton_set_relief_style(scrollback_spin, VK_BORDER_SINGLE);
+    vk_spinbutton_set_border_style(scrollback_spin, VK_BORDER_SINGLE);
     vk_spinbutton_set_field_relief(scrollback_spin, VK_RELIEF_SUNKEN);
-    vk_spinbutton_set_button_relief(scrollback_spin, VK_RELIEF_RAISED);
+    vk_spinbutton_set_button_relief(scrollback_spin, 0);   /* flat: a shared
+        tee cell can't satisfy two relief directions, so the arrow box stays
+        flat and the sunken field carries the 3D */
     vk_spinbutton_set_range(scrollback_spin, 0, 100000);
     vk_spinbutton_set_step(scrollback_spin, SCROLLBACK_STEP);
     vk_spinbutton_set_precision(scrollback_spin, 0);
@@ -1912,7 +1914,7 @@ build_dialog(void)
     vis_label_widget = vis_label;
 
     vis_dropdown = vk_dropdown_create(INTERIOR_WIDTH, 2);
-    vk_dropdown_set_relief_style(vis_dropdown, VK_BORDER_SINGLE);
+    vk_dropdown_set_border_style(vis_dropdown, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(vis_dropdown), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_attrs(VK_WIDGET(vis_dropdown), A_BOLD);
     vk_dropdown_set_highlight(vis_dropdown, COLOR_CYAN, COLOR_BLACK);
@@ -1936,7 +1938,7 @@ build_dialog(void)
         int i;
         for(i = 0; i < NUM_BUTTONS; i++)
         {
-            vk_button_set_relief_style(buttons[i], VK_BORDER_SINGLE);
+            vk_button_set_border_style(buttons[i], VK_BORDER_SINGLE);
             vk_widget_set_colors(VK_WIDGET(buttons[i]),
                 COLOR_BLACK, COLOR_CYAN);
             vk_widget_set_attrs(VK_WIDGET(buttons[i]), A_BOLD);
