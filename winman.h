@@ -28,6 +28,7 @@ void    vwm_default_WINDOW_CYCLE(void);
 void    vwm_default_WINDOW_CLOSE(vk_widget_t *widget);
 void    vwm_minimize_window(vk_widget_t *widget);
 void    vwm_restore_window(vk_widget_t *widget);
+void    vwm_fit_window_onscreen(vk_widget_t *widget, int scr_w, int scr_h);
 
 void    vwm_default_WINDOW_MOVE_UP(vk_widget_t *widget);
 void    vwm_default_WINDOW_MOVE_DOWN(vk_widget_t *widget);

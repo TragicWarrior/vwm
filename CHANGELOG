@@ -1,3 +1,14 @@
+Version 4.9.4
+
+*  [Bryan Christ] Fit an over-large window back on screen after a shrink -- a
+   dtach/abduco reattach or a teleport onto a smaller terminal, or restoring a
+   minimized window when the screen has shrunk.  Two steps: pull the top-left
+   back to the home corner, then, if the window is still larger than the usable
+   area, resize it down by the minimum needed to fit.  Previously such a window
+   kept its old size and stayed clipped.  New shared helper
+   vwm_fit_window_onscreen(), used by both the KEY_RESIZE clamp and the
+   minimized-restore path.
+
 Version 4.9.3
 
 *  [Bryan Christ] Track libviper 6.0.0's relief-API rename: the box-style

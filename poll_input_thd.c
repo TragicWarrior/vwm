@@ -245,15 +245,13 @@ raise_to_top(vwm_t *vwm, vk_widget_t *widget)
 }
 
 /*
-    Pull every window's top-left back into the usable area (below the
-    panel row, above the status row, left edge on-screen).  After a
-    shrink -- e.g. a dtach reattach onto a smaller terminal -- windows
-    keep their old coordinates and one can end up with its title bar
-    off-screen, leaving no frame to grab and drag.  This is a pure
-    reposition; the window size (and any vterm child) is left alone, so a
-    window wider/taller than the new terminal stays clipped but its frame
-    is reachable.  No-op for windows that already fit, and runs across
-    every desktop so off-screen windows on inactive decks are fixed too.
+    Fit every window back into the usable area after a shrink -- e.g. a dtach
+    reattach or teleport onto a smaller terminal, which leaves windows at their
+    old coordinates and possibly larger than the new screen.  Each window's
+    top-left is pulled on-screen and, if it is still larger than the usable
+    area, shrunk just enough to fit (see vwm_fit_window_onscreen).  Runs across
+    every desktop so off-screen windows on inactive decks are fixed too; a
+    no-op for windows that already fit.
 */
 static void
 clamp_windows_onscreen(vwm_t *vwm)
@@ -274,23 +272,10 @@ clamp_windows_onscreen(vwm_t *vwm)
         for(i = 0; i < n; i++)
         {
             vk_widget_t *w = vk_deck_get_widget(deck, i);
-            int          wx, wy, ww, wh, nx, ny;
 
             if(w == NULL) continue;
 
-            vk_widget_get_position(w, &wx, &wy);
-            vk_widget_get_metrics(w, &ww, &wh);
-
-            nx = wx;
-            if(nx + ww > scr_w) nx = scr_w - ww;        /* pull left to fit */
-            if(nx < 0)          nx = 0;                 /* too wide: left-align */
-
-            ny = wy;
-            if(ny + wh > scr_h - 1) ny = scr_h - 1 - wh; /* clear the status row */
-            if(ny < 1)              ny = 1;              /* clear the panel row */
-
-            if(nx != wx || ny != wy)
-                vk_widget_move(w, nx, ny);
+            vwm_fit_window_onscreen(w, scr_w, scr_h);
         }
     }
 }
