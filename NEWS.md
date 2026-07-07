@@ -1,3 +1,15 @@
+2026-07-07
+
+Copying text from vwmterm scrollback works correctly.  Previously, if you
+scrolled back into history and started a selection, the view jumped to the live
+screen -- so the copy began on the wrong row and grabbed live-screen text
+instead of the history you were looking at.  The view now stays where you
+scrolled, the selection anchors on the row you clicked, and the copied text is
+the scrolled-back content you selected.
+
+Building this release needs libvterm 10.7+ and libviper 6.0.0+.
+
+
 2026-07-06
 
 Windows no longer get stranded oversized after the terminal shrinks.  When you

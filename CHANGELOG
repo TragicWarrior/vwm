@@ -1,3 +1,14 @@
+Version 4.9.5
+
+*  [Bryan Christ] Selecting/copying text while scrolled back into vwmterm
+   history no longer snaps the view to the live screen.  The selection render
+   now draws at the current scroll position (vwmterm_scroll_render) instead of
+   always the live buffer, so the view stays put and the anchor lands on the
+   row you clicked; and the copy reads the composed scrollback view via
+   libvterm's new vterm_copy_scrollback() rather than the live-only
+   vterm_copy_buffer, so the copied text is the history you selected.  Requires
+   libvterm 10.7+.
+
 Version 4.9.4
 
 *  [Bryan Christ] Fit an over-large window back on screen after a shrink -- a

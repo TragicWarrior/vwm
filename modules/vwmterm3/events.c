@@ -41,6 +41,7 @@ static char     *clipboard = NULL;
 static size_t   clipboard_len = 0;
 
 static void     vwmterm_scroll_drag_apply(vk_widget_t *widget, int mx, int my);
+static void     vwmterm_scroll_render(vwmterm_data_t *vwmterm_data);
 
 void
 vwmterm_init_keycodes(void)
@@ -192,7 +193,10 @@ vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
     win = vterm_wnd_get(vterm);
     vwmterm_grid_size(vwmterm_data, &width, &height);
 
-    vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
+    /* render at the current scroll position, not always the live screen --
+       otherwise starting/dragging a selection while scrolled back snaps the
+       view to the bottom and the highlighted rows are the wrong ones */
+    vwmterm_scroll_render(vwmterm_data);
 
     if(vwmterm_data->sel_anchor_row < vwmterm_data->sel_end_row ||
        (vwmterm_data->sel_anchor_row == vwmterm_data->sel_end_row &&
@@ -238,7 +242,13 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
     int             len;
 
     vterm = vwmterm_data->vterm;
-    cells = vterm_copy_buffer(vterm, &rows, &cols);
+    /* copy from the same view the user sees: the composed scrollback matrix
+       when scrolled back, else the live buffer */
+    if(vwmterm_data->scroll_offset > 0)
+        cells = vterm_copy_scrollback(vterm, vwmterm_data->scroll_offset,
+                    &rows, &cols);
+    else
+        cells = vterm_copy_buffer(vterm, &rows, &cols);
     if(cells == NULL) return;
 
     if(vwmterm_data->sel_anchor_row < vwmterm_data->sel_end_row ||
@@ -338,13 +348,14 @@ static void
 vwmterm_exit_selection(vwmterm_data_t *vwmterm_data)
 {
     vwm_t   *vwm;
-    vterm_t *vterm = vwmterm_data->vterm;
 
     vwm = vwm_get_instance();
 
     vwmterm_data->frozen = 0;
 
-    vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
+    /* leaving selection: stay at the scroll position the user was viewing
+       (scroll-aware) rather than jumping to the live screen */
+    vwmterm_scroll_render(vwmterm_data);
 
     vk_window_set_title(vwmterm_data->window, vwmterm_data->title);
 

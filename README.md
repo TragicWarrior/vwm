@@ -52,7 +52,7 @@ CMake
 ncursesw 5.4+
 libviper 6.0.0+  - https://github.com/TragicWarrior/libviper
 libgpm (optional)
-libvterm 10.4+ - https://github.com/TragicWarrior/libvterm
+libvterm 10.7+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for the screen-capture module; "make all")
 libcups2-dev     (for the print module; "make all")
 zlib             (for the big-font hostname module, vwmfont)
