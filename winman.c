@@ -150,6 +150,61 @@ vwm_minimize_window(vk_widget_t *widget)
 }
 
 /*
+    Fit a window into the usable area (row 0 is the panel, row scr_h-1 the
+    status bar; windows live in between).  Two steps, for a dtach reattach,
+    teleport, or restore onto a terminal smaller than the window was sized for:
+      1. pull the top-left back on-screen -- a window larger than the screen
+         clamps to the home corner (x = 0, y = 1);
+      2. if it is STILL larger than the usable area, shrink it by the minimum
+         needed to fit.  vk_widget_resize propagates to a vwmterm's vterm
+         child, the same path the +/-/</> resize hotkeys use.
+    A no-op for a window that already fits.  scr_w/scr_h come from getmaxyx on
+    the current SCREEN.
+*/
+void
+vwm_fit_window_onscreen(vk_widget_t *widget, int scr_w, int scr_h)
+{
+    int wx, wy, ww, wh, nx, ny, max_w, max_h, nw, nh;
+
+    if(widget == NULL) return;
+
+    vk_widget_get_position(widget, &wx, &wy);
+    vk_widget_get_metrics(widget, &ww, &wh);
+
+    /* step 1: reposition the top-left into the usable area */
+    nx = wx;
+    if(nx + ww > scr_w) nx = scr_w - ww;         /* pull left to fit    */
+    if(nx < 0)          nx = 0;                  /* too wide: home x     */
+
+    ny = wy;
+    if(ny + wh > scr_h - 1) ny = scr_h - 1 - wh; /* keep off status row */
+    if(ny < 1)              ny = 1;              /* keep off panel row   */
+
+    if(nx != wx || ny != wy)
+        vk_widget_move(widget, nx, ny);
+
+    /* step 2: still clipped at the home corner -> shrink to fit.  usable
+       width is scr_w - nx; usable height is (scr_h - 1) - ny. */
+    max_w = scr_w - nx;
+    max_h = (scr_h - 1) - ny;
+
+    nw = ww;
+    nh = wh;
+    if(nw > max_w) nw = max_w;
+    if(nh > max_h) nh = max_h;
+    if(nw < 3)     nw = 3;           /* frame minimum (cf. the resize hotkeys) */
+    if(nh < 3)     nh = 3;
+
+    if(nw != ww || nh != wh)
+    {
+        vk_widget_resize(widget, nw, nh);
+        vk_window_update(VK_WINDOW(widget));   /* re-render the frame at the
+                                                  new size, like the resize
+                                                  hotkeys do */
+    }
+}
+
+/*
     Restore a minimized window: show it again and raise it to the top of the
     deck (focus).
 */
@@ -157,10 +212,17 @@ void
 vwm_restore_window(vk_widget_t *widget)
 {
     vwm_t   *vwm;
+    int      scr_h, scr_w;
 
     if(widget == NULL) return;
 
     vwm = vwm_get_instance();
+
+    /* the terminal may have shrunk while this window was minimized -- fit it
+       back into the usable area (move home, then shrink if still clipped) so
+       it can't come back partly off-screen */
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+    vwm_fit_window_onscreen(widget, scr_w, scr_h);
 
     /* show, then raise: vk_deck_set_top() fires ON_FINALIZE, which repaints
        the restored window as focused and demotes the previous top */

@@ -1,3 +1,14 @@
+2026-07-06
+
+Windows no longer get stranded oversized after the terminal shrinks.  When you
+reattach a dtach/abduco session -- or teleport, or restore a minimized window --
+onto a terminal smaller than the window, vwm slides the window back to the
+top-left corner and, if it still doesn't fit, shrinks it just enough to fit on
+screen.  Before, an over-large window kept its size and spilled past the edges.
+
+Building this release needs libvterm 10.4+ and libviper 6.0.0+.
+
+
 2026-07-01
 
 Windows can be minimized.  Click the down-arrow on a window's title bar (just
