@@ -1,5 +1,17 @@
 2026-07-07
 
+Resizing the terminal while the screen saver is up now works.  If you lock the
+screen (or the idle saver kicks in) and then reattach a dtach session at a
+different size -- or otherwise resize the terminal -- the saver and the locked
+program grow/shrink to fill the new screen instead of staying at the old size.
+Only the saver overlay is resized; the desktop it hides is never repainted, so
+the resize can't expose it.
+
+Building this release needs libvterm 10.7+ and libviper 6.0.0+.
+
+
+2026-07-07
+
 Copying text from vwmterm scrollback works correctly.  Previously, if you
 scrolled back into history and started a selection, the view jumped to the live
 screen -- so the copy began on the wrong row and grabbed live-screen text

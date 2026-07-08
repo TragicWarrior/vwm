@@ -323,10 +323,22 @@ vwm_poll_input(void * const env)
             continue;
         }
 
-        /* while the screensaver is up, all input is locked to it */
+        /* while the screensaver is up, all input is locked to it -- EXCEPT a
+           terminal resize (e.g. a dtach reattach onto a different-size tty),
+           which we let through so the fullscreen saver overlay and the locked
+           program's vterm follow the new geometry.  Only the overlay is
+           resized; the desktop beneath stays hidden (no clamp/repaint of the
+           deck), so the lock is never broken by a resize. */
         if(vwm_screensaver_is_active())
         {
-            vwm_screensaver_input(keystroke, mouse_event);
+            if(keystroke == KEY_RESIZE)
+            {
+                vk_screen_resize(vwm->screen);
+                vwm_screensaver_resize();
+            }
+            else
+                vwm_screensaver_input(keystroke, mouse_event);
+
             vk_screen_refresh(vwm->screen);
             ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
