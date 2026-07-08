@@ -1,3 +1,17 @@
+Version 4.9.6
+
+*  [Bryan Christ] The screen saver now tracks a terminal resize.  While the
+   saver (a fullscreen vterm running the configured lock program) is up,
+   poll_input_thd previously swallowed KEY_RESIZE, so a dtach reattach onto a
+   different-size terminal left the saver -- and the locked program inside it --
+   stuck at the old geometry (e.g. vlock not filling a grown screen).  A resize
+   is now forwarded to the saver overlay only: vwm_screensaver_resize() resizes
+   the fullscreen vterm window (clearing its VK_STATE_NORESIZE for the
+   programmatic resize and growing its content child), which drives
+   vterm_resize() -> libvterm TIOCSWINSZ + SIGWINCH into the locked program so
+   it repaints at the new size.  The hidden desktop underneath is never
+   repainted, so a resize can't expose it.
+
 Version 4.9.5
 
 *  [Bryan Christ] Selecting/copying text while scrolled back into vwmterm

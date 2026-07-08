@@ -81,16 +81,14 @@ screensaver_on_close(vk_object_t *object, int event, void *anything)
 
     s_last_activity = time(NULL);
 
-    /* The lock program (e.g. vlock) ran inside a fullscreen vterm while it
-       owned the screen, and vwm_screensaver_input swallowed KEY_RESIZE the
-       whole time it was up.  So if a dtach reattach happened DURING the lock
-       -- the common case, since the saver is usually what's running when you
-       vwm-resume -- the KEY_RESIZE that re-arms the terminal (mouse, cursor,
-       keypad, full repaint) was dropped, and vwm comes back with a dead
-       mouse and a visible cursor until a manual resize.  Now that the saver
-       is gone and s_active is false, queue one KEY_RESIZE so poll_input_thd
-       runs the resync cascade.  Idempotent -- and a welcome repaint -- even
-       when no reattach occurred (the user just unlocked locally). */
+    /* While locked, poll_input_thd forwards a KEY_RESIZE only to the saver
+       overlay (vwm_screensaver_resize) so the fullscreen lock tracks the new
+       geometry; the desktop beneath stays hidden and is NOT repainted.  So once
+       the saver is gone, queue one KEY_RESIZE to run the full resync cascade on
+       the now-revealed desktop: re-arm mouse/cursor/keypad (a dtach reattach
+       may have happened during the lock) and repaint + clamp the windows to the
+       current geometry.  Idempotent -- and a welcome repaint -- even when no
+       reattach occurred (a local unlock). */
     ungetch(KEY_RESIZE);
 
     return 0;
@@ -205,4 +203,43 @@ vwm_screensaver_input(int32_t keystroke, MEVENT *mouse_event)
     if(keystroke == KEY_MOUSE || keystroke == KEY_RESIZE) return;
 
     vk_object_push_keystroke(VK_OBJECT(s_window), keystroke);
+}
+
+/*
+    Resize the fullscreen saver overlay to the current screen size after a
+    geometry change (e.g. a dtach reattach onto a larger/smaller terminal).
+    The saver window is created VK_STATE_NORESIZE so the user can't resize it,
+    so clear that just for this programmatic resize.  The content child is
+    resized first so the window's VK_EVENT_ON_RESIZE handler (vwmterm) reads the
+    NEW interior and hands it to vterm_resize() -- libvterm then TIOCSWINSZ +
+    SIGWINCHes the locked program, which repaints itself at the new size.  Only
+    the overlay is touched; the hidden desktop below is never repainted, so the
+    lock is never broken by a resize.
+*/
+void
+vwm_screensaver_resize(void)
+{
+    vwm_t       *vwm = vwm_get_instance();
+    vk_widget_t *content;
+    uint32_t     state;
+    int          h, w;
+
+    if(!s_active || s_window == NULL) return;
+
+    getmaxyx(vk_screen_get_window(vwm->screen), h, w);
+    if(w < 1 || h < 1) return;
+
+    state = vk_widget_get_state(VK_WIDGET(s_window));
+    vk_widget_set_state(VK_WIDGET(s_window), state & ~VK_STATE_NORESIZE);
+
+    content = vk_window_get_child(s_window);
+    if(content != NULL)
+        vk_widget_resize(content, w, h);
+
+    vk_widget_resize(VK_WIDGET(s_window), w, h);
+    vk_widget_move(VK_WIDGET(s_window), 0, 0);
+
+    vk_widget_set_state(VK_WIDGET(s_window), state);
+
+    vk_window_update(s_window);
 }
