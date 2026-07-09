@@ -29,14 +29,20 @@
 #define INTERIOR_WIDTH      (DIALOG_WIDTH - 2)
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
-/* the VTerm Mode row is split into two columns: the mode dropdown on the
-   left and the scrollback spinbutton on the right (flush to the right
-   edge, an expanding gap between them).  Visibility + Start directory
-   share the same two-column layout one row down. */
-#define TERM_COL_WIDTH          36
-#define SCROLLBACK_COL_WIDTH    26
-#define VIS_COL_WIDTH           32
-#define START_DIR_COL_WIDTH     30
+/*
+    Shared two-column geometry for the paired control rows so the four
+    controls form a regular grid:
+
+        left column          right column
+        -----------------    --------------------
+        VTerm Mode           Scrollback (lines)
+        Visibility           Start directory
+
+    An expanding spacer between the columns keeps the right edge flush;
+    both rows use the same widths so labels and widgets align vertically.
+*/
+#define PAIR_LEFT_COL_WIDTH     32
+#define PAIR_RIGHT_COL_WIDTH    32
 
 /* scrollback stepping: 0 means "vterm default".  The first step up off 0
    jumps to SCROLLBACK_FLOOR and a step down off it returns to 0; in
@@ -598,7 +604,7 @@ dropdown_interior_origin(vk_dropdown_t *dropdown, int *ix, int *iy)
 
     if(dropdown == start_dir_dropdown)
     {
-        *ix = INTERIOR_WIDTH - START_DIR_COL_WIDTH;
+        *ix = INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH;
         *iy = vis_dd;
         return;
     }
@@ -1948,14 +1954,14 @@ build_dialog(void)
         }
     }
 
-    term_label = vk_label_create(TERM_COL_WIDTH);
+    term_label = vk_label_create(PAIR_LEFT_COL_WIDTH);
     vk_label_set_text(term_label, "  VTerm Mode");
     vk_label_set_justify(term_label, VK_JUSTIFY_LEFT);
     vk_widget_set_colors(VK_WIDGET(term_label), COLOR_BLACK, COLOR_CYAN);
     vk_label_update(term_label);
     term_label_widget = term_label;
 
-    term_dropdown = vk_dropdown_create(TERM_COL_WIDTH, 5);
+    term_dropdown = vk_dropdown_create(PAIR_LEFT_COL_WIDTH, 5);
     vk_dropdown_set_border_style(term_dropdown, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(term_dropdown), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_attrs(VK_WIDGET(term_dropdown), A_BOLD);
@@ -1969,14 +1975,14 @@ build_dialog(void)
     }
 
     /* right column of the VTerm Mode row: the scrollback spinbutton */
-    scrollback_label_widget = vk_label_create(SCROLLBACK_COL_WIDTH);
+    scrollback_label_widget = vk_label_create(PAIR_RIGHT_COL_WIDTH);
     vk_label_set_text(scrollback_label_widget, "  Scrollback (lines)");
     vk_label_set_justify(scrollback_label_widget, VK_JUSTIFY_LEFT);
     vk_widget_set_colors(VK_WIDGET(scrollback_label_widget),
         COLOR_BLACK, COLOR_CYAN);
     vk_label_update(scrollback_label_widget);
 
-    scrollback_spin = vk_spinbutton_create(SCROLLBACK_COL_WIDTH);
+    scrollback_spin = vk_spinbutton_create(PAIR_RIGHT_COL_WIDTH);
     vk_spinbutton_set_border_style(scrollback_spin, VK_BORDER_SINGLE);
     vk_spinbutton_set_field_relief(scrollback_spin, VK_RELIEF_SUNKEN);
     vk_spinbutton_set_button_relief(scrollback_spin, 0);   /* flat: a shared
@@ -1992,14 +1998,14 @@ build_dialog(void)
     vk_widget_set_attrs(VK_WIDGET(scrollback_spin), A_BOLD);
     scrollback_prev = 0;   /* matches the freshly-created value (0) */
 
-    vis_label = vk_label_create(VIS_COL_WIDTH);
+    vis_label = vk_label_create(PAIR_LEFT_COL_WIDTH);
     vk_label_set_text(vis_label, "  Visibility");
     vk_label_set_justify(vis_label, VK_JUSTIFY_LEFT);
     vk_widget_set_colors(VK_WIDGET(vis_label), COLOR_BLACK, COLOR_CYAN);
     vk_label_update(vis_label);
     vis_label_widget = vis_label;
 
-    vis_dropdown = vk_dropdown_create(VIS_COL_WIDTH, 2);
+    vis_dropdown = vk_dropdown_create(PAIR_LEFT_COL_WIDTH, 2);
     vk_dropdown_set_border_style(vis_dropdown, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(vis_dropdown), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_attrs(VK_WIDGET(vis_dropdown), A_BOLD);
@@ -2008,14 +2014,14 @@ build_dialog(void)
     vk_dropdown_add_item(vis_dropdown, "Disabled", NULL, NULL);
 
     /* right column of the Visibility row: start directory */
-    start_dir_label_widget = vk_label_create(START_DIR_COL_WIDTH);
+    start_dir_label_widget = vk_label_create(PAIR_RIGHT_COL_WIDTH);
     vk_label_set_text(start_dir_label_widget, "  Start directory");
     vk_label_set_justify(start_dir_label_widget, VK_JUSTIFY_LEFT);
     vk_widget_set_colors(VK_WIDGET(start_dir_label_widget),
         COLOR_BLACK, COLOR_CYAN);
     vk_label_update(start_dir_label_widget);
 
-    start_dir_dropdown = vk_dropdown_create(START_DIR_COL_WIDTH, 2);
+    start_dir_dropdown = vk_dropdown_create(PAIR_RIGHT_COL_WIDTH, 2);
     vk_dropdown_set_border_style(start_dir_dropdown, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(start_dir_dropdown),
         COLOR_BLACK, COLOR_CYAN);
@@ -2063,11 +2069,9 @@ build_dialog(void)
     vk_box_set_widget(button_hbox, 6, VK_WIDGET(buttons[BTN_CANCEL]));
 
     /*
-        The VTerm Mode row is two columns: the mode dropdown (left) and
-        the scrollback label/spinbutton (right), each in a horizontal box
-        with an expanding filler between so the scrollback column sits
-        flush to the right edge.  Slots 3 and 4 of the vbox hold these
-        rows in place of the former full-width term label / dropdown.
+        Two paired rows share PAIR_LEFT / PAIR_RIGHT column widths so
+        VTerm Mode lines up with Visibility and Scrollback with Start
+        directory.  Expanding fillers keep the right column flush.
     */
     {
         vk_filler_t *label_spacer;
@@ -2828,7 +2832,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
     if(ry >= term_dd && ry <= term_dd + 2)
     {
         /* left column: the VTerm Mode dropdown */
-        if(rx < TERM_COL_WIDTH)
+        if(rx < PAIR_LEFT_COL_WIDTH)
         {
             model->focus_zone = FOCUS_TERMINAL;
             update_button_highlights();
@@ -2843,9 +2847,9 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         /* right column: the scrollback spinbutton.  translate the click
            into widget-local coords (the spinbutton sits flush right) and
            let it hit-test its own arrows / value field. */
-        if(rx >= INTERIOR_WIDTH - SCROLLBACK_COL_WIDTH)
+        if(rx >= INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH)
         {
-            int local_x = rx - (INTERIOR_WIDTH - SCROLLBACK_COL_WIDTH);
+            int local_x = rx - (INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH);
             int local_y = ry - term_dd;
 
             model->focus_zone = FOCUS_SCROLLBACK;
@@ -2862,7 +2866,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
     if(ry >= vis_dd && ry <= vis_dd + 2)
     {
         /* left column: Visibility */
-        if(rx < VIS_COL_WIDTH)
+        if(rx < PAIR_LEFT_COL_WIDTH)
         {
             model->focus_zone = FOCUS_VISIBILITY;
             update_button_highlights();
@@ -2875,7 +2879,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         }
 
         /* right column: Start directory (flush right) */
-        if(rx >= INTERIOR_WIDTH - START_DIR_COL_WIDTH)
+        if(rx >= INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH)
         {
             model->focus_zone = FOCUS_START_DIR;
             update_button_highlights();
