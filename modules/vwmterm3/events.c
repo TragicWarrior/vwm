@@ -144,19 +144,48 @@ vwmterm_xclip_copy(const char *buf, size_t len)
     pclose(fp);
 }
 
-static void
-vwmterm_highlight_cell(WINDOW *win, int row, int col)
-{
-    cchar_t     cc;
-    wchar_t     wch[CCHARW_MAX];
-    attr_t      attrs;
-    short       pair;
+/*
+    Toggle A_REVERSE on [cs, ce] of a rendered row without rewriting
+    glyphs.  The old getcchar/setcchar/mvwadd_wch path destroyed
+    double-width cells (emoji, CJK): the trail column is a blank
+    continuation that libvterm's painter skips, and rewriting it
+    orphaned the wide cchar and scrambled the rest of the line.  Box
+    drawing and other non-ASCII also survived attribute-only changes
+    more reliably than a full cchar round-trip.
 
-    if(mvwin_wch(win, row, col, &cc) == ERR) return;
-    getcchar(&cc, wch, &attrs, &pair, NULL);
-    attrs ^= A_REVERSE;
-    setcchar(&cc, wch, attrs, pair, NULL);
-    mvwadd_wch(win, row, col, &cc);
+    Wide glyphs: one mvwchgat covering both columns (same pattern as
+    libvterm's cursor paint), then skip the trail so we never touch it
+    as a standalone cell.
+*/
+static void
+vwmterm_highlight_span(WINDOW *win, int row, int cs, int ce)
+{
+    int     c;
+
+    if(win == NULL || cs > ce) return;
+
+    for(c = cs; c <= ce; )
+    {
+        cchar_t     cc;
+        wchar_t     wch[CCHARW_MAX];
+        attr_t      attrs;
+        short       pair;
+        int         n = 1;
+
+        if(mvwin_wch(win, row, c, &cc) == ERR)
+        {
+            c++;
+            continue;
+        }
+
+        getcchar(&cc, wch, &attrs, &pair, NULL);
+
+        if(wch[0] > 0x7F && wcwidth(wch[0]) == 2)
+            n = 2;
+
+        mvwchgat(win, row, c, n, attrs ^ A_REVERSE, pair, NULL);
+        c += n;
+    }
 }
 
 /*
@@ -220,8 +249,7 @@ vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
         int cs = (r == r1) ? c1 : 0;
         int ce = (r == r2) ? c2 : width - 1;
 
-        for(int c = cs; c <= ce; c++)
-            vwmterm_highlight_cell(win, r, c);
+        vwmterm_highlight_span(win, r, cs, ce);
     }
 
     vwmterm_window_update(vwmterm_data);
@@ -285,6 +313,20 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
         for(int c = col_start; c <= col_end; c++)
         {
             wchar_t wch = cells[r][c].wch[0];
+
+            /*
+                libvterm stores a blank continuation in the cell after a
+                double-width glyph.  Skip it so copy doesn't inject a
+                spurious space (and so a selection that only covers the
+                trail half doesn't invent a character).
+            */
+            if(c > 0
+                && cells[r][c - 1].wch[0] > 0x7F
+                && wcwidth(cells[r][c - 1].wch[0]) == 2)
+            {
+                continue;
+            }
+
             if(wch == 0) wch = L' ';
 
             len = wctomb(mb, wch);
@@ -636,8 +678,12 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
         {
             if(clipboard != NULL && clipboard_len > 0)
             {
+                /* clipboard is a UTF-8 byte stream; cast through
+                   unsigned char so bytes >= 0x80 are not sign-extended
+                   into multi-byte keycodes (D3). */
                 for(size_t i = 0; i < clipboard_len; i++)
-                    vterm_write_pipe(vterm, (uint32_t)clipboard[i]);
+                    vterm_write_pipe(vterm,
+                        (uint32_t)(unsigned char)clipboard[i]);
             }
             return KMIO_HANDLED;
         }
@@ -769,8 +815,10 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
     {
         if(clipboard != NULL && clipboard_len > 0)
         {
+            /* see BUTTON2 paste: unsigned char avoids sign-extend (D3) */
             for(size_t i = 0; i < clipboard_len; i++)
-                vterm_write_pipe(vterm, (uint32_t)clipboard[i]);
+                vterm_write_pipe(vterm,
+                    (uint32_t)(unsigned char)clipboard[i]);
         }
         return KMIO_HANDLED;
     }
