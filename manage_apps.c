@@ -567,6 +567,46 @@ update_dropdown_highlights(void)
 
 /* ── dropdown popup helpers ────────────────────────────────── */
 
+/*
+    Map a dialog dropdown to its interior (client) origin.  Direct children
+    of main_vbox store y relative to the vbox (which fills the client), so
+    get_position is fine.  Nested two-column controls only know their offset
+    inside the hbox row -- resolve those from the same layout math the mouse
+    hit-test uses so the popup anchors next to the control.
+*/
+static void
+dropdown_interior_origin(vk_dropdown_t *dropdown, int *ix, int *iy)
+{
+    int frame_h = INTERIOR_HEIGHT - 15;
+    int cat_dd  = frame_h + 1;
+    int term_dd = cat_dd + 4;
+    int vis_dd  = term_dd + 4;
+
+    if(dropdown == term_dropdown)
+    {
+        *ix = 0;
+        *iy = term_dd;
+        return;
+    }
+
+    if(dropdown == vis_dropdown)
+    {
+        *ix = 0;
+        *iy = vis_dd;
+        return;
+    }
+
+    if(dropdown == start_dir_dropdown)
+    {
+        *ix = INTERIOR_WIDTH - START_DIR_COL_WIDTH;
+        *iy = vis_dd;
+        return;
+    }
+
+    /* category (and any future direct vbox child) */
+    vk_widget_get_position(VK_WIDGET(dropdown), ix, iy);
+}
+
 static void
 dropdown_popup_attach(vk_dropdown_t *dropdown)
 {
@@ -600,10 +640,11 @@ dropdown_popup_attach(vk_dropdown_t *dropdown)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     vk_widget_get_position(VK_WIDGET(dialog_window), &dlg_x, &dlg_y);
-    vk_widget_get_position(VK_WIDGET(dropdown), &dd_x, &dd_y);
+    dropdown_interior_origin(dropdown, &dd_x, &dd_y);
     vk_widget_get_metrics(VK_WIDGET(dropdown), &dd_w, &dd_h);
     vk_widget_get_metrics(popup, &pp_w, &pp_h);
 
+    /* dialog border is 1 cell; client origin is (dlg_x+1, dlg_y+1) */
     popup_x = dlg_x + 1 + dd_x;
     popup_y = dlg_y + 1 + dd_y + dd_h;
 
