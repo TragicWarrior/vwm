@@ -40,6 +40,11 @@
     maximum pipe chunks consumed per scheduler dispatch.  higher values
     give each vterm more throughput per turn at the cost of interleaving
     with other tasks; 4 is the sweet spot for typical console apps.
+
+    each chunk only parses (vterm_read_pipe updates the cell grid).  the
+    offscreen WINDOW is painted once after the drain, not per chunk --
+    intermediate paints would be overwritten before the user-visible
+    composite (E2).
 */
 #define VWMTERM_DRAIN_CHUNKS    4
 
@@ -50,6 +55,7 @@ pt_t vwmterm_thd(void * const env)
     vterm_t             *vterm;
     ssize_t             bytes_read = 0;
     int                 i;
+    int                 got_data;
 
     vwm_sched_ctx_t     *ctx_vwmterm;
     vwmterm_data_t      *vwmterm_data;
@@ -73,11 +79,29 @@ pt_t vwmterm_thd(void * const env)
         }
 
         bytes_read = 0;
+        got_data = 0;
         for(i = 0; i < VWMTERM_DRAIN_CHUNKS; i++)
         {
             bytes_read = vterm_read_pipe(vterm, 10);
             if(bytes_read <= 0) break;
 
+            got_data = 1;
+            vwmterm_data->redraw_pending = 1;
+        }
+
+        if(bytes_read == -1)
+        {
+            vwmterm_data->state = VWMTERM_STATE_EPIPE;
+            break;
+        }
+
+        /*
+            one cell->WINDOW paint for every chunk parsed this turn.
+            dirty bits accumulate across the drain; a single
+            vterm_wnd_update (or scrollback full-render) covers them.
+        */
+        if(got_data)
+        {
             if(vwmterm_data->scroll_offset > 0)
             {
                 vterm_wnd_scrollback(vterm, vwmterm_data->scroll_offset,
@@ -87,17 +111,16 @@ pt_t vwmterm_thd(void * const env)
             {
                 vterm_wnd_update(vterm, -1, 0, 0);
             }
-            vwmterm_data->redraw_pending = 1;
         }
 
         if(bytes_read == 0)
         {
             if(vwmterm_data->redraw_pending)
             {
-                /* render this tile's own window now (cheap), but defer
-                   the screen composite: mark it dirty and let the
-                   scheduler's per-step hook coalesce every busy tile
-                   into a single vk_screen_refresh (item 5). */
+                /* push this tile's window (cheap), but defer the screen
+                   composite: mark it dirty and let the scheduler's
+                   per-step hook coalesce every busy tile into a single
+                   vk_screen_refresh (item 5). */
                 vwmterm_window_update(vwmterm_data);
                 vwm->screen_dirty = 1;
                 vwmterm_data->redraw_pending = 0;
@@ -108,12 +131,10 @@ pt_t vwmterm_thd(void * const env)
             continue;
         }
 
-        if(bytes_read == -1)
-        {
-            vwmterm_data->state = VWMTERM_STATE_EPIPE;
-            break;
-        }
-
+        /* saturated drain (all VWMTERM_DRAIN_CHUNKS produced data):
+           WINDOW is current from the paint above; leave redraw_pending
+           set so a later dry turn still does the window_update +
+           screen_dirty hand-off. */
         ctx_vwmterm->did_work = 1;
         pt_yield(ctx_vwmterm);
     }
