@@ -127,7 +127,9 @@ vwm_saved_popup_show(const char *msg)
     vk_box_t    *client;
     int         scr_w, scr_h;
     int         popup_w = 30;
-    int         popup_h = 7;
+    /* client height is popup_h - 5; need >= 3 rows for top pad /
+       message / bottom pad so the text is not flush to the title bar */
+    int         popup_h = 8;
     int         pos_x, pos_y;
     vk_popup_t  *popup;
 
@@ -150,16 +152,34 @@ vwm_saved_popup_show(const char *msg)
     }
 
     client = vk_box_create(popup_w - 2, popup_h - 5,
-        VK_BOX_VERTICAL, 1);
+        VK_BOX_VERTICAL, 3);
     vk_box_set_homogeneous(client, true);
     vk_widget_set_colors(VK_WIDGET(client), COLOR_WHITE, COLOR_BLUE);
+
+    /*
+        top filler / message / bottom filler -- same pattern as
+        vwm_error_popup_show / vwm_warning_popup_show so the message
+        sits a row below the title border (and a row above the button
+        bar) instead of flush against the top.
+    */
+    {
+        vk_filler_t *top_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_WHITE, COLOR_BLUE);
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+    }
 
     label = vk_label_create(popup_w - 2);
     vk_label_set_justify(label, VK_JUSTIFY_CENTER);
     vk_label_set_text(label, msg);
     vk_widget_set_colors(VK_WIDGET(label), COLOR_WHITE, COLOR_BLUE);
     vk_label_update(label);
-    vk_box_set_widget(client, 0, VK_WIDGET(label));
+    vk_box_set_widget(client, 1, VK_WIDGET(label));
+
+    {
+        vk_filler_t *bot_pad = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_WHITE, COLOR_BLUE);
+        vk_box_set_widget(client, 2, VK_WIDGET(bot_pad));
+    }
 
     vk_popup_set_client(popup, VK_WIDGET(client));
 
