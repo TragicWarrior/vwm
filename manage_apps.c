@@ -644,12 +644,16 @@ dropdown_popup_attach(vk_dropdown_t *dropdown)
     vk_widget_get_metrics(VK_WIDGET(dropdown), &dd_w, &dd_h);
     vk_widget_get_metrics(popup, &pp_w, &pp_h);
 
-    /* dialog border is 1 cell; client origin is (dlg_x+1, dlg_y+1) */
+    /* dialog border is 1 cell; client origin is (dlg_x+1, dlg_y+1).
+       Place the popup so its top edge sits on the control's bottom
+       border (dd_h - 1) -- a one-row overlap removes the visual gap
+       and reads as one cohesive widget.  The flip-above path shares
+       the control's top border the same way. */
     popup_x = dlg_x + 1 + dd_x;
-    popup_y = dlg_y + 1 + dd_y + dd_h;
+    popup_y = dlg_y + 1 + dd_y + dd_h - 1;
 
     if(popup_y + pp_h > scr_h)
-        popup_y = dlg_y + 1 + dd_y - pp_h;
+        popup_y = dlg_y + 1 + dd_y - pp_h + 1;
 
     if(popup_y < 0) popup_y = 0;
     if(popup_x + pp_w > scr_w) popup_x = scr_w - pp_w;
