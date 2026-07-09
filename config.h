@@ -7,7 +7,8 @@
     JSON configuration helpers.  The config lives at
     $HOME/.config/vwm/config.json with three top-level objects:
     "hotkeys" (flat name -> hex keycode string), "programs" (array of
-    {requires,title,bin,type,[params],[hidden]}), and "settings".
+    {requires,title,bin,type,[params],[hidden],[scrollback],[start_home]}),
+    and "settings".
 */
 
 /* parse a config file into a cJSON tree (caller cJSON_Delete()s it).

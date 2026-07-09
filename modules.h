@@ -59,6 +59,11 @@ struct _vwm_module_s
        inherit the vterm default (4x the terminal height); a positive
        value is applied via vterm_set_history_size at launch. */
     int                     scrollback;
+
+    /* Per-app start directory (Manage Apps).  false (default) leaves the
+       child in the host process cwd; true sets VTERM_FLAG_START_HOME so
+       the child chdirs to $HOME before exec. */
+    bool                    start_home;
 };
 
 // this is the standard callback which clones a module

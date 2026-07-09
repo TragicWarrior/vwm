@@ -29,11 +29,20 @@
 #define INTERIOR_WIDTH      (DIALOG_WIDTH - 2)
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
-/* the VTerm Mode row is split into two columns: the mode dropdown on the
-   left and the scrollback spinbutton on the right (flush to the right
-   edge, an expanding gap between them) */
-#define TERM_COL_WIDTH          36
-#define SCROLLBACK_COL_WIDTH    26
+/*
+    Shared two-column geometry for the paired control rows so the four
+    controls form a regular grid:
+
+        left column          right column
+        -----------------    --------------------
+        VTerm Mode           Scrollback (lines)
+        Visibility           Start directory
+
+    An expanding spacer between the columns keeps the right edge flush;
+    both rows use the same widths so labels and widgets align vertically.
+*/
+#define PAIR_LEFT_COL_WIDTH     32
+#define PAIR_RIGHT_COL_WIDTH    32
 
 /* scrollback stepping: 0 means "vterm default".  The first step up off 0
    jumps to SCROLLBACK_FLOOR and a step down off it returns to 0; in
@@ -53,6 +62,7 @@ enum
     FOCUS_TERMINAL,
     FOCUS_SCROLLBACK,
     FOCUS_VISIBILITY,
+    FOCUS_START_DIR,
     FOCUS_BTN_ADD,
     FOCUS_BTN_REMOVE,
     FOCUS_BTN_EDIT,
@@ -79,6 +89,7 @@ typedef struct
     int     type;
     bool    hidden;
     int     scrollback;     /* vterm history lines; 0 = vterm default */
+    bool    start_home;     /* true -> VTERM_FLAG_START_HOME at launch */
 } manage_app_entry_t;
 
 typedef struct
@@ -136,6 +147,8 @@ static vk_box_t             *main_vbox = NULL;
 static vk_box_t             *button_hbox = NULL;
 static vk_box_t             *term_label_row = NULL;
 static vk_box_t             *term_widget_row = NULL;
+static vk_box_t             *vis_label_row = NULL;
+static vk_box_t             *vis_widget_row = NULL;
 static vk_listbox_t         *app_listbox = NULL;
 static vk_label_t           *cat_label_widget = NULL;
 static vk_dropdown_t        *cat_dropdown = NULL;
@@ -147,6 +160,8 @@ static int                   scrollback_prev = 0;  /* last value, for the
                                                       0 <-> floor jump */
 static vk_label_t           *vis_label_widget = NULL;
 static vk_dropdown_t        *vis_dropdown = NULL;
+static vk_label_t           *start_dir_label_widget = NULL;
+static vk_dropdown_t        *start_dir_dropdown = NULL;
 static vk_button_t          *buttons[NUM_BUTTONS];
 
 #define EDIT_WIDTH          50
@@ -291,6 +306,7 @@ model_load_from_config(const char *path)
 
         e->hidden = (vwm_json_bool(entry, "hidden", 0) != 0);
         e->scrollback = vwm_json_int(entry, "scrollback", 0);
+        e->start_home = (vwm_json_bool(entry, "start_home", 0) != 0);
 
         model->count++;
     }
@@ -337,6 +353,9 @@ model_save_to_config(const char *path)
         if(e->scrollback > 0)
             cJSON_AddNumberToObject(entry, "scrollback", e->scrollback);
 
+        if(e->start_home)
+            cJSON_AddBoolToObject(entry, "start_home", 1);
+
         cJSON_AddItemToArray(programs, entry);
     }
 
@@ -363,6 +382,9 @@ populate_dropdowns_from_entry(int idx)
 
     vk_dropdown_set_curr(vis_dropdown, e->hidden ? 1 : 0);
     vk_dropdown_update(vis_dropdown);
+
+    vk_dropdown_set_curr(start_dir_dropdown, e->start_home ? 1 : 0);
+    vk_dropdown_update(start_dir_dropdown);
 
     vk_spinbutton_set_value(scrollback_spin, (double)e->scrollback);
     scrollback_prev = e->scrollback;   /* set_value doesn't fire on_change */
@@ -408,6 +430,17 @@ commit_dropdowns_to_entry(int idx)
     {
         e->hidden = (vis_sel == 1);
         changed = true;
+    }
+
+    {
+        int start_sel = vk_dropdown_get_curr(start_dir_dropdown);
+        bool want_home = (start_sel == 1);
+
+        if(e->start_home != want_home)
+        {
+            e->start_home = want_home;
+            changed = true;
+        }
     }
 
     {
@@ -481,8 +514,14 @@ update_button_highlights(void)
 static void
 update_dropdown_highlights(void)
 {
-    vk_dropdown_t *dropdowns[] = { cat_dropdown, term_dropdown, vis_dropdown };
-    int zones[] = { FOCUS_CATEGORY, FOCUS_TERMINAL, FOCUS_VISIBILITY };
+    vk_dropdown_t *dropdowns[] =
+    {
+        cat_dropdown, term_dropdown, vis_dropdown, start_dir_dropdown
+    };
+    int zones[] =
+    {
+        FOCUS_CATEGORY, FOCUS_TERMINAL, FOCUS_VISIBILITY, FOCUS_START_DIR
+    };
     int i;
 
     if(model->focus_zone == FOCUS_APP_LIST)
@@ -503,7 +542,7 @@ update_dropdown_highlights(void)
 
     vk_frame_update(listbox_frame);
 
-    for(i = 0; i < 3; i++)
+    for(i = 0; i < 4; i++)
     {
         if(model->focus_zone == zones[i])
         {
@@ -533,6 +572,46 @@ update_dropdown_highlights(void)
 }
 
 /* ── dropdown popup helpers ────────────────────────────────── */
+
+/*
+    Map a dialog dropdown to its interior (client) origin.  Direct children
+    of main_vbox store y relative to the vbox (which fills the client), so
+    get_position is fine.  Nested two-column controls only know their offset
+    inside the hbox row -- resolve those from the same layout math the mouse
+    hit-test uses so the popup anchors next to the control.
+*/
+static void
+dropdown_interior_origin(vk_dropdown_t *dropdown, int *ix, int *iy)
+{
+    int frame_h = INTERIOR_HEIGHT - 15;
+    int cat_dd  = frame_h + 1;
+    int term_dd = cat_dd + 4;
+    int vis_dd  = term_dd + 4;
+
+    if(dropdown == term_dropdown)
+    {
+        *ix = 0;
+        *iy = term_dd;
+        return;
+    }
+
+    if(dropdown == vis_dropdown)
+    {
+        *ix = 0;
+        *iy = vis_dd;
+        return;
+    }
+
+    if(dropdown == start_dir_dropdown)
+    {
+        *ix = INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH;
+        *iy = vis_dd;
+        return;
+    }
+
+    /* category (and any future direct vbox child) */
+    vk_widget_get_position(VK_WIDGET(dropdown), ix, iy);
+}
 
 static void
 dropdown_popup_attach(vk_dropdown_t *dropdown)
@@ -567,15 +646,20 @@ dropdown_popup_attach(vk_dropdown_t *dropdown)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
 
     vk_widget_get_position(VK_WIDGET(dialog_window), &dlg_x, &dlg_y);
-    vk_widget_get_position(VK_WIDGET(dropdown), &dd_x, &dd_y);
+    dropdown_interior_origin(dropdown, &dd_x, &dd_y);
     vk_widget_get_metrics(VK_WIDGET(dropdown), &dd_w, &dd_h);
     vk_widget_get_metrics(popup, &pp_w, &pp_h);
 
+    /* dialog border is 1 cell; client origin is (dlg_x+1, dlg_y+1).
+       Place the popup so its top edge sits on the control's bottom
+       border (dd_h - 1) -- a one-row overlap removes the visual gap
+       and reads as one cohesive widget.  The flip-above path shares
+       the control's top border the same way. */
     popup_x = dlg_x + 1 + dd_x;
-    popup_y = dlg_y + 1 + dd_y + dd_h;
+    popup_y = dlg_y + 1 + dd_y + dd_h - 1;
 
     if(popup_y + pp_h > scr_h)
-        popup_y = dlg_y + 1 + dd_y - pp_h;
+        popup_y = dlg_y + 1 + dd_y - pp_h + 1;
 
     if(popup_y < 0) popup_y = 0;
     if(popup_x + pp_w > scr_w) popup_x = scr_w - pp_w;
@@ -1698,6 +1782,10 @@ manage_apps_kmio(vk_object_t *object, int32_t keystroke)
             retval = handle_dropdown_keys(vis_dropdown, keystroke);
             break;
 
+        case FOCUS_START_DIR:
+            retval = handle_dropdown_keys(start_dir_dropdown, keystroke);
+            break;
+
         case FOCUS_BTN_ADD:
         case FOCUS_BTN_REMOVE:
         case FOCUS_BTN_EDIT:
@@ -1727,6 +1815,7 @@ refresh_dialog(void)
     vk_label_update(term_label_widget);
     vk_label_update(scrollback_label_widget);
     vk_label_update(vis_label_widget);
+    vk_label_update(start_dir_label_widget);
     update_button_highlights();
     vk_listbox_update(app_listbox);
     vk_scroller_update(listbox_scroller);
@@ -1734,11 +1823,14 @@ refresh_dialog(void)
     vk_dropdown_update(cat_dropdown);
     vk_dropdown_update(term_dropdown);
     vk_dropdown_update(vis_dropdown);
-    /* composite the two-column VTerm Mode row (its children were just
-       updated above) before the vbox composites it -- without this the
-       hbox canvases stay blank and the row paints solid black */
+    vk_dropdown_update(start_dir_dropdown);
+    /* composite the two-column rows (children were just updated above)
+       before the vbox composites them -- without this the hbox canvases
+       stay blank and the row paints solid black */
     vk_box_update(term_label_row);
     vk_box_update(term_widget_row);
+    vk_box_update(vis_label_row);
+    vk_box_update(vis_widget_row);
     vk_box_update(button_hbox);
     vk_box_update(main_vbox);
     vk_window_update(dialog_window);
@@ -1862,14 +1954,14 @@ build_dialog(void)
         }
     }
 
-    term_label = vk_label_create(TERM_COL_WIDTH);
+    term_label = vk_label_create(PAIR_LEFT_COL_WIDTH);
     vk_label_set_text(term_label, "  VTerm Mode");
     vk_label_set_justify(term_label, VK_JUSTIFY_LEFT);
     vk_widget_set_colors(VK_WIDGET(term_label), COLOR_BLACK, COLOR_CYAN);
     vk_label_update(term_label);
     term_label_widget = term_label;
 
-    term_dropdown = vk_dropdown_create(TERM_COL_WIDTH, 5);
+    term_dropdown = vk_dropdown_create(PAIR_LEFT_COL_WIDTH, 5);
     vk_dropdown_set_border_style(term_dropdown, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(term_dropdown), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_attrs(VK_WIDGET(term_dropdown), A_BOLD);
@@ -1883,14 +1975,14 @@ build_dialog(void)
     }
 
     /* right column of the VTerm Mode row: the scrollback spinbutton */
-    scrollback_label_widget = vk_label_create(SCROLLBACK_COL_WIDTH);
+    scrollback_label_widget = vk_label_create(PAIR_RIGHT_COL_WIDTH);
     vk_label_set_text(scrollback_label_widget, "  Scrollback (lines)");
     vk_label_set_justify(scrollback_label_widget, VK_JUSTIFY_LEFT);
     vk_widget_set_colors(VK_WIDGET(scrollback_label_widget),
         COLOR_BLACK, COLOR_CYAN);
     vk_label_update(scrollback_label_widget);
 
-    scrollback_spin = vk_spinbutton_create(SCROLLBACK_COL_WIDTH);
+    scrollback_spin = vk_spinbutton_create(PAIR_RIGHT_COL_WIDTH);
     vk_spinbutton_set_border_style(scrollback_spin, VK_BORDER_SINGLE);
     vk_spinbutton_set_field_relief(scrollback_spin, VK_RELIEF_SUNKEN);
     vk_spinbutton_set_button_relief(scrollback_spin, 0);   /* flat: a shared
@@ -1906,20 +1998,37 @@ build_dialog(void)
     vk_widget_set_attrs(VK_WIDGET(scrollback_spin), A_BOLD);
     scrollback_prev = 0;   /* matches the freshly-created value (0) */
 
-    vis_label = vk_label_create(INTERIOR_WIDTH);
+    vis_label = vk_label_create(PAIR_LEFT_COL_WIDTH);
     vk_label_set_text(vis_label, "  Visibility");
     vk_label_set_justify(vis_label, VK_JUSTIFY_LEFT);
     vk_widget_set_colors(VK_WIDGET(vis_label), COLOR_BLACK, COLOR_CYAN);
     vk_label_update(vis_label);
     vis_label_widget = vis_label;
 
-    vis_dropdown = vk_dropdown_create(INTERIOR_WIDTH, 2);
+    vis_dropdown = vk_dropdown_create(PAIR_LEFT_COL_WIDTH, 2);
     vk_dropdown_set_border_style(vis_dropdown, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(vis_dropdown), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_attrs(VK_WIDGET(vis_dropdown), A_BOLD);
     vk_dropdown_set_highlight(vis_dropdown, COLOR_CYAN, COLOR_BLACK);
     vk_dropdown_add_item(vis_dropdown, "Enabled", NULL, NULL);
     vk_dropdown_add_item(vis_dropdown, "Disabled", NULL, NULL);
+
+    /* right column of the Visibility row: start directory */
+    start_dir_label_widget = vk_label_create(PAIR_RIGHT_COL_WIDTH);
+    vk_label_set_text(start_dir_label_widget, "  Start directory");
+    vk_label_set_justify(start_dir_label_widget, VK_JUSTIFY_LEFT);
+    vk_widget_set_colors(VK_WIDGET(start_dir_label_widget),
+        COLOR_BLACK, COLOR_CYAN);
+    vk_label_update(start_dir_label_widget);
+
+    start_dir_dropdown = vk_dropdown_create(PAIR_RIGHT_COL_WIDTH, 2);
+    vk_dropdown_set_border_style(start_dir_dropdown, VK_BORDER_SINGLE);
+    vk_widget_set_colors(VK_WIDGET(start_dir_dropdown),
+        COLOR_BLACK, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(start_dir_dropdown), A_BOLD);
+    vk_dropdown_set_highlight(start_dir_dropdown, COLOR_CYAN, COLOR_BLACK);
+    vk_dropdown_add_item(start_dir_dropdown, "Working directory", NULL, NULL);
+    vk_dropdown_add_item(start_dir_dropdown, "Home directory", NULL, NULL);
 
     /* buttons: Add Remove Edit | spacer | Save Load Cancel */
     button_hbox = vk_box_create(INTERIOR_WIDTH, 3,
@@ -1960,11 +2069,9 @@ build_dialog(void)
     vk_box_set_widget(button_hbox, 6, VK_WIDGET(buttons[BTN_CANCEL]));
 
     /*
-        The VTerm Mode row is two columns: the mode dropdown (left) and
-        the scrollback label/spinbutton (right), each in a horizontal box
-        with an expanding filler between so the scrollback column sits
-        flush to the right edge.  Slots 3 and 4 of the vbox hold these
-        rows in place of the former full-width term label / dropdown.
+        Two paired rows share PAIR_LEFT / PAIR_RIGHT column widths so
+        VTerm Mode lines up with Visibility and Scrollback with Start
+        directory.  Expanding fillers keep the right column flush.
     */
     {
         vk_filler_t *label_spacer;
@@ -2000,13 +2107,51 @@ build_dialog(void)
         vk_box_set_widget(term_widget_row, 1, VK_WIDGET(widget_spacer));
         vk_box_set_widget(term_widget_row, 2, VK_WIDGET(scrollback_spin));
 
+        /* Visibility + Start directory: same two-column layout */
+        {
+            vk_filler_t *vis_label_spacer;
+            vk_filler_t *vis_widget_spacer;
+
+            vis_label_row = vk_box_create(INTERIOR_WIDTH, 1,
+                VK_BOX_HORIZONTAL, 3);
+            vk_box_set_homogeneous(vis_label_row, false);
+            vk_widget_set_colors(VK_WIDGET(vis_label_row),
+                COLOR_BLACK, COLOR_CYAN);
+
+            vis_label_spacer = vk_filler_create();
+            vk_widget_set_colors(VK_WIDGET(vis_label_spacer),
+                COLOR_BLACK, COLOR_CYAN);
+            vk_widget_set_expand(VK_WIDGET(vis_label_spacer));
+
+            vk_box_set_widget(vis_label_row, 0, VK_WIDGET(vis_label));
+            vk_box_set_widget(vis_label_row, 1, VK_WIDGET(vis_label_spacer));
+            vk_box_set_widget(vis_label_row, 2,
+                VK_WIDGET(start_dir_label_widget));
+
+            vis_widget_row = vk_box_create(INTERIOR_WIDTH, 3,
+                VK_BOX_HORIZONTAL, 3);
+            vk_box_set_homogeneous(vis_widget_row, false);
+            vk_widget_set_colors(VK_WIDGET(vis_widget_row),
+                COLOR_BLACK, COLOR_CYAN);
+
+            vis_widget_spacer = vk_filler_create();
+            vk_widget_set_colors(VK_WIDGET(vis_widget_spacer),
+                COLOR_BLACK, COLOR_CYAN);
+            vk_widget_set_expand(VK_WIDGET(vis_widget_spacer));
+
+            vk_box_set_widget(vis_widget_row, 0, VK_WIDGET(vis_dropdown));
+            vk_box_set_widget(vis_widget_row, 1, VK_WIDGET(vis_widget_spacer));
+            vk_box_set_widget(vis_widget_row, 2,
+                VK_WIDGET(start_dir_dropdown));
+        }
+
         vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame));
         vk_box_set_widget(main_vbox, 1, VK_WIDGET(cat_label));
         vk_box_set_widget(main_vbox, 2, VK_WIDGET(cat_dropdown));
         vk_box_set_widget(main_vbox, 3, VK_WIDGET(term_label_row));
         vk_box_set_widget(main_vbox, 4, VK_WIDGET(term_widget_row));
-        vk_box_set_widget(main_vbox, 5, VK_WIDGET(vis_label));
-        vk_box_set_widget(main_vbox, 6, VK_WIDGET(vis_dropdown));
+        vk_box_set_widget(main_vbox, 5, VK_WIDGET(vis_label_row));
+        vk_box_set_widget(main_vbox, 6, VK_WIDGET(vis_widget_row));
         vk_box_set_widget(main_vbox, 7, VK_WIDGET(button_hbox));
     }
 
@@ -2114,6 +2259,8 @@ vwm_manage_apps_close(void)
     button_hbox = NULL;
     term_label_row = NULL;
     term_widget_row = NULL;
+    vis_label_row = NULL;
+    vis_widget_row = NULL;
     listbox_frame = NULL;
     listbox_scroller = NULL;
     app_listbox = NULL;
@@ -2125,6 +2272,8 @@ vwm_manage_apps_close(void)
     scrollback_spin = NULL;
     vis_label_widget = NULL;
     vis_dropdown = NULL;
+    start_dir_label_widget = NULL;
+    start_dir_dropdown = NULL;
     memset(buttons, 0, sizeof(buttons));
 
     free(model);
@@ -2683,7 +2832,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
     if(ry >= term_dd && ry <= term_dd + 2)
     {
         /* left column: the VTerm Mode dropdown */
-        if(rx < TERM_COL_WIDTH)
+        if(rx < PAIR_LEFT_COL_WIDTH)
         {
             model->focus_zone = FOCUS_TERMINAL;
             update_button_highlights();
@@ -2698,9 +2847,9 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         /* right column: the scrollback spinbutton.  translate the click
            into widget-local coords (the spinbutton sits flush right) and
            let it hit-test its own arrows / value field. */
-        if(rx >= INTERIOR_WIDTH - SCROLLBACK_COL_WIDTH)
+        if(rx >= INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH)
         {
-            int local_x = rx - (INTERIOR_WIDTH - SCROLLBACK_COL_WIDTH);
+            int local_x = rx - (INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH);
             int local_y = ry - term_dd;
 
             model->focus_zone = FOCUS_SCROLLBACK;
@@ -2716,13 +2865,32 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
 
     if(ry >= vis_dd && ry <= vis_dd + 2)
     {
-        model->focus_zone = FOCUS_VISIBILITY;
-        update_button_highlights();
+        /* left column: Visibility */
+        if(rx < PAIR_LEFT_COL_WIDTH)
+        {
+            model->focus_zone = FOCUS_VISIBILITY;
+            update_button_highlights();
 
-        vk_dropdown_set_expanded(vis_dropdown, true);
-        dropdown_popup_attach(vis_dropdown);
+            vk_dropdown_set_expanded(vis_dropdown, true);
+            dropdown_popup_attach(vis_dropdown);
 
-        refresh_dialog();
+            refresh_dialog();
+            return 0;
+        }
+
+        /* right column: Start directory (flush right) */
+        if(rx >= INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH)
+        {
+            model->focus_zone = FOCUS_START_DIR;
+            update_button_highlights();
+
+            vk_dropdown_set_expanded(start_dir_dropdown, true);
+            dropdown_popup_attach(start_dir_dropdown);
+
+            refresh_dialog();
+            return 0;
+        }
+
         return 0;
     }
 

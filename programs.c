@@ -96,6 +96,7 @@ vwm_programs_load(vwm_t *vwm)
         module = vwm_module_clone(module);
         module->fd_argv = NULL;
         module->scrollback = vwm_json_int(entry, "scrollback", 0);
+        module->start_home = vwm_json_bool(entry, "start_home", 0) != 0;
         vwm_module_set_title(module, (char *)title);
         vwm_module_set_type(module, value);
 

@@ -295,9 +295,17 @@ vwmterm_main(vwm_module_t *mod)
        enables SGR tracking with raw escapes + mousemask(0) so it can parse
        reports itself).  Without this, libvterm's mouse driver sees
        has_mouse()==FALSE and seizes mousemask(ALL) when a child app (e.g.
-       mc) enables mouse, re-cooking events and breaking vk_kmio's parser. */
-    vterm_init(vterm, width, height,
-        vwmterm_mod->flags | VTERM_FLAG_EXTMOUSE);
+       mc) enables mouse, re-cooking events and breaking vk_kmio's parser.
+       VTERM_FLAG_START_HOME (per-app, Manage Apps) chdirs the child into
+       $HOME before exec instead of inheriting the host cwd. */
+    {
+        uint32_t flags = vwmterm_mod->flags | VTERM_FLAG_EXTMOUSE;
+
+        if(mod->start_home)
+            flags |= VTERM_FLAG_START_HOME;
+
+        vterm_init(vterm, width, height, flags);
+    }
     vterm_set_pair_selector(vterm, vwmterm_pair_selector);
     vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
 
