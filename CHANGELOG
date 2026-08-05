@@ -1,3 +1,9 @@
+Version 5.0
+
+*  [Bryan Christ] Menubar dropdowns now scroll with the mouse wheel (Apps, VWM,
+   and Minimized menus).  vwm_dropdown_mouse() previously handled BUTTON1 hover/click
+   but never routed BUTTON4/5 to vk_listbox_set_prev/_next.
+
 Version 4.9.7
 
 *  [Bryan Christ] Manage Apps can set a per-app default terminal size

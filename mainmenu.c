@@ -562,6 +562,19 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
     listbox = VK_LISTBOX(vk_window_get_child(menu));
     row = (mouse_event->y - beg_y - 1) + vk_listbox_get_scroll_pos(listbox);
 
+    /* Wheel scroll */
+    if(bs & (BUTTON4_PRESSED | BUTTON5_PRESSED))
+    {
+        if(bs & BUTTON4_PRESSED)  /* scroll up */
+            vk_listbox_set_prev(listbox);
+        else                       /* scroll down */
+            vk_listbox_set_next(listbox);
+
+        vk_listbox_update(listbox);
+        vk_window_update(menu);
+        return 0;
+    }
+
     if((bs & REPORT_MOUSE_POSITION) || (bs & BUTTON1_PRESSED))
     {
         if(bs & BUTTON1_PRESSED) g_dropdown_press_armed = true;
