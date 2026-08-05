@@ -1,3 +1,14 @@
+2026-08-05
+
+Manage Apps can set a default terminal size per app.  The Category row is now
+three columns -- Category, Width, and Height -- with spinbuttons for the
+character-cell size (default 80x25).  Values are stored as "width" and "height"
+on each programs entry and used when a non-fullscreen terminal launches; if the
+preferred size would not fit the host screen, the window is clamped down.
+
+Building this release needs libvterm 10.7+ and libviper 6.0.0+.
+
+
 2026-07-07
 
 Resizing the terminal while the screen saver is up now works.  If you lock the

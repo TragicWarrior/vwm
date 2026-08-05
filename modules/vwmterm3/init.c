@@ -270,18 +270,19 @@ vwmterm_main(vwm_module_t *mod)
 
     if(vwmterm_mod->fullscreen == FALSE)
     {
-        if(scr_height > 30 && scr_width > 84)
-        {
-            height = 25;
-            width = 80;
-        }
-        else
-        {
-            width = (int)((scr_width + 1) * 0.85);
-            height = (int)((scr_height + 1) * 0.65);
-		    if(width > 80) width = 80;
-		    if(height > 25) height = 25;
-        }
+        /* Per-app default size from Manage Apps (cells); fall back to
+           classic 80x25 when unset or non-positive.  Frame chrome is
+           width+3 cols (border + scrollbar) by height+2 rows (border),
+           so clamp so the window still fits the host screen. */
+        width = mod->term_width > 0 ? mod->term_width : 80;
+        height = mod->term_height > 0 ? mod->term_height : 25;
+
+        if(width + 3 > scr_width)
+            width = scr_width - 3;
+        if(height + 2 > scr_height)
+            height = scr_height - 2;
+        if(width < 1) width = 1;
+        if(height < 1) height = 1;
     }
     else
     {
