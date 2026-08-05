@@ -23,7 +23,9 @@ FEATURES
       (xclip / host / both), and an optional bottom-left host name with a
       choice of size (basic, or a large Terminus font), fill, and colors.
    -  Manage Apps Menu: add, edit, or hide launcher entries that appear under
-      the Apps dropdown; Load Config imports a JSON profile.
+      the Apps dropdown; each entry can set its own default terminal size
+      (character-cell width × height; default 80×25). Load Config imports a
+      JSON profile.
    -  Manage Hotkeys: rebind built-in shortcuts and persist them.
    -  Manage Desktop / Manage Windows: rearrange and move windows across
       desktops.

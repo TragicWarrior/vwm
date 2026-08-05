@@ -64,6 +64,12 @@ struct _vwm_module_s
        child in the host process cwd; true sets VTERM_FLAG_START_HOME so
        the child chdirs to $HOME before exec. */
     bool                    start_home;
+
+    /* Per-app default terminal size in cells (Manage Apps).
+       Applied at vwmterm launch for non-fullscreen windows; frame
+       needs width+3 cols × height+2 rows.  Clamped so window fits screen. */
+    int                     term_width;   /* default 80 */
+    int                     term_height;  /* default 25 */
 };
 
 // this is the standard callback which clones a module

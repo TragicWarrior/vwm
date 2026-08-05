@@ -30,19 +30,21 @@
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
 /*
-    Shared two-column geometry for the paired control rows so the four
-    controls form a regular grid:
+    Shared column geometry for the control rows.  An expanding filler keeps
+    the right band flush; left and right column widths match so labels and
+    widgets align vertically across rows:
 
-        left column          right column
+        left (32)            right (32)
         -----------------    --------------------
+        Category             Width (16) | Height (16)
         VTerm Mode           Scrollback (lines)
         Visibility           Start directory
-
-    An expanding spacer between the columns keeps the right edge flush;
-    both rows use the same widths so labels and widgets align vertically.
 */
 #define PAIR_LEFT_COL_WIDTH     32
 #define PAIR_RIGHT_COL_WIDTH    32
+#define CAT_COL_WIDTH           PAIR_LEFT_COL_WIDTH      /* align with VTerm Mode / Visibility */
+#define WIDTH_COL_WIDTH         (PAIR_RIGHT_COL_WIDTH/2) /* half of right band */
+#define HEIGHT_COL_WIDTH        (PAIR_RIGHT_COL_WIDTH/2) /* half of right band */
 
 /* scrollback stepping: 0 means "vterm default".  The first step up off 0
    jumps to SCROLLBACK_FLOOR and a step down off it returns to 0; in
@@ -52,6 +54,14 @@
 #define SCROLLBACK_STEP         5
 #define SCROLLBACK_FLOOR        100
 
+/* terminal size spinning: width 20-500 cols, height 5-200 rows. */
+#define TERM_SIZE_SPIN_WIDTH_MIN    20
+#define TERM_SIZE_SPIN_WIDTH_MAX    500
+#define TERM_SIZE_SPIN_WIDTH_STEP   1
+#define TERM_SIZE_SPIN_HEIGHT_MIN   5
+#define TERM_SIZE_SPIN_HEIGHT_MAX   200
+#define TERM_SIZE_SPIN_HEIGHT_STEP  1
+
 #define MAX_ENTRIES         128
 #define MAX_PARAMS          256
 
@@ -59,6 +69,8 @@ enum
 {
     FOCUS_APP_LIST = 0,
     FOCUS_CATEGORY,
+    FOCUS_WIDTH,
+    FOCUS_HEIGHT,
     FOCUS_TERMINAL,
     FOCUS_SCROLLBACK,
     FOCUS_VISIBILITY,
@@ -90,6 +102,8 @@ typedef struct
     bool    hidden;
     int     scrollback;     /* vterm history lines; 0 = vterm default */
     bool    start_home;     /* true -> VTERM_FLAG_START_HOME at launch */
+    int     term_width;     /* terminal cols; default 80 (Manage Apps) */
+    int     term_height;    /* terminal rows; default 25 (Manage Apps) */
 } manage_app_entry_t;
 
 typedef struct
@@ -145,6 +159,8 @@ static vk_frame_t           *listbox_frame = NULL;
 static vk_scroller_t        *listbox_scroller = NULL;
 static vk_box_t             *main_vbox = NULL;
 static vk_box_t             *button_hbox = NULL;
+static vk_box_t             *cat_label_row = NULL;
+static vk_box_t             *cat_widget_row = NULL;
 static vk_box_t             *term_label_row = NULL;
 static vk_box_t             *term_widget_row = NULL;
 static vk_box_t             *vis_label_row = NULL;
@@ -158,6 +174,10 @@ static vk_label_t           *scrollback_label_widget = NULL;
 static vk_spinbutton_t      *scrollback_spin = NULL;
 static int                   scrollback_prev = 0;  /* last value, for the
                                                       0 <-> floor jump */
+static vk_label_t           *width_label_widget = NULL;
+static vk_spinbutton_t      *width_spin = NULL;
+static vk_label_t           *height_label_widget = NULL;
+static vk_spinbutton_t      *height_spin = NULL;
 static vk_label_t           *vis_label_widget = NULL;
 static vk_dropdown_t        *vis_dropdown = NULL;
 static vk_label_t           *start_dir_label_widget = NULL;
@@ -307,6 +327,8 @@ model_load_from_config(const char *path)
         e->hidden = (vwm_json_bool(entry, "hidden", 0) != 0);
         e->scrollback = vwm_json_int(entry, "scrollback", 0);
         e->start_home = (vwm_json_bool(entry, "start_home", 0) != 0);
+        e->term_width   = vwm_json_int(entry, "width", 80);
+        e->term_height  = vwm_json_int(entry, "height", 25);
 
         model->count++;
     }
@@ -356,6 +378,10 @@ model_save_to_config(const char *path)
         if(e->start_home)
             cJSON_AddBoolToObject(entry, "start_home", 1);
 
+        /* always write width and height so profiles are explicit */
+        cJSON_AddNumberToObject(entry, "width", e->term_width);
+        cJSON_AddNumberToObject(entry, "height", e->term_height);
+
         cJSON_AddItemToArray(programs, entry);
     }
 
@@ -389,6 +415,21 @@ populate_dropdowns_from_entry(int idx)
     vk_spinbutton_set_value(scrollback_spin, (double)e->scrollback);
     scrollback_prev = e->scrollback;   /* set_value doesn't fire on_change */
     vk_spinbutton_update(scrollback_spin);
+
+    {
+        int w = e->term_width > 0 ? e->term_width : 80;
+        int h = e->term_height > 0 ? e->term_height : 25;
+
+        if(w < TERM_SIZE_SPIN_WIDTH_MIN) w = TERM_SIZE_SPIN_WIDTH_MIN;
+        if(w > TERM_SIZE_SPIN_WIDTH_MAX) w = TERM_SIZE_SPIN_WIDTH_MAX;
+        if(h < TERM_SIZE_SPIN_HEIGHT_MIN) h = TERM_SIZE_SPIN_HEIGHT_MIN;
+        if(h > TERM_SIZE_SPIN_HEIGHT_MAX) h = TERM_SIZE_SPIN_HEIGHT_MAX;
+
+        vk_spinbutton_set_value(width_spin, (double)w);
+        vk_spinbutton_update(width_spin);
+        vk_spinbutton_set_value(height_spin, (double)h);
+        vk_spinbutton_update(height_spin);
+    }
 }
 
 static void
@@ -449,6 +490,27 @@ commit_dropdowns_to_entry(int idx)
         if(sb_val != e->scrollback)
         {
             e->scrollback = sb_val;
+            changed = true;
+        }
+    }
+
+    {
+        int w = (int)vk_spinbutton_get_value(width_spin);
+        int h = (int)vk_spinbutton_get_value(height_spin);
+
+        if(w < TERM_SIZE_SPIN_WIDTH_MIN) w = TERM_SIZE_SPIN_WIDTH_MIN;
+        if(w > TERM_SIZE_SPIN_WIDTH_MAX) w = TERM_SIZE_SPIN_WIDTH_MAX;
+        if(h < TERM_SIZE_SPIN_HEIGHT_MIN) h = TERM_SIZE_SPIN_HEIGHT_MIN;
+        if(h > TERM_SIZE_SPIN_HEIGHT_MAX) h = TERM_SIZE_SPIN_HEIGHT_MAX;
+
+        if(w != e->term_width)
+        {
+            e->term_width = w;
+            changed = true;
+        }
+        if(h != e->term_height)
+        {
+            e->term_height = h;
             changed = true;
         }
     }
@@ -560,7 +622,7 @@ update_dropdown_highlights(void)
         vk_dropdown_update(dropdowns[i]);
     }
 
-    /* scrollback spinbutton -- yellow when focused, like the dropdowns */
+    /* spinbuttons -- yellow when focused, like the dropdowns */
     if(model->focus_zone == FOCUS_SCROLLBACK)
         vk_widget_set_colors(VK_WIDGET(scrollback_spin),
             COLOR_YELLOW, COLOR_CYAN);
@@ -569,6 +631,24 @@ update_dropdown_highlights(void)
             COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_attrs(VK_WIDGET(scrollback_spin), A_BOLD);
     vk_spinbutton_update(scrollback_spin);
+
+    if(model->focus_zone == FOCUS_WIDTH)
+        vk_widget_set_colors(VK_WIDGET(width_spin),
+            COLOR_YELLOW, COLOR_CYAN);
+    else
+        vk_widget_set_colors(VK_WIDGET(width_spin),
+            COLOR_BLACK, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(width_spin), A_BOLD);
+    vk_spinbutton_update(width_spin);
+
+    if(model->focus_zone == FOCUS_HEIGHT)
+        vk_widget_set_colors(VK_WIDGET(height_spin),
+            COLOR_YELLOW, COLOR_CYAN);
+    else
+        vk_widget_set_colors(VK_WIDGET(height_spin),
+            COLOR_BLACK, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(height_spin), A_BOLD);
+    vk_spinbutton_update(height_spin);
 }
 
 /* ── dropdown popup helpers ────────────────────────────────── */
@@ -609,7 +689,14 @@ dropdown_interior_origin(vk_dropdown_t *dropdown, int *ix, int *iy)
         return;
     }
 
-    /* category (and any future direct vbox child) */
+    /* Category sits in the left band (PAIR_LEFT), same origin as VTerm Mode */
+    if(dropdown == cat_dropdown)
+    {
+        *ix = 0;
+        *iy = cat_dd;
+        return;
+    }
+
     vk_widget_get_position(VK_WIDGET(dropdown), ix, iy);
 }
 
@@ -737,6 +824,8 @@ edit_popup_ok(void)
         strncpy(e->requires, "vterm-color", NAME_MAX - 1);
         e->type = VWM_MOD_TYPE_TOOL;
         e->hidden = false;
+        e->term_width   = 80;
+        e->term_height  = 25;
     }
     else
     {
@@ -1766,6 +1855,16 @@ manage_apps_kmio(vk_object_t *object, int32_t keystroke)
             retval = handle_dropdown_keys(cat_dropdown, keystroke);
             break;
 
+        case FOCUS_WIDTH:
+            retval = vk_object_push_keystroke(VK_OBJECT(width_spin),
+                keystroke);
+            break;
+
+        case FOCUS_HEIGHT:
+            retval = vk_object_push_keystroke(VK_OBJECT(height_spin),
+                keystroke);
+            break;
+
         case FOCUS_TERMINAL:
             retval = handle_dropdown_keys(term_dropdown, keystroke);
             break;
@@ -1812,6 +1911,8 @@ refresh_dialog(void)
     if(dialog_window == NULL) return;
 
     vk_label_update(cat_label_widget);
+    vk_label_update(width_label_widget);
+    vk_label_update(height_label_widget);
     vk_label_update(term_label_widget);
     vk_label_update(scrollback_label_widget);
     vk_label_update(vis_label_widget);
@@ -1824,9 +1925,11 @@ refresh_dialog(void)
     vk_dropdown_update(term_dropdown);
     vk_dropdown_update(vis_dropdown);
     vk_dropdown_update(start_dir_dropdown);
-    /* composite the two-column rows (children were just updated above)
+    /* composite the multi-column rows (children were just updated above)
        before the vbox composites them -- without this the hbox canvases
        stay blank and the row paints solid black */
+    vk_box_update(cat_label_row);
+    vk_box_update(cat_widget_row);
     vk_box_update(term_label_row);
     vk_box_update(term_widget_row);
     vk_box_update(vis_label_row);
@@ -1931,14 +2034,14 @@ build_dialog(void)
     vk_widget_attach_scroller(VK_WIDGET(app_listbox),
         listbox_scroller);
 
-    cat_label = vk_label_create(INTERIOR_WIDTH);
+    cat_label = vk_label_create(CAT_COL_WIDTH);
     vk_label_set_text(cat_label, "  Category");
     vk_label_set_justify(cat_label, VK_JUSTIFY_LEFT);
     vk_widget_set_colors(VK_WIDGET(cat_label), COLOR_BLACK, COLOR_CYAN);
     vk_label_update(cat_label);
     cat_label_widget = cat_label;
 
-    cat_dropdown = vk_dropdown_create(INTERIOR_WIDTH, 6);
+    cat_dropdown = vk_dropdown_create(CAT_COL_WIDTH, 6);
     vk_dropdown_set_border_style(cat_dropdown, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(cat_dropdown), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_attrs(VK_WIDGET(cat_dropdown), A_BOLD);
@@ -1953,6 +2056,47 @@ build_dialog(void)
                 (char *)(type_str ? type_str : "?"), NULL, NULL);
         }
     }
+
+    /* Width / Height spins share the Category band (three columns) */
+    width_label_widget = vk_label_create(WIDTH_COL_WIDTH);
+    vk_label_set_text(width_label_widget, "  Width");
+    vk_label_set_justify(width_label_widget, VK_JUSTIFY_LEFT);
+    vk_widget_set_colors(VK_WIDGET(width_label_widget),
+        COLOR_BLACK, COLOR_CYAN);
+    vk_label_update(width_label_widget);
+
+    width_spin = vk_spinbutton_create(WIDTH_COL_WIDTH);
+    vk_spinbutton_set_border_style(width_spin, VK_BORDER_SINGLE);
+    vk_spinbutton_set_field_relief(width_spin, VK_RELIEF_SUNKEN);
+    vk_spinbutton_set_button_relief(width_spin, 0);
+    vk_spinbutton_set_range(width_spin,
+        TERM_SIZE_SPIN_WIDTH_MIN, TERM_SIZE_SPIN_WIDTH_MAX);
+    vk_spinbutton_set_step(width_spin, TERM_SIZE_SPIN_WIDTH_STEP);
+    vk_spinbutton_set_precision(width_spin, 0);
+    vk_spinbutton_set_editable(width_spin, true);
+    vk_spinbutton_set_value(width_spin, 80.0);
+    vk_widget_set_colors(VK_WIDGET(width_spin), COLOR_BLACK, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(width_spin), A_BOLD);
+
+    height_label_widget = vk_label_create(HEIGHT_COL_WIDTH);
+    vk_label_set_text(height_label_widget, "  Height");
+    vk_label_set_justify(height_label_widget, VK_JUSTIFY_LEFT);
+    vk_widget_set_colors(VK_WIDGET(height_label_widget),
+        COLOR_BLACK, COLOR_CYAN);
+    vk_label_update(height_label_widget);
+
+    height_spin = vk_spinbutton_create(HEIGHT_COL_WIDTH);
+    vk_spinbutton_set_border_style(height_spin, VK_BORDER_SINGLE);
+    vk_spinbutton_set_field_relief(height_spin, VK_RELIEF_SUNKEN);
+    vk_spinbutton_set_button_relief(height_spin, 0);
+    vk_spinbutton_set_range(height_spin,
+        TERM_SIZE_SPIN_HEIGHT_MIN, TERM_SIZE_SPIN_HEIGHT_MAX);
+    vk_spinbutton_set_step(height_spin, TERM_SIZE_SPIN_HEIGHT_STEP);
+    vk_spinbutton_set_precision(height_spin, 0);
+    vk_spinbutton_set_editable(height_spin, true);
+    vk_spinbutton_set_value(height_spin, 25.0);
+    vk_widget_set_colors(VK_WIDGET(height_spin), COLOR_BLACK, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(height_spin), A_BOLD);
 
     term_label = vk_label_create(PAIR_LEFT_COL_WIDTH);
     vk_label_set_text(term_label, "  VTerm Mode");
@@ -2069,13 +2213,49 @@ build_dialog(void)
     vk_box_set_widget(button_hbox, 6, VK_WIDGET(buttons[BTN_CANCEL]));
 
     /*
-        Two paired rows share PAIR_LEFT / PAIR_RIGHT column widths so
-        VTerm Mode lines up with Visibility and Scrollback with Start
+        Category band: four-column layout — category (left, 32), expanding
+        filler, then width+height pair in the right band (16+16).
+        Width and Height share PAIR_RIGHT_COL_WIDTH side-by-side, no gap.
+        Below that, paired rows share PAIR_LEFT / PAIR_RIGHT so VTerm
+        Mode lines up with Visibility and Scrollback with Start
         directory.  Expanding fillers keep the right column flush.
     */
     {
         vk_filler_t *label_spacer;
         vk_filler_t *widget_spacer;
+
+        cat_label_row = vk_box_create(INTERIOR_WIDTH, 1,
+            VK_BOX_HORIZONTAL, 4);
+        vk_box_set_homogeneous(cat_label_row, false);
+        vk_widget_set_colors(VK_WIDGET(cat_label_row),
+            COLOR_BLACK, COLOR_CYAN);
+        vk_box_set_widget(cat_label_row, 0, VK_WIDGET(cat_label));
+
+        label_spacer = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(label_spacer), COLOR_BLACK, COLOR_CYAN);
+        vk_widget_set_expand(VK_WIDGET(label_spacer));
+        vk_box_set_widget(cat_label_row, 1, VK_WIDGET(label_spacer));
+
+        vk_box_set_widget(cat_label_row, 2,
+            VK_WIDGET(width_label_widget));
+        vk_box_set_widget(cat_label_row, 3,
+            VK_WIDGET(height_label_widget));
+
+        cat_widget_row = vk_box_create(INTERIOR_WIDTH, 3,
+            VK_BOX_HORIZONTAL, 4);
+        vk_box_set_homogeneous(cat_widget_row, false);
+        vk_widget_set_colors(VK_WIDGET(cat_widget_row),
+            COLOR_BLACK, COLOR_CYAN);
+        vk_box_set_widget(cat_widget_row, 0, VK_WIDGET(cat_dropdown));
+
+        widget_spacer = vk_filler_create();
+        vk_widget_set_colors(VK_WIDGET(widget_spacer),
+            COLOR_BLACK, COLOR_CYAN);
+        vk_widget_set_expand(VK_WIDGET(widget_spacer));
+        vk_box_set_widget(cat_widget_row, 1, VK_WIDGET(widget_spacer));
+
+        vk_box_set_widget(cat_widget_row, 2, VK_WIDGET(width_spin));
+        vk_box_set_widget(cat_widget_row, 3, VK_WIDGET(height_spin));
 
         term_label_row = vk_box_create(INTERIOR_WIDTH, 1,
             VK_BOX_HORIZONTAL, 3);
@@ -2146,8 +2326,8 @@ build_dialog(void)
         }
 
         vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame));
-        vk_box_set_widget(main_vbox, 1, VK_WIDGET(cat_label));
-        vk_box_set_widget(main_vbox, 2, VK_WIDGET(cat_dropdown));
+        vk_box_set_widget(main_vbox, 1, VK_WIDGET(cat_label_row));
+        vk_box_set_widget(main_vbox, 2, VK_WIDGET(cat_widget_row));
         vk_box_set_widget(main_vbox, 3, VK_WIDGET(term_label_row));
         vk_box_set_widget(main_vbox, 4, VK_WIDGET(term_widget_row));
         vk_box_set_widget(main_vbox, 5, VK_WIDGET(vis_label_row));
@@ -2257,6 +2437,8 @@ vwm_manage_apps_close(void)
 
     main_vbox = NULL;
     button_hbox = NULL;
+    cat_label_row = NULL;
+    cat_widget_row = NULL;
     term_label_row = NULL;
     term_widget_row = NULL;
     vis_label_row = NULL;
@@ -2266,6 +2448,10 @@ vwm_manage_apps_close(void)
     app_listbox = NULL;
     cat_label_widget = NULL;
     cat_dropdown = NULL;
+    width_label_widget = NULL;
+    width_spin = NULL;
+    height_label_widget = NULL;
+    height_spin = NULL;
     term_label_widget = NULL;
     term_dropdown = NULL;
     scrollback_label_widget = NULL;
@@ -2819,14 +3005,50 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
 
     if(ry >= cat_dd && ry <= cat_dd + 2)
     {
-        model->focus_zone = FOCUS_CATEGORY;
-        update_button_highlights();
+        /* Category band: four-column, with expanding filler.  Category
+         * occupies the left PAIR_LEFT_COL_WIDTH; Width and Height share
+         * the right PAIR_RIGHT_COL_WIDTH (16+16), flush-right behind the
+         * expanding filler. */
+        if(rx < PAIR_LEFT_COL_WIDTH)
+        {
+            model->focus_zone = FOCUS_CATEGORY;
+            update_button_highlights();
 
-        vk_dropdown_set_expanded(cat_dropdown, true);
-        dropdown_popup_attach(cat_dropdown);
+            vk_dropdown_set_expanded(cat_dropdown, true);
+            dropdown_popup_attach(cat_dropdown);
 
-        refresh_dialog();
-        return 0;
+            refresh_dialog();
+            return 0;
+        }
+
+        if(rx >= INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH)
+        {
+            int right_x = INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH;
+            if(rx < right_x + WIDTH_COL_WIDTH)
+            {
+                int local_x = rx - right_x;
+                int local_y = ry - cat_dd;
+
+                model->focus_zone = FOCUS_WIDTH;
+                vk_spinbutton_click(width_spin, local_x, local_y);
+                update_button_highlights();
+
+                refresh_dialog();
+                return 0;
+            }
+            else
+            {
+                int local_x = rx - (right_x + WIDTH_COL_WIDTH);
+                int local_y = ry - cat_dd;
+
+                model->focus_zone = FOCUS_HEIGHT;
+                vk_spinbutton_click(height_spin, local_x, local_y);
+                update_button_highlights();
+
+                refresh_dialog();
+                return 0;
+            }
+        }
     }
 
     if(ry >= term_dd && ry <= term_dd + 2)

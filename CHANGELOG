@@ -1,3 +1,12 @@
+Version 4.9.7
+
+*  [Bryan Christ] Manage Apps can set a per-app default terminal size
+   (width x height in character cells, default 80x25).  The Category row
+   now shares space with Width and Height spinbuttons; values persist as
+   "width" / "height" on each programs[] entry and are applied when a
+   non-fullscreen vwmterm launches (clamped so the window still fits the
+   host screen).
+
 Version 4.9.6
 
 *  [Bryan Christ] The screen saver now tracks a terminal resize.  While the
