@@ -62,7 +62,7 @@ vwm_menu_scroll_info(vk_widget_t *child,
 
     if(content_h) *content_h = vk_listbox_get_item_count(lb);
     if(content_w) *content_w = metrics_w;
-    if(scroll_y) *scroll_y = vk_listbox_get_curr(lb);
+    if(scroll_y) *scroll_y = vk_listbox_get_scroll_pos(lb);
     if(scroll_x) *scroll_x = 0;
 }
 
@@ -380,6 +380,7 @@ create_apps_dropdown(vwm_t *vwm)
         vk_widget_set_attrs(VK_WIDGET(scroller), A_BOLD);
         vk_scroller_set_scroll_source(scroller, VK_WIDGET(listbox));
         vk_scroller_set_scroll_info(scroller, vwm_menu_scroll_info);
+        vk_scroller_set_scroll_apply(scroller, vk_listbox_scroll_apply);
         vk_widget_attach_scroller(VK_WIDGET(listbox), scroller);
     }
 
@@ -561,6 +562,36 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
 
     listbox = VK_LISTBOX(vk_window_get_child(menu));
     row = (mouse_event->y - beg_y - 1) + vk_listbox_get_scroll_pos(listbox);
+
+    /* Wheel scroll — push a nudge on the scroller so the thumb
+       drives the view instead of our hand-rolled set_scroll_pos.
+       The Apps menu attaches a real scroller; VWM / Minimized menus
+       may not, in which case fall back to pan the listbox view. */
+    if(bs & (BUTTON4_PRESSED | BUTTON5_PRESSED))
+    {
+        vk_scroller_t *scr = vk_widget_get_vscroller(VK_WIDGET(listbox));
+        if(scr != NULL)
+        {
+            int dy = (bs & BUTTON4_PRESSED) ? -1 : 1;
+            if(vk_scroller_nudge(scr, dy, 0) == 0)
+            {
+                vk_listbox_update(listbox);
+                vk_window_update(menu);
+            }
+            return 0;
+        }
+        /* Fallback for menus without an attached scroller (VWM / Minimized):
+           keep the existing view-pan semantics. */
+        int pos = vk_listbox_get_scroll_pos(listbox);
+        if(bs & BUTTON4_PRESSED)    /* scroll up */
+            pos--;
+        else                        /* scroll down */
+            pos++;
+        vk_listbox_set_scroll_pos(listbox, pos);
+        vk_listbox_update(listbox);
+        vk_window_update(menu);
+        return 0;
+    }
 
     if((bs & REPORT_MOUSE_POSITION) || (bs & BUTTON1_PRESSED))
     {
