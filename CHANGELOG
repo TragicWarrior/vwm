@@ -1,9 +1,13 @@
 Version 4.9.8
 
 *  [Bryan Christ] Menubar dropdowns now scroll with the mouse wheel (Apps, VWM,
-   and Minimized menus).  The wheel pans the viewable region via
-   vk_listbox_set_scroll_pos without moving the selection; keyboard still moves
-   the highlight.  Scrollbar thumb tracks scroll_pos rather than curr_item.
+   and Minimized menus).  The wheel drives a scroller nudge (vk_scroller_nudge)
+   when an attached scrollbar is available — requiring libvdk (libviper) 7.0+;
+   the Apps menu registers vk_listbox_scroll_apply as the scroll handler -- and
+   falls back to set_scroll_pos for VWM / Minimized menus that do not attach a
+   scroller, so every dropdown pans its viewable region without moving the
+   selection; keyboard still moves the highlight.  Scrollbar thumb tracks
+   scroll_pos rather than curr_item.
 
 Version 4.9.7
 
