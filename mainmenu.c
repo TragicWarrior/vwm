@@ -62,7 +62,7 @@ vwm_menu_scroll_info(vk_widget_t *child,
 
     if(content_h) *content_h = vk_listbox_get_item_count(lb);
     if(content_w) *content_w = metrics_w;
-    if(scroll_y) *scroll_y = vk_listbox_get_curr(lb);
+    if(scroll_y) *scroll_y = vk_listbox_get_scroll_pos(lb);
     if(scroll_x) *scroll_x = 0;
 }
 
@@ -562,14 +562,17 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
     listbox = VK_LISTBOX(vk_window_get_child(menu));
     row = (mouse_event->y - beg_y - 1) + vk_listbox_get_scroll_pos(listbox);
 
-    /* Wheel scroll */
+    /* Wheel scroll — pan view without moving the selection */
     if(bs & (BUTTON4_PRESSED | BUTTON5_PRESSED))
     {
-        if(bs & BUTTON4_PRESSED)  /* scroll up */
-            vk_listbox_set_prev(listbox);
-        else                       /* scroll down */
-            vk_listbox_set_next(listbox);
+        int pos = vk_listbox_get_scroll_pos(listbox);
 
+        if(bs & BUTTON4_PRESSED)  /* scroll up */
+            pos--;
+        else                       /* scroll down */
+            pos++;
+
+        vk_listbox_set_scroll_pos(listbox, pos);
         vk_listbox_update(listbox);
         vk_window_update(menu);
         return 0;
