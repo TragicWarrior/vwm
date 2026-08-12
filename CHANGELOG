@@ -1,5 +1,12 @@
 Version 4.9.8
 
+*  [Bryan Christ] Optional crash backtrace dump (cmake
+   `-DVWM_CRASH_BACKTRACE=ON`, off by default).  Fatal signals (SIGSEGV,
+   SIGABRT, SIGBUS, SIGFPE, SIGILL) write a glibc backtrace to
+   `/tmp/vwm-crash-<epoch>-<pid>.log` using async-signal-safe ops
+   (write(2), backtrace_symbols_fd), then re-raise so cores still work.
+   Replaces the old `_DEBUG`-only printf-based handler.
+
 *  [Bryan Christ] Menubar dropdowns now scroll with the mouse wheel (Apps, VWM,
    and Minimized menus).  The wheel drives a scroller nudge (vk_scroller_nudge)
    when an attached scrollbar is available — requiring libvdk (libviper) 7.0+;

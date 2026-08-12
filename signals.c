@@ -4,8 +4,10 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <time.h>
+#include <stdint.h>
 
-#ifdef _DEBUG
+#ifdef VWM_CRASH_BACKTRACE
 #include <execinfo.h>
 #endif
 
@@ -53,44 +55,161 @@ vwm_sigset(int signum, sighandler_t handler)
     sigaction(signum, &action, NULL);
 }
 
-#ifdef _DEBUG
-void vwm_backtrace(int signum)
+#ifdef VWM_CRASH_BACKTRACE
+/*
+   Fatal-signal crash dump (cmake -DVWM_CRASH_BACKTRACE=ON).
+
+   On SIGSEGV/SIGABRT/SIGBUS/SIGFPE/SIGILL write a glibc backtrace to
+       /tmp/vwm-crash-<epoch>-<pid>.log
+   then restore SIG_DFL and re-raise so the process still dies (cores
+   still work).  Modeled on libvterm's vterm_debug.c:
+
+     - static buffers only (no malloc in the handler)
+     - write(2) + backtrace_symbols_fd() only
+     - recursion guard
+     - prime backtrace() at install time (dlopen is not async-signal-safe)
+
+   localtime/strftime are not async-signal-safe, so the date stamp is
+   unix epoch seconds from time(NULL) rather than a broken-down calendar
+   date.  stderr is redirected to /dev/null in main(), so this file is
+   the only post-mortem record under normal runs.
+*/
+
+#define VWM_CRASH_BT_MAX    128
+
+static void                     *crash_bt_buf[VWM_CRASH_BT_MAX];
+static volatile sig_atomic_t    crash_closing = 0;
+
+/* async-signal-safe unsigned-to-decimal; returns digit count written */
+static int
+_vwm_utoa(unsigned long v, char *buf)
 {
-    char                    *term_name=NULL;
-    void                    *array[10];
-    size_t                  count;
-    char                    **strings;
-    int                     fd=-1;
-    size_t                  i;
+    char    tmp[32];
+    int     i = 0;
+    int     j = 0;
 
-    endwin();
-
-    term_name = ctermid(NULL);
-    if(term_name!=NULL)
-    {
-        fd = open(term_name, O_RDWR);
-        if(fd != -1);
-        dup2(fd, STDIN_FILENO);
-    }
-
-    count = backtrace(array, 10);
-    strings = backtrace_symbols(array, count);
-
-    printf("caught signal %d\n\r", signum);
-    printf("obtained %zd stack frames.\n", count);
-
-    for(i = 0;i < count;i++)
-    {
-        printf("%s\n\r", strings[i]);
-    }
-
-    free(strings);
-    if(fd != -1) close(fd);
-    exit(EXIT_FAILURE);
-
-    return;
+    if(v == 0) { buf[0] = '0'; return 1; }
+    while(v > 0) { tmp[i++] = '0' + (v % 10); v /= 10; }
+    while(i > 0) buf[j++] = tmp[--i];
+    return j;
 }
-#endif
+
+/* async-signal-safe unsigned-to-hex (no 0x prefix) */
+static int
+_vwm_xtoa(unsigned long v, char *buf)
+{
+    static const char   hex[] = "0123456789abcdef";
+    char                tmp[32];
+    int                 i = 0;
+    int                 j = 0;
+
+    if(v == 0) { buf[0] = '0'; return 1; }
+    while(v > 0) { tmp[i++] = hex[v & 0xF]; v >>= 4; }
+    while(i > 0) buf[j++] = tmp[--i];
+    return j;
+}
+
+static const char *
+_vwm_signame(int sig)
+{
+    switch(sig)
+    {
+        case SIGSEGV:   return "SIGSEGV";
+        case SIGABRT:   return "SIGABRT";
+        case SIGBUS:    return "SIGBUS";
+        case SIGFPE:    return "SIGFPE";
+        case SIGILL:    return "SIGILL";
+    }
+    return "SIG?";
+}
+
+static void
+_vwm_crash_handler(int sig, siginfo_t *si, void *ctx)
+{
+    char        path[96];
+    char        num[32];
+    int         fd;
+    int         n;
+    int         off;
+    const char *name;
+
+    (void)ctx;
+
+    if(crash_closing) _exit(128 + sig);
+    crash_closing = 1;
+
+    /* /tmp/vwm-crash-<epoch>-<pid>.log  (epoch = date-ish, pid = unique) */
+    memcpy(path, "/tmp/vwm-crash-", 15);
+    off = 15;
+    off += _vwm_utoa((unsigned long)time(NULL), &path[off]);
+    path[off++] = '-';
+    off += _vwm_utoa((unsigned long)getpid(), &path[off]);
+    memcpy(&path[off], ".log", 5);              /* includes NUL */
+
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if(fd < 0) fd = STDERR_FILENO;
+
+    write(fd, "vwm crash: ", 11);
+    name = _vwm_signame(sig);
+    write(fd, name, strlen(name));
+    write(fd, " (sig ", 6);
+    n = _vwm_utoa((unsigned long)sig, num);
+    write(fd, num, n);
+    write(fd, ") pid ", 6);
+    n = _vwm_utoa((unsigned long)getpid(), num);
+    write(fd, num, n);
+
+    if(si != NULL && (sig == SIGSEGV || sig == SIGBUS))
+    {
+        write(fd, " fault_addr 0x", 14);
+        n = _vwm_xtoa((unsigned long)(uintptr_t)si->si_addr, num);
+        write(fd, num, n);
+    }
+
+    write(fd, " time ", 6);
+    n = _vwm_utoa((unsigned long)time(NULL), num);
+    write(fd, num, n);
+    write(fd, "\n", 1);
+
+    write(fd,
+        "(resolve addresses via:  addr2line -e /path/to/vwm <addr>)\n",
+        59);
+    write(fd, "--- backtrace ---\n", 18);
+
+    n = backtrace(crash_bt_buf, VWM_CRASH_BT_MAX);
+    backtrace_symbols_fd(crash_bt_buf, n, fd);
+
+    write(fd, "--- end backtrace ---\n", 22);
+
+    if(fd != STDERR_FILENO) close(fd);
+
+    signal(sig, SIG_DFL);
+    raise(sig);
+}
+
+void
+vwm_crash_handlers_install(void)
+{
+    struct sigaction    sa;
+    void                *dummy[4];
+
+    /* prime libgcc_s so the first backtrace() (which dlopens it) does
+       not happen inside the signal handler -- dlopen is not AS-safe */
+    backtrace(dummy, 4);
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_sigaction = _vwm_crash_handler;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+
+    sigaction(SIGSEGV, &sa, NULL);
+    sigaction(SIGABRT, &sa, NULL);
+    sigaction(SIGBUS,  &sa, NULL);
+    sigaction(SIGFPE,  &sa, NULL);
+    sigaction(SIGILL,  &sa, NULL);
+}
+
+#endif /* VWM_CRASH_BACKTRACE */
 
 void
 vwm_SIGIO(int signum)

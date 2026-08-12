@@ -90,6 +90,11 @@ add_library(vwmfont SHARED
 target_include_directories(vwmfont PRIVATE ${ZLIB_INCLUDE_DIRS})
 target_link_libraries(vwmfont ${ZLIB_LIBRARIES})
 
+# Optional glibc backtrace dump on fatal signals (SIGSEGV/ABRT/BUS/FPE/ILL).
+# Writes /tmp/vwm-crash-<epoch>-<pid>.log.  Linux/glibc only.  Off by default.
+option(VWM_CRASH_BACKTRACE
+    "Dump glibc backtrace to /tmp/vwm-crash-*.log on fatal signals" OFF)
+
 add_executable(vwm
     bkgd.c
     cJSON.c
@@ -118,6 +123,12 @@ add_executable(vwm
     events.c
     utf8_wide.c
     )
+
+if(VWM_CRASH_BACKTRACE)
+    message(STATUS
+        "vwm: crash-backtrace ON -- fatal signals dump to /tmp/vwm-crash-*.log")
+    target_compile_definitions(vwm PRIVATE VWM_CRASH_BACKTRACE)
+endif()
 
 # Modules dlopen()'d at runtime (libvwmterm.so etc.) resolve symbols like
 # vwm_window_decorate against the vwm executable's dynamic symbol table.

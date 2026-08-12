@@ -164,6 +164,11 @@ int main(int argc,char **argv)
     printf("VWM running on Linux\n\r");
 #endif
 
+    /* fatal-signal backtrace dump (no-op unless -DVWM_CRASH_BACKTRACE=ON).
+       install before the stderr → /dev/null redirect and before curses so
+       early crashes still have a usable path if open(/tmp/...) fails. */
+    vwm_crash_handlers_install();
+
     // supress STDERR
 	fd = open("/dev/null", O_WRONLY);
 	if(fd == -1) exit(0);
@@ -175,12 +180,6 @@ int main(int argc,char **argv)
     // unwind cleanly on SIGTERM so the terminal gets restored
     vwm_sigset(SIGTERM, vwm_SIGTERM);
     vwm_sigset(SIGPIPE, SIG_IGN);
-
-#ifdef _DEBUG
-    vwm_sigset(SIGILL, vwm_backtrace);
-    vwm_sigset(SIGSEGV, vwm_backtrace);
-    vwm_sigset(SIGFPE, vwm_backtrace);
-#endif
 
 	vwm_sigset(SIGIO, vwm_SIGIO);
 	fcntl(STDIN_FILENO,F_SETOWN, getpid());
