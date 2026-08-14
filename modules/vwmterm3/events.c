@@ -42,6 +42,12 @@ static size_t   clipboard_len = 0;
 
 static void     vwmterm_scroll_drag_apply(vk_widget_t *widget, int mx, int my);
 static void     vwmterm_scroll_render(vwmterm_data_t *vwmterm_data);
+static void     vwmterm_osc52_copy(const char *buf, size_t len, char selection);
+static void     vwmterm_xclip_copy(const char *buf, size_t len, char selection);
+static void     vwmterm_host_clipboard_push(const char *buf, size_t len,
+                    char selection);
+static void     vwmterm_clipboard_take(char *buf, size_t len, char selection);
+static void     vwmterm_vterm_hook(vterm_t *vterm, int event, void *anything);
 
 void
 vwmterm_init_keycodes(void)
@@ -76,14 +82,22 @@ static const char b64_alphabet[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 static void
-vwmterm_osc52_copy(const char *buf, size_t len)
+vwmterm_osc52_copy(const char *buf, size_t len, char selection)
 {
     char            *enc;
     size_t          enc_len;
     size_t          i, j;
     unsigned char   a, b, c;
+    char            pc;
 
-    if(buf == NULL || len == 0) return;
+    pc = (selection == '\0') ? 'c' : selection;
+
+    if(buf == NULL || len == 0)
+    {
+        fprintf(stdout, "\033]52;%c;\033\\", pc);
+        fflush(stdout);
+        return;
+    }
 
     enc_len = 4 * ((len + 2) / 3);
     enc = (char *)malloc(enc_len + 1);
@@ -113,7 +127,7 @@ vwmterm_osc52_copy(const char *buf, size_t len)
     }
     enc[j] = '\0';
 
-    fputs("\033]52;c;", stdout);
+    fprintf(stdout, "\033]52;%c;", pc);
     fputs(enc, stdout);
     fputs("\033\\", stdout);
     fflush(stdout);
@@ -131,17 +145,89 @@ vwmterm_osc52_copy(const char *buf, size_t len)
     screen; the failure is a silent no-op.
 */
 static void
-vwmterm_xclip_copy(const char *buf, size_t len)
+vwmterm_xclip_copy(const char *buf, size_t len, char selection)
 {
-    FILE *fp;
+    FILE        *fp;
+    const char  *cmd;
 
-    if(buf == NULL || len == 0) return;
+    if(selection == 'p' || selection == 's')
+        cmd = "xclip -selection primary 2>/dev/null";
+    else
+        cmd = "xclip -selection clipboard 2>/dev/null";
 
-    fp = popen("xclip -selection clipboard 2>/dev/null", "w");
+    fp = popen(cmd, "w");
     if(fp == NULL) return;
 
-    fwrite(buf, 1, len, fp);
+    if(buf != NULL && len > 0)
+        fwrite(buf, 1, len, fp);
+
     pclose(fp);
+}
+
+static void
+vwmterm_host_clipboard_push(const char *buf, size_t len, char selection)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     mode = (vwm != NULL)
+        ? vwm->clipboard_mode
+        : VWM_CLIPBOARD_NEVER;
+
+    if(mode == VWM_CLIPBOARD_OSC52 || mode == VWM_CLIPBOARD_BOTH)
+        vwmterm_osc52_copy(buf, len, selection);
+    if(mode == VWM_CLIPBOARD_XCLIP || mode == VWM_CLIPBOARD_BOTH)
+        vwmterm_xclip_copy(buf, len, selection);
+}
+
+/*
+    take ownership of buf (NULL / len 0 clears).  always updates the
+    internal paste buffer; host sync follows Settings clipboard_mode.
+*/
+static void
+vwmterm_clipboard_take(char *buf, size_t len, char selection)
+{
+    if(clipboard != NULL) free(clipboard);
+    clipboard = buf;
+    clipboard_len = (buf != NULL) ? len : 0;
+
+    vwmterm_host_clipboard_push(clipboard, clipboard_len, selection);
+}
+
+void
+vwmterm_bind_vterm(vterm_t *vterm)
+{
+    if(vterm == NULL) return;
+
+    vterm_install_hook(vterm, vwmterm_vterm_hook);
+    vterm_set_event_mask(vterm, VTERM_MASK_CLIPBOARD);
+}
+
+static void
+vwmterm_vterm_hook(vterm_t *vterm, int event, void *anything)
+{
+    vterm_clipboard_t   *clip;
+    char                *copy;
+    char                sel;
+
+    (void)vterm;
+
+    if(event != VTERM_EVENT_CLIPBOARD) return;
+    if(anything == NULL) return;
+
+    clip = (vterm_clipboard_t *)anything;
+    sel = (clip->selection == '\0') ? 'c' : clip->selection;
+
+    if(clip->data == NULL || clip->len == 0)
+    {
+        vwmterm_clipboard_take(NULL, 0, sel);
+        return;
+    }
+
+    copy = (char *)malloc(clip->len + 1);
+    if(copy == NULL) return;
+
+    memcpy(copy, clip->data, clip->len);
+    copy[clip->len] = '\0';
+    vwmterm_clipboard_take(copy, clip->len, sel);
 }
 
 /*
@@ -345,21 +431,7 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
 
     buf[pos] = '\0';
 
-    if(clipboard != NULL) free(clipboard);
-    clipboard = buf;
-    clipboard_len = pos;
-
-    {
-        vwm_t   *vwm = vwm_get_instance();
-        int     mode = (vwm != NULL)
-            ? vwm->clipboard_mode
-            : VWM_CLIPBOARD_NEVER;
-
-        if(mode == VWM_CLIPBOARD_OSC52 || mode == VWM_CLIPBOARD_BOTH)
-            vwmterm_osc52_copy(clipboard, clipboard_len);
-        if(mode == VWM_CLIPBOARD_XCLIP || mode == VWM_CLIPBOARD_BOTH)
-            vwmterm_xclip_copy(clipboard, clipboard_len);
-    }
+    vwmterm_clipboard_take(buf, pos, 'c');
 
     for(int r = 0; r < rows; r++) free(cells[r]);
     free(cells);
