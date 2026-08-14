@@ -309,6 +309,7 @@ vwmterm_main(vwm_module_t *mod)
     }
     vterm_set_pair_selector(vterm, vwmterm_pair_selector);
     vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
+    vwmterm_bind_vterm(vterm);
 
     /* per-app scrollback override (Manage Apps); 0 keeps vterm's default
        history of 4x the terminal height */

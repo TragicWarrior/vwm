@@ -6,8 +6,12 @@
 #include <ncursesw/curses.h>
 
 #include <vdk.h>
+#include <vterm.h>
 
 void    vwmterm_init_keycodes(void);
+
+/* subscribe the vterm to OSC 52 clipboard events (libvterm 10.9+) */
+void    vwmterm_bind_vterm(vterm_t *vterm);
 
 void    vwmterm_window_update(vwmterm_data_t *vwmterm_data);
 

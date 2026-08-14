@@ -14,7 +14,8 @@ FEATURES
    with Alt+d.
 *  Embedded terminal windows (vwmterm) with scrollback -- a mouse scrollbar,
    wheel, and Alt+PgUp / Alt+PgDn -- click-drag SELECT-mode copy to the host
-   clipboard, and middle-click paste.
+   clipboard, child OSC 52 copy (vim, Grok, tmux, …) on the same path, and
+   middle-click paste.
 *  Menubar with two dropdowns: VWM (system tools) and Apps (user-configured
    launchers).  Reach it with the menubar hotkey or mouse.
 *  In-app configuration dialogs -- no editor required for common changes:
@@ -54,7 +55,7 @@ CMake
 ncursesw 5.4+
 libviper 6.0.0+  - https://github.com/TragicWarrior/libviper
 libgpm (optional)
-libvterm 10.7+ - https://github.com/TragicWarrior/libvterm
+libvterm 10.9+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for the screen-capture module; "make all")
 libcups2-dev     (for the print module; "make all")
 zlib             (for the big-font hostname module, vwmfont)

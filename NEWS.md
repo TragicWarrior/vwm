@@ -1,3 +1,16 @@
+2026-08-14
+
+Copy from inside a terminal window now reaches the host clipboard.
+Programs that yank via OSC 52 -- vim, Grok, Claude Code, tmux with
+set-clipboard, and others -- used to have that sequence swallowed.
+vwm now takes it, keeps it for middle-click / Alt+Shift+V paste, and
+forwards it according to the existing Copy-to-Clipboard setting
+(Never / OSC 52 / xclip / Both).  Under xfce4-terminal, xclip or Both
+is still what actually lands on X.
+
+Building this release needs libvterm 10.9+ and libviper 6.0.0+.
+
+
 2026-08-05
 
 Manage Apps can set a default terminal size per app.  The Category row is now
