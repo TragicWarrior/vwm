@@ -124,6 +124,11 @@ add_executable(vwm
     screenshot_render.c
     screenshot_png.c
     screenshot_ui.c
+    ctl.c
+    )
+
+add_executable(vwm-msg
+    vwm-msg.c
     )
 
 # Modules dlopen()'d at runtime (libvwmterm.so etc.) resolve symbols like
@@ -163,6 +168,7 @@ set(PKG_CONFIG_LIBS
 
 
 install (TARGETS vwm DESTINATION bin)
+install (TARGETS vwm-msg DESTINATION bin)
 install (TARGETS vwmterm DESTINATION lib/vwm/)
 install (TARGETS vwmprint DESTINATION lib/vwm/)
 install (TARGETS vwmfont DESTINATION lib/vwm/)

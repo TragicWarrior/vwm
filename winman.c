@@ -98,20 +98,51 @@ vwm_on_deck_finalize(vk_object_t *object, int event, void *anything)
     return 0;
 }
 
+int
+vwm_widget_desktop(vk_widget_t *widget)
+{
+    vwm_t   *vwm;
+    int     i, j, n;
+
+    if(widget == NULL) return -1;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL || vwm->decks == NULL) return -1;
+
+    for(i = 0; i < vwm->surface_count; i++)
+    {
+        if(vwm->decks[i] == NULL) continue;
+
+        n = vk_deck_count(vwm->decks[i]);
+        for(j = 0; j < n; j++)
+        {
+            if(vk_deck_get_widget(vwm->decks[i], j) == widget)
+                return i;
+        }
+    }
+
+    return -1;
+}
+
 void
 vwm_default_WINDOW_CLOSE(vk_widget_t *widget)
 {
-    vwm_t   *vwm;
+    vwm_t       *vwm;
+    vk_deck_t   *deck;
+    int         desk;
 
     if(widget == NULL) return;
 
     vwm = vwm_get_instance();
+    desk = vwm_widget_desktop(widget);
+    deck = (desk >= 0) ? vwm->decks[desk] : vwm->deck;
+    if(deck == NULL) return;
 
     vk_object_emit(VK_OBJECT(widget), VWM_EVENT_ON_CLOSE);
 
     /* removing the widget fires ON_FINALIZE, which re-decorates whatever
        window is now on top -- no manual focus hand-off needed here */
-    vk_deck_remove_widget(vwm->deck, widget);
+    vk_deck_remove_widget(deck, widget);
     vk_widget_destroy(widget);
 
     if(vk_deck_get_top(vwm->deck) == NULL)
@@ -130,17 +161,22 @@ vwm_default_WINDOW_CLOSE(vk_widget_t *widget)
 void
 vwm_minimize_window(vk_widget_t *widget)
 {
-    vwm_t   *vwm;
+    vwm_t       *vwm;
+    vk_deck_t   *deck;
+    int         desk;
 
     if(widget == NULL) return;
 
     vwm = vwm_get_instance();
+    desk = vwm_widget_desktop(widget);
+    deck = (desk >= 0) ? vwm->decks[desk] : vwm->deck;
+    if(deck == NULL) return;
 
     /* hiding a member isn't a deck mutation, so the deck can't fire
        ON_FINALIZE on its own -- trigger it so the newly-exposed top window
        picks up its focused decoration */
     vk_widget_hide(widget);
-    vk_deck_finalize(vwm->deck);
+    vk_deck_finalize(deck);
 
     if(vk_deck_get_top(vwm->deck) == NULL)
         vwm_panel_set_status("Press Alt ~ for Menu");
@@ -224,10 +260,16 @@ vwm_restore_window(vk_widget_t *widget)
     getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
     vwm_fit_window_onscreen(widget, scr_w, scr_h);
 
-    /* show, then raise: vk_deck_set_top() fires ON_FINALIZE, which repaints
-       the restored window as focused and demotes the previous top */
-    vk_widget_show(widget);
-    vk_deck_set_top(vwm->deck, widget);
+    /* show, then raise on the window's own deck (may not be the active
+       desktop).  vk_deck_set_top() fires ON_FINALIZE. */
+    {
+        int         desk = vwm_widget_desktop(widget);
+        vk_deck_t   *deck = (desk >= 0) ? vwm->decks[desk] : vwm->deck;
+
+        vk_widget_show(widget);
+        if(deck != NULL)
+            vk_deck_set_top(deck, widget);
+    }
 
     vwm_minimized_refresh();
     vk_screen_refresh(vwm->screen);

@@ -1,3 +1,16 @@
+Version 5.1.0
+
+*  [Bryan Christ] Control plane: Unix socket (VWM_CONTROL_SOCK, else
+   ~/.config/vwm/control.sock) plus vwm-msg.  SO_PEERCRED same-uid
+   only.  Ops: ping, list-windows / list-desktops / focused, launch /
+   launch-app, focus, close, minimize, restore, move, resize, desktop.
+   Window ids come from libviper 7.1 vk_widget_get_id().
+   Requires libviper 7.2.0+ (host bracketed paste so an xfce/VTE
+   paste is one blob, not a stream of Enters).
+*  [Bryan Christ] Host paste (parent terminal) and vwmterm middle-click /
+   Alt+Shift+V use vterm_write_data so a child that armed DECSET 2004
+   (Grok, vim, …) treats the payload as paste, not typed Enter.
+
 Version 5.0.0
 
 *  [Bryan Christ] Screen capture is a core API, not a loadable module.

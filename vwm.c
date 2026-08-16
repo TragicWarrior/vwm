@@ -55,6 +55,7 @@
 #include "clock.h"
 #include "poll_input_thd.h"
 #include "programs.h"
+#include "ctl.h"
 
 static void
 vwm_cursor_overlay(vk_screen_t *screen, int surface_id, WINDOW *canvas);
@@ -215,12 +216,17 @@ int main(int argc,char **argv)
 
     vk_screen_refresh(vwm->screen);
 
+    /* control socket: inherit VWM_CONTROL_SOCK into every child */
+    if(vwm_ctl_init() == 0)
+        vwm_sched_set_wake_fd(sched, vwm_ctl_listen_fd());
+
     /* coalesce vterm composites: drain tasks mark the screen dirty and
        this hook issues one refresh per scheduler step (see item 5). */
     vwm_sched_set_step_cb(sched, vwm_sched_render, vwm);
 
     vwm_sched_run(sched, &shutdown);
 
+    vwm_ctl_shutdown();
     vwm_sched_deinit(sched);
 
     vk_kmio_shutdown(vk_screen_get_fd(vwm->screen));
@@ -242,6 +248,8 @@ static void
 vwm_sched_render(void *arg)
 {
     vwm_t   *vwm = (vwm_t *)arg;
+
+    vwm_ctl_poll();
 
     if(vwm->screen_dirty)
     {
