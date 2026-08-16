@@ -1,0 +1,10 @@
+DejaVu Sans Mono for vwm screen capture
+=======================================
+
+Regular and Bold faces used to rasterize PNG screenshots.  They are
+data files, not linked into the vwm binary.
+
+License: Bitstream Vera (see LICENSE).  DejaVu glyph additions are
+public domain.  AUTHORS lists contributors.
+
+These files are not covered by vwm's GPL-2+.

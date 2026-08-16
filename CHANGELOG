@@ -1,3 +1,15 @@
+Version 5.0.0
+
+*  [Bryan Christ] Screen capture is a core API, not a loadable module.
+   vwm_screenshot_save(target, path) writes a PNG of the composed
+   desktop or the focused window.  The VWM-menu dialog is now a
+   caller of that function (same Entire screen / Top window options).
+   Remove any leftover libvwmscrshot.so from the module directory
+   after upgrade -- it is no longer built or installed.
+*  [Bryan Christ] Screenshots rasterize with DejaVu Sans Mono (system
+   copy, then the bundled fonts/ pair).  Override at configure time
+   with -DVWM_SCREENSHOT_FONT= and -DVWM_SCREENSHOT_FONT_BOLD=.
+
 Version 4.9.9
 
 *  [Bryan Christ] Child OSC 52 SET (vim, Grok, tmux, Claude Code, …)

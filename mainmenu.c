@@ -199,14 +199,11 @@ vwm_minimized_menu_activate(vk_widget_t *widget, void *anything)
 static int
 vwm_capture_screenshot(vk_widget_t *widget, void *anything)
 {
-    vwm_module_t    *mod;
-
+    (void)widget;
     (void)anything;
 
-    mod = vwm_module_find_by_name("screen-capture");
-    if(mod == NULL) return 0;
-
-    return vwm_menu_helper(widget, mod);
+    vwm_screenshot_open();
+    return 0;
 }
 
 static int

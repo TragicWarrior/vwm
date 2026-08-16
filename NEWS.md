@@ -1,5 +1,22 @@
 2026-08-14
 
+Screen capture is built into vwm.  The old libvwmscrshot.so module is
+gone.  Capture Screenshot in the VWM menu works as before (entire
+screen or top window, then a save dialog).  Other code can call
+vwm_screenshot_save() with a target and a path and get a PNG with no
+UI.  After upgrading, delete any leftover libvwmscrshot.so from the
+module directory so it is not loaded as a dead plugin.
+
+PNGs are drawn with DejaVu Sans Mono: the system font if present,
+otherwise the copy shipped in fonts/.  cmake
+-DVWM_SCREENSHOT_FONT=/path.ttf (and _BOLD) forces a different face;
+a missing override is an error, not a silent fallback.
+
+Building this release needs libvterm 10.9+ and libviper 6.0.0+.
+
+
+2026-08-14
+
 Copy from inside a terminal window now reaches the host clipboard.
 Programs that yank via OSC 52 -- vim, Grok, Claude Code, tmux with
 set-clipboard, and others -- used to have that sequence swallowed.

@@ -32,7 +32,7 @@ FEATURES
       desktops.
 *  System tools (under the VWM menu):
    -  Capture Screenshot - renders the active ncurses surface to a PNG via
-      FreeType.
+      FreeType (built-in; also available as vwm_screenshot_save()).
    -  Print File - sends a file to a CUPS-discovered printer.
    -  Lock Screen - invokes the screensaver on demand; also fires
       automatically after the configured idle timeout.
@@ -56,7 +56,9 @@ ncursesw 5.4+
 libviper 6.0.0+  - https://github.com/TragicWarrior/libviper
 libgpm (optional)
 libvterm 10.9+ - https://github.com/TragicWarrior/libvterm
-FreeType         (for the screen-capture module; "make all")
+FreeType         (for screen capture; DejaVu Sans Mono is bundled)
+                 cmake -DVWM_SCREENSHOT_FONT= / -DVWM_SCREENSHOT_FONT_BOLD=
+                 to force a different TTF
 libcups2-dev     (for the print module; "make all")
 zlib             (for the big-font hostname module, vwmfont)
 xclip (optional) - for "xclip" / "Both" Copy-to-Clipboard modes under X
