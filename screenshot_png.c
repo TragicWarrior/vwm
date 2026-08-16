@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "scrshot.h"
+#include "screenshot_priv.h"
 
 /*
     A small, dependency-free PNG writer.  The image data is emitted as a
@@ -168,19 +168,19 @@ vwmscrshot_write_png(const char *path, const uint8_t *rgb,
     size_t      raw_len;
     size_t      zlen = 0;
     uint8_t     ihdr[13];
-    int         rc = SCRSHOT_ERR_PNG;
+    int         rc = VWM_SHOT_ERR_PNG;
     int         y;
     size_t      pos = 0;
 
     static const uint8_t sig[8] = { 137, 80, 78, 71, 13, 10, 26, 10 };
 
     if(path == NULL || rgb == NULL || width <= 0 || height <= 0)
-        return SCRSHOT_ERR_PNG;
+        return VWM_SHOT_ERR_PNG;
 
     /* build filtered scanlines: each row prefixed with filter type 0 */
     raw_len = (size_t)height * (1 + (size_t)width * 3);
     raw = (uint8_t *)malloc(raw_len);
-    if(raw == NULL) { rc = SCRSHOT_ERR_ALLOC; goto done; }
+    if(raw == NULL) { rc = VWM_SHOT_ERR_ALLOC; goto done; }
 
     for(y = 0; y < height; y++)
     {
@@ -190,7 +190,7 @@ vwmscrshot_write_png(const char *path, const uint8_t *rgb,
     }
 
     z = zlib_store(raw, raw_len, &zlen);
-    if(z == NULL) { rc = SCRSHOT_ERR_ALLOC; goto done; }
+    if(z == NULL) { rc = VWM_SHOT_ERR_ALLOC; goto done; }
 
     /* IHDR payload */
     ihdr[0]  = (uint8_t)((width  >> 24) & 0xFF);
@@ -208,14 +208,14 @@ vwmscrshot_write_png(const char *path, const uint8_t *rgb,
     ihdr[12] = 0;       /* interlace          */
 
     f = fopen(path, "wb");
-    if(f == NULL) { rc = SCRSHOT_ERR_PNG; goto done; }
+    if(f == NULL) { rc = VWM_SHOT_ERR_PNG; goto done; }
 
-    if(fwrite(sig, 1, 8, f) != 8)                 { rc = SCRSHOT_ERR_PNG; goto done; }
-    if(write_chunk(f, "IHDR", ihdr, 13) != 0)     { rc = SCRSHOT_ERR_PNG; goto done; }
-    if(write_chunk(f, "IDAT", z, zlen) != 0)      { rc = SCRSHOT_ERR_PNG; goto done; }
-    if(write_chunk(f, "IEND", NULL, 0) != 0)      { rc = SCRSHOT_ERR_PNG; goto done; }
+    if(fwrite(sig, 1, 8, f) != 8)                 { rc = VWM_SHOT_ERR_PNG; goto done; }
+    if(write_chunk(f, "IHDR", ihdr, 13) != 0)     { rc = VWM_SHOT_ERR_PNG; goto done; }
+    if(write_chunk(f, "IDAT", z, zlen) != 0)      { rc = VWM_SHOT_ERR_PNG; goto done; }
+    if(write_chunk(f, "IEND", NULL, 0) != 0)      { rc = VWM_SHOT_ERR_PNG; goto done; }
 
-    rc = SCRSHOT_OK;
+    rc = VWM_SHOT_OK;
 
 done:
     if(f != NULL) fclose(f);

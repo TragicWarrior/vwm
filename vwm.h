@@ -10,8 +10,10 @@
 #include <vdk.h>
 #include <vkmio.h>
 
+#include "screenshot.h"
 
-#define VWM_VERSION					"4.9.9"
+
+#define VWM_VERSION					"5.0.0"
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
    outer terminal may have changed under us -- teleport to a new PTY, a

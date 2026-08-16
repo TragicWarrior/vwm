@@ -6,7 +6,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#include "scrshot.h"
+#include "screenshot_priv.h"
 
 /* ── color palette ──────────────────────────────────────────────────────
     ncurses color indices are mapped to RGB through a fixed internal table
@@ -160,25 +160,25 @@ vwmscrshot_render(const scrshot_grid_t *grid, const scrshot_cfg_t *cfg,
     int         cell_w, cell_h;
     int         img_w, img_h;
     int         row, col;
-    int         rc = SCRSHOT_OK;
+    int         rc = VWM_SHOT_OK;
 
-    if(grid == NULL || cfg == NULL || out_rgb == NULL) return SCRSHOT_ERR_ALLOC;
+    if(grid == NULL || cfg == NULL || out_rgb == NULL) return VWM_SHOT_ERR_ALLOC;
     if(grid->cells == NULL || grid->rows <= 0 || grid->cols <= 0)
-        return SCRSHOT_ERR_ALLOC;
+        return VWM_SHOT_ERR_ALLOC;
 
     palette_init();
 
-    if(FT_Init_FreeType(&lib) != 0) { rc = SCRSHOT_ERR_FONT; goto done; }
+    if(FT_Init_FreeType(&lib) != 0) { rc = VWM_SHOT_ERR_FONT; goto done; }
 
     if(FT_New_Face(lib, cfg->font_path, 0, &face) != 0)
     {
-        rc = SCRSHOT_ERR_FONT;
+        rc = VWM_SHOT_ERR_FONT;
         goto done;
     }
 
     if(FT_Set_Pixel_Sizes(face, 0, cfg->font_px) != 0)
     {
-        rc = SCRSHOT_ERR_FONT;
+        rc = VWM_SHOT_ERR_FONT;
         goto done;
     }
 
@@ -214,10 +214,10 @@ vwmscrshot_render(const scrshot_grid_t *grid, const scrshot_cfg_t *cfg,
 
     img_w = grid->cols * cell_w;
     img_h = grid->rows * cell_h;
-    if(img_w <= 0 || img_h <= 0) { rc = SCRSHOT_ERR_ALLOC; goto done; }
+    if(img_w <= 0 || img_h <= 0) { rc = VWM_SHOT_ERR_ALLOC; goto done; }
 
     img = (uint8_t *)malloc((size_t)img_w * img_h * 3);
-    if(img == NULL) { rc = SCRSHOT_ERR_ALLOC; goto done; }
+    if(img == NULL) { rc = VWM_SHOT_ERR_ALLOC; goto done; }
 
     for(row = 0; row < grid->rows; row++)
     {

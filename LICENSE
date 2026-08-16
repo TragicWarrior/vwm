@@ -2,6 +2,9 @@ VWM is open-source software, distributed under the terms of the GNU
 General Public License, Version 2 (reproduced below), or (at your option)
 any later version.
 
+The files under fonts/ (DejaVu Sans Mono) are not GPL.  They are
+Bitstream Vera-licensed; see fonts/LICENSE.
+
 License terms follow.
 
 --------------------------------------------------------------------------

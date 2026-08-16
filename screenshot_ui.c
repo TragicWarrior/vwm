@@ -8,20 +8,11 @@
 #include <vkmio.h>
 #include <ncursesw/curses.h>
 
-#include "scrshot.h"
-
-#include "../../vwm.h"
-#include "../../modules.h"
-#include "../../private.h"
-#include "../../panel.h"
-#include "../../winman.h"
-
-/* default font configuration (FreeMono ships with a bold companion) */
-#define SCRSHOT_FONT \
-    "/usr/share/fonts/truetype/freefont/FreeMono.ttf"
-#define SCRSHOT_BOLD \
-    "/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf"
-#define SCRSHOT_PX      16
+#include "vwm.h"
+#include "screenshot.h"
+#include "private.h"
+#include "panel.h"
+#include "winman.h"
 
 #define SAVE_W          64
 #define SAVE_H          22
@@ -619,11 +610,11 @@ err_text(int code)
 {
     switch(code)
     {
-        case SCRSHOT_ERR_FONT:  return "font load failed";
-        case SCRSHOT_ERR_GLYPH: return "glyph load failed";
-        case SCRSHOT_ERR_ALLOC: return "out of memory";
-        case SCRSHOT_ERR_PNG:   return "PNG write failed";
-        default:                return "unknown error";
+        case VWM_SHOT_ERR_FONT:  return "font load failed";
+        case VWM_SHOT_ERR_GLYPH: return "glyph load failed";
+        case VWM_SHOT_ERR_ALLOC: return "out of memory";
+        case VWM_SHOT_ERR_PNG:   return "PNG write failed";
+        default:                 return "unknown error";
     }
 }
 
@@ -631,19 +622,12 @@ static void
 do_capture_and_save(void)
 {
     scrshot_session_t   *s = s_session;
-    vwm_t               *vwm = vwm_get_instance();
     const char          *dir;
     const char          *name;
     char                fullpath[PATH_MAX];
     char                msg[PATH_MAX + 64];
-    scrshot_cfg_t       cfg;
-    scrshot_grid_t      *grid = NULL;
-    uint8_t             *rgb = NULL;
-    int                 img_w = 0, img_h = 0;
     int                 code;
-    int                 target = s->target;
-    WINDOW              *src = NULL;
-    vk_widget_t         *capwin;
+    int                 target;
 
     dir = vk_filedialog_get_path(s->fd);
     name = vk_input_get_text(s->fname);
@@ -664,6 +648,8 @@ do_capture_and_save(void)
     else
         snprintf(fullpath, sizeof(fullpath), "%s/%s", dir, name);
 
+    target = (s->target == TARGET_WINDOW) ? VWM_SHOT_TOP : VWM_SHOT_SCREEN;
+
     /* remove our dialog before capturing so it is not in the screenshot */
     if(s->window != NULL)
     {
@@ -675,39 +661,9 @@ do_capture_and_save(void)
         s->client_box = NULL;
     }
 
-    vk_screen_refresh(vwm->screen);
+    code = vwm_screenshot_save(target, fullpath);
 
-    if(target == TARGET_WINDOW)
-    {
-        capwin = vk_deck_get_top(vwm->deck);
-        if(capwin != NULL) src = vk_widget_get_canvas(capwin);
-    }
-
-    if(src == NULL)
-        src = vk_screen_get_window(vwm->screen);
-
-    grid = vwmscrshot_capture(src);
-
-    if(grid == NULL)
-    {
-        code = SCRSHOT_ERR_ALLOC;
-    }
-    else
-    {
-        cfg.font_path = SCRSHOT_FONT;
-        cfg.bold_path = SCRSHOT_BOLD;
-        cfg.font_px = SCRSHOT_PX;
-
-        code = vwmscrshot_render(grid, &cfg, &rgb, &img_w, &img_h);
-
-        if(code == SCRSHOT_OK)
-            code = vwmscrshot_write_png(fullpath, rgb, img_w, img_h);
-    }
-
-    if(rgb != NULL) free(rgb);
-    if(grid != NULL) vwmscrshot_grid_free(grid);
-
-    if(code == SCRSHOT_OK)
+    if(code == VWM_SHOT_OK)
         snprintf(msg, sizeof(msg), " Saved: %s", fullpath);
     else
         snprintf(msg, sizeof(msg), " Error: %s", err_text(code));
@@ -1030,21 +986,17 @@ session_kmio(vk_object_t *object, int32_t keystroke)
     return 0;
 }
 
-/* ── module entry ───────────────────────────────────────────────────────── */
-
-static vk_window_t*
-vwmscrshot_main(vwm_module_t *mod)
+void
+vwm_screenshot_open(void)
 {
     vwm_t       *vwm = vwm_get_instance();
     vk_window_t *win;
 
-    (void)mod;
-
     /* only one capture session at a time */
-    if(s_session != NULL) return NULL;
+    if(s_session != NULL) return;
 
     s_session = (scrshot_session_t *)calloc(1, sizeof(scrshot_session_t));
-    if(s_session == NULL) return NULL;
+    if(s_session == NULL) return;
 
     s_session->state = ST_PROMPT;
     s_session->last_click_item = -1;
@@ -1062,43 +1014,4 @@ vwmscrshot_main(vwm_module_t *mod)
     vwm_panel_set_status(" [Tab] move  [Enter] choose  [Esc] cancel");
 
     refresh_session(s_session);
-
-    return NULL;
-}
-
-static int
-vwmscrshot_configure(vwm_module_t *mod, va_list *argp)
-{
-    (void)mod;
-    (void)argp;
-    return 0;
-}
-
-int
-vwm_mod_init(const char *modpath)
-{
-    vwm_module_t    *mod;
-
-    (void)modpath;
-
-    mod = (vwm_module_t *)calloc(1, sizeof(vwm_module_t));
-    if(mod == NULL) return -1;
-
-    mod->main = vwmscrshot_main;
-    mod->clone = vwm_module_simple_clone;
-    mod->configure = vwmscrshot_configure;
-
-    vwm_module_set_name(mod, "screen-capture");
-    vwm_module_set_title(mod, "Screen Capture");
-    vwm_module_set_type(mod, VWM_MOD_TYPE_TOOL);
-
-    /*
-        a built-in tool: zone CORE keeps it out of the Apps menu and the
-        app/task selectors.  it is launched by name from the VWM menu.
-    */
-    vwm_module_set_zone(mod, MODULE_ZONE_CORE);
-
-    vwm_module_add(mod);
-
-    return 0;
 }

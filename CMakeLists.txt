@@ -55,6 +55,17 @@ endif()
 
 find_package(Freetype REQUIRED)
 
+include(GNUInstallDirs)
+
+# Screenshot fonts: empty = search system DejaVu, then the bundled
+# copies (installed datadir, then the source-tree fonts/ for uninstalled
+# runs).  A non-empty override is the only path tried for that face;
+# a missing file is VWM_SHOT_ERR_FONT (no silent fallback).
+set(VWM_SCREENSHOT_FONT "" CACHE FILEPATH
+    "TTF used to rasterize screenshot regular glyphs")
+set(VWM_SCREENSHOT_FONT_BOLD "" CACHE FILEPATH
+    "TTF used to rasterize screenshot bold glyphs")
+
 find_package(ZLIB REQUIRED)
 
 find_package(Cups REQUIRED)
@@ -66,15 +77,6 @@ add_library(vwmterm SHARED
     modules/vwmterm3/pt_thread.c
     modules/vwmterm3/signals.c
     )
-
-add_library(vwmscrshot SHARED
-    modules/vwmscrshot/init.c
-    modules/vwmscrshot/capture.c
-    modules/vwmscrshot/render.c
-    modules/vwmscrshot/pngwrite.c
-    )
-target_include_directories(vwmscrshot PRIVATE ${FREETYPE_INCLUDE_DIRS})
-target_link_libraries(vwmscrshot ${FREETYPE_LIBRARIES})
 
 add_library(vwmprint SHARED
     modules/vwmprint/init.c
@@ -117,6 +119,11 @@ add_executable(vwm
     panel.c
     events.c
     utf8_wide.c
+    screenshot.c
+    screenshot_capture.c
+    screenshot_render.c
+    screenshot_png.c
+    screenshot_ui.c
     )
 
 # Modules dlopen()'d at runtime (libvwmterm.so etc.) resolve symbols like
@@ -125,13 +132,25 @@ add_executable(vwm
 set_target_properties(vwm PROPERTIES ENABLE_EXPORTS ON)
 
 if (GPM_FOUND)
-target_link_libraries(vwm -lutil -lm -lrt ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}" )
+target_link_libraries(vwm -lutil -lm -lrt ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}" ${FREETYPE_LIBRARIES} )
 else()
-target_link_libraries(vwm -lutil -lm -lrt ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}")
+target_link_libraries(vwm -lutil -lm -lrt ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}" ${FREETYPE_LIBRARIES})
+endif()
+target_include_directories(vwm PRIVATE ${FREETYPE_INCLUDE_DIRS})
+target_compile_definitions(vwm PRIVATE
+    "VWM_FONTDIR=\"${CMAKE_INSTALL_FULL_DATADIR}/vwm/fonts\""
+    "VWM_FONTS_SRCDIR=\"${PROJECT_SOURCE_DIR}/fonts\"")
+if(VWM_SCREENSHOT_FONT)
+    target_compile_definitions(vwm PRIVATE
+        "VWM_SCREENSHOT_FONT=\"${VWM_SCREENSHOT_FONT}\"")
+endif()
+if(VWM_SCREENSHOT_FONT_BOLD)
+    target_compile_definitions(vwm PRIVATE
+        "VWM_SCREENSHOT_FONT_BOLD=\"${VWM_SCREENSHOT_FONT_BOLD}\"")
 endif()
 
-# "make core" builds only the window manager and the terminal module.
-# "make" / "make all" additionally builds the screen-capture module.
+# "make core" builds the window manager and the terminal module.
+# "make" / "make all" additionally builds print and hostname-font modules.
 add_custom_target(core)
 add_dependencies(core vwm vwmterm)
 
@@ -145,7 +164,6 @@ set(PKG_CONFIG_LIBS
 
 install (TARGETS vwm DESTINATION bin)
 install (TARGETS vwmterm DESTINATION lib/vwm/)
-install (TARGETS vwmscrshot DESTINATION lib/vwm/)
 install (TARGETS vwmprint DESTINATION lib/vwm/)
 install (TARGETS vwmfont DESTINATION lib/vwm/)
 
@@ -153,3 +171,10 @@ install (TARGETS vwmfont DESTINATION lib/vwm/)
 # set, alongside the vwm binary so they share its PATH (and tab-complete
 # together as vwm-*)
 install (PROGRAMS scripts/vwm-start scripts/vwm-resume DESTINATION bin)
+install (FILES
+    fonts/DejaVuSansMono.ttf
+    fonts/DejaVuSansMono-Bold.ttf
+    fonts/LICENSE
+    fonts/AUTHORS
+    fonts/README
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/vwm/fonts)

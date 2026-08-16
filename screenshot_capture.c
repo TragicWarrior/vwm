@@ -2,7 +2,7 @@
 
 #include <ncursesw/curses.h>
 
-#include "scrshot.h"
+#include "screenshot_priv.h"
 
 /*
     Cells drawn with A_ALTCHARSET store a VT100 line-graphics key (e.g. 'q'
