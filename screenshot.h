@@ -3,7 +3,7 @@
 
 /*
     In-process screenshot API.  The VWM-menu dialog is one caller;
-    hotkeys and a future control socket are others.
+    vwm-msg screenshot is another.
 */
 
 enum

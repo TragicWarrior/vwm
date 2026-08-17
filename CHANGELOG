@@ -3,7 +3,11 @@ Version 5.1.0
 *  [Bryan Christ] Control plane: Unix socket (VWM_CONTROL_SOCK, else
    ~/.config/vwm/control.sock) plus vwm-msg.  SO_PEERCRED same-uid
    only.  Ops: ping, list-windows / list-desktops / focused, launch /
-   launch-app, focus, close, minimize, restore, move, resize, desktop.
+   launch-app, list-apps, focus, close, minimize, restore, move,
+   resize, desktop, send-keys, capture, screenshot.  launch-app joins
+   remaining words as the title (so unquoted VTerm Color works).
+   send-keys --key F1..F12 writes the xterm CSI/SS3 sequence, not
+   ncurses KEY_F(n) (which libvterm could pack as two garbage bytes).
    Window ids come from libviper 7.1 vk_widget_get_id().
    Requires libviper 7.2.0+ (host bracketed paste so an xfce/VTE
    paste is one blob, not a stream of Enters).

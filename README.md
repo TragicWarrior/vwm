@@ -55,7 +55,7 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-libviper 7.1.0+  - https://github.com/TragicWarrior/libviper
+libviper 7.2.0+  - https://github.com/TragicWarrior/libviper
 libgpm (optional)
 libvterm 10.9+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for screen capture; DejaVu Sans Mono is bundled)
@@ -75,7 +75,12 @@ shell -- including one inside a vwmterm -- run vwm-msg:
 
     vwm-msg ping
     vwm-msg list-windows
+    vwm-msg list-apps
+    vwm-msg launch-app VTerm Color
     vwm-msg launch --bin /usr/bin/htop
+    vwm-msg send-keys <id> --text "ls -la" --enter
+    vwm-msg capture <id>
+    vwm-msg screenshot --target top
     vwm-msg close <id>
 
 See vwm-msg --help.  This is not the dtach socket (VWM_SOCK).
