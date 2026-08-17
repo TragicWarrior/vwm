@@ -45,6 +45,8 @@ FEATURES
    Terminus pixel-font at one of nine grid sizes.
 *  Remote-friendly: run under dtach via the bundled vwm-start / vwm-resume
    launchers to detach and reattach a session across SSH disconnects.
+*  Control plane: vwm-msg talks to the running session (list / launch /
+   focus / close / …) over a per-user Unix socket.
 *  Configuration persisted to JSON at ~/.config/vwm/config.json; a sane
    default is written on first run.
 
@@ -53,7 +55,7 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-libviper 6.0.0+  - https://github.com/TragicWarrior/libviper
+libviper 7.2.0+  - https://github.com/TragicWarrior/libviper
 libgpm (optional)
 libvterm 10.9+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for screen capture; DejaVu Sans Mono is bundled)
@@ -63,6 +65,25 @@ libcups2-dev     (for the print module; "make all")
 zlib             (for the big-font hostname module, vwmfont)
 xclip (optional) - for "xclip" / "Both" Copy-to-Clipboard modes under X
 dtach (optional) - for remote detach/reattach (vwm-start / vwm-resume)
+
+CONTROL SOCKET
+==============
+
+The running vwm listens on $VWM_CONTROL_SOCK (default
+~/.config/vwm/control.sock).  Only the same uid can connect.  From any
+shell -- including one inside a vwmterm -- run vwm-msg:
+
+    vwm-msg ping
+    vwm-msg list-windows
+    vwm-msg list-apps
+    vwm-msg launch-app VTerm Color
+    vwm-msg launch --bin /usr/bin/htop
+    vwm-msg send-keys <id> --text "ls -la" --enter
+    vwm-msg capture <id>
+    vwm-msg screenshot --target top
+    vwm-msg close <id>
+
+See vwm-msg --help.  This is not the dtach socket (VWM_SOCK).
 
 INSTALLATION
 ============

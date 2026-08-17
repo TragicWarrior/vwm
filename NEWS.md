@@ -1,3 +1,25 @@
+2026-08-16
+
+vwm can be driven from a shell (or an agent) with vwm-msg.  The
+running session listens on $VWM_CONTROL_SOCK (default
+~/.config/vwm/control.sock); only the same uid can connect.  You can
+list windows, launch a program, focus, close, minimize, move, resize,
+switch desktops, type or paste into a vwmterm, dump its text, and
+take a PNG of the screen.  Example:
+
+    vwm-msg ping
+    vwm-msg list-apps
+    vwm-msg launch-app VTerm Color
+    vwm-msg launch --bin /usr/bin/htop
+    vwm-msg list-windows
+    vwm-msg send-keys <id> --text "ls -la" --enter
+    vwm-msg capture <id>
+    vwm-msg screenshot --target top --path /tmp/vwm.png
+    vwm-msg close <id>
+
+Building this release needs libvterm 10.9+ and libviper 7.2.0+.
+
+
 2026-08-14
 
 Screen capture is built into vwm.  The old libvwmscrshot.so module is

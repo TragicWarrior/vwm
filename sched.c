@@ -58,6 +58,7 @@ struct _vwm_sched_s
     protothread_t           pt_high;
     vwm_sched_step_cb_t     step_cb;
     void                    *step_cb_arg;
+    int                     wake_fd;
     vwm_sched_slot_t        slots[VWM_SCHED_MAX_TASKS];
 };
 
@@ -74,6 +75,7 @@ vwm_sched_init(void)
 
     sched->pt_normal = protothread_create();
     sched->pt_high = protothread_create();
+    sched->wake_fd = -1;
 
     return sched;
 }
@@ -96,6 +98,14 @@ vwm_sched_set_step_cb(vwm_sched_t *sched, vwm_sched_step_cb_t cb, void *arg)
 
     sched->step_cb = cb;
     sched->step_cb_arg = arg;
+}
+
+void
+vwm_sched_set_wake_fd(vwm_sched_t *sched, int fd)
+{
+    if(sched == NULL) return;
+
+    sched->wake_fd = fd;
 }
 
 int
@@ -149,7 +159,8 @@ vwm_sched_run(vwm_sched_t *sched, int *shutdown)
     struct timespec     now;
     struct timespec     last_tick;
     struct timespec     timeout;
-    struct pollfd       pfds[1];
+    struct pollfd       pfds[2];
+    nfds_t              n_pfds;
     sigset_t            pollmask;
     long                elapsed_ms;
     long                remaining_ms;
@@ -164,6 +175,13 @@ vwm_sched_run(vwm_sched_t *sched, int *shutdown)
 
     pfds[0].fd = STDIN_FILENO;
     pfds[0].events = POLLIN;
+    n_pfds = 1;
+    if(sched->wake_fd >= 0)
+    {
+        pfds[1].fd = sched->wake_fd;
+        pfds[1].events = POLLIN;
+        n_pfds = 2;
+    }
 
     sigemptyset(&pollmask);
 
@@ -282,7 +300,7 @@ vwm_sched_run(vwm_sched_t *sched, int *shutdown)
                 timeout.tv_sec = 0;
                 timeout.tv_nsec = remaining_ms * 1000000L;
 
-                ppoll(pfds, 1, &timeout, &pollmask);
+                ppoll(pfds, n_pfds, &timeout, &pollmask);
                 /* tick detection happens at the top of next iteration */
             }
 

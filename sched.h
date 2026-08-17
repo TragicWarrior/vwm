@@ -102,6 +102,10 @@ typedef void    (*vwm_sched_step_cb_t)(void *arg);
 void            vwm_sched_set_step_cb(vwm_sched_t *sched,
                     vwm_sched_step_cb_t cb, void *arg);
 
+/* extra fd included in the idle ppoll so a control-socket accept
+   wakes the loop the same way stdin does.  -1 disables. */
+void            vwm_sched_set_wake_fd(vwm_sched_t *sched, int fd);
+
 /*
     number of slots currently in use (active tasks).  cheap O(N) scan
     of the ring; safe to call from anywhere on the main thread.

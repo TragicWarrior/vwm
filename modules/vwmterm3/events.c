@@ -749,14 +749,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
         if(me->bstate & BUTTON2_PRESSED)
         {
             if(clipboard != NULL && clipboard_len > 0)
-            {
-                /* clipboard is a UTF-8 byte stream; cast through
-                   unsigned char so bytes >= 0x80 are not sign-extended
-                   into multi-byte keycodes (D3). */
-                for(size_t i = 0; i < clipboard_len; i++)
-                    vterm_write_pipe(vterm,
-                        (uint32_t)(unsigned char)clipboard[i]);
-            }
+                vterm_write_data(vterm, clipboard, clipboard_len);
             return KMIO_HANDLED;
         }
 
@@ -886,12 +879,17 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
     if(keystroke == KEY_PASTE)
     {
         if(clipboard != NULL && clipboard_len > 0)
-        {
-            /* see BUTTON2 paste: unsigned char avoids sign-extend (D3) */
-            for(size_t i = 0; i < clipboard_len; i++)
-                vterm_write_pipe(vterm,
-                    (uint32_t)(unsigned char)clipboard[i]);
-        }
+            vterm_write_data(vterm, clipboard, clipboard_len);
+        return KMIO_HANDLED;
+    }
+
+    if(keystroke == VK_KMIO_PASTE)
+    {
+        size_t      plen = 0;
+        const char  *pbuf = vk_kmio_get_paste(&plen);
+
+        if(pbuf != NULL && plen > 0)
+            vterm_write_data(vterm, pbuf, plen);
         return KMIO_HANDLED;
     }
 
