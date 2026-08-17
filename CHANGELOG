@@ -1,4 +1,4 @@
-Version 5.1.0
+Version 6.0.0
 
 *  [Bryan Christ] Control plane: Unix socket (VWM_CONTROL_SOCK, else
    ~/.config/vwm/control.sock) plus vwm-msg.  SO_PEERCRED same-uid
