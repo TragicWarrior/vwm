@@ -733,7 +733,7 @@ move_apply(void)
         for(i = 0; i < n; i++)
         {
             vk_deck_remove_widget(vwm->decks[active_surface], checked[i]);
-            vk_deck_add_widget(vwm->decks[target_surface],
+            vwm_deck_add_window(vwm->decks[target_surface],
                 checked[i], VK_DECK_TOP);
         }
     }

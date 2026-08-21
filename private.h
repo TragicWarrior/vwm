@@ -96,6 +96,13 @@ struct _vwm_s
 
     uint32_t                state;
 
+    /* window whose border is flashing to request user attention
+       (vwm-msg attention).  NULL = none.  attention_phase toggles
+       every VWM_ATTENTION_TICKS clock ticks (1/2 s). */
+    vk_widget_t             *attention;
+    int                     attention_phase;
+    int                     attention_hold;
+
     int                     cursor_x;
     int                     cursor_y;
     bool                    show_cursor;

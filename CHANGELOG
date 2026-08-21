@@ -1,3 +1,15 @@
+Version 6.1.0
+
+*  [Bryan Christ] New windows cascade +2 columns and +2 rows when they
+   would share another visible member's origin on the same deck, so a
+   second VTerm Color does not sit exactly on top of the first.
+   Fullscreen windows are left alone.
+*  [Bryan Christ] Attention flash: vwm-msg attention <id> (or launch
+   --attention) switches to that window and pulses its border about
+   every 1/2 s (white-on-red / black-on-yellow) until the user clicks
+   or types in it, it is closed or minimized, or attention-off.
+   list-windows reports "attention".
+
 Version 6.0.0
 
 *  [Bryan Christ] Control plane: Unix socket (VWM_CONTROL_SOCK, else

@@ -1,3 +1,16 @@
+2026-08-17
+
+New windows no longer land on the exact same origin as another window
+on that desktop: they step +2 columns and +2 rows while they still fit.
+Fullscreen is unchanged.
+
+vwm-msg attention <id> (also launch --attention) raises that window and
+pulses its border until you click or type in it, or run attention-off.
+Use it when a launched terminal is waiting on you (password prompt).
+
+Building this release needs libvterm 10.9+ and libviper 7.2.0+.
+
+
 2026-08-16
 
 vwm can be driven from a shell (or an agent) with vwm-msg.  The

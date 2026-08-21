@@ -81,6 +81,7 @@ shell -- including one inside a vwmterm -- run vwm-msg:
     vwm-msg send-keys <id> --text "ls -la" --enter
     vwm-msg capture <id>
     vwm-msg screenshot --target top
+    vwm-msg attention <id>
     vwm-msg close <id>
 
 See vwm-msg --help.  This is not the dtach socket (VWM_SOCK).

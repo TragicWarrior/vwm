@@ -15,6 +15,7 @@
 #include "strings.h"
 #include "manage_ui_common.h"
 #include "launch_picker.h"
+#include "winman.h"
 
 /*
     A standalone modal file picker for the "%fd" launch token.  It reuses
@@ -166,9 +167,7 @@ launch_picker_launch(const char *fullpath)
     window = module->main(module);
     if(window != NULL)
     {
-        /* add at top; ON_FINALIZE decorates the new window as focused and
-           demotes the previous top */
-        vk_deck_add_widget(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+        vwm_deck_add_window(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
         vk_screen_refresh(vwm->screen);
     }
 }

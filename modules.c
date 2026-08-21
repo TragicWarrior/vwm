@@ -12,6 +12,7 @@
 #include "strings.h"
 #include "launch_picker.h"
 #include "list.h"
+#include "winman.h"
 
 #define X_MOD(modtype_val, modtype_text) modtype_text,
 char *mod_desc[] =
@@ -487,9 +488,9 @@ vwm_menu_helper(vk_widget_t *widget, void *anything)
 
     if(window != NULL)
     {
-        /* add at top; ON_FINALIZE decorates the new window as focused and
-           demotes the previous top */
-        vk_deck_add_widget(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+        /* add at top; cascade if the origin matches another member.
+           ON_FINALIZE decorates the new window as focused. */
+        vwm_deck_add_window(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
         vk_screen_refresh(vwm->screen);
     }
 

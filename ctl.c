@@ -539,6 +539,8 @@ op_list_windows(int fd)
             cJSON_AddBoolToObject(row, "minimized", visible ? 0 : 1);
             cJSON_AddStringToObject(row, "kind",
                 (vk_widget_get_userptr(w) != NULL) ? "vterm" : "window");
+            cJSON_AddBoolToObject(row, "attention",
+                vwm_attention_is(w) ? 1 : 0);
             cJSON_AddItemToArray(arr, row);
         }
     }
@@ -907,7 +909,9 @@ op_launch(int fd, cJSON *req)
         return;
     }
 
-    vk_deck_add_widget(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+    vwm_deck_add_window(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+    if(ctl_json_bool(req, "attention", NULL))
+        vwm_attention_set(VK_WIDGET(window));
     vk_screen_refresh(vwm->screen);
 
     data = cJSON_CreateObject();
@@ -1104,7 +1108,9 @@ op_launch_app(int fd, cJSON *req)
         return;
     }
 
-    vk_deck_add_widget(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+    vwm_deck_add_window(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+    if(ctl_json_bool(req, "attention", NULL))
+        vwm_attention_set(VK_WIDGET(window));
     vk_screen_refresh(vwm->screen);
 
     data = cJSON_CreateObject();
@@ -1853,6 +1859,54 @@ op_screenshot(int fd, cJSON *req)
 }
 
 static void
+op_attention(int fd, cJSON *req)
+{
+    int         present;
+    int         off;
+    uint32_t    id;
+    vk_widget_t *w;
+
+    off = ctl_json_bool(req, "off", NULL);
+    id = ctl_json_u32(req, "id", &present);
+
+    if(off)
+    {
+        if(present && id != 0)
+        {
+            w = ctl_find_id(id, NULL);
+            if(w == NULL)
+            {
+                ctl_reply(fd, 0, NULL, "unknown id");
+                return;
+            }
+            vwm_attention_clear(w);
+        }
+        else
+            vwm_attention_clear(NULL);
+
+        vk_screen_refresh(vwm_get_instance()->screen);
+        ctl_reply(fd, 1, NULL, NULL);
+        return;
+    }
+
+    if(!present || id == 0)
+    {
+        ctl_reply(fd, 0, NULL, "missing id");
+        return;
+    }
+
+    w = ctl_find_id(id, NULL);
+    if(w == NULL)
+    {
+        ctl_reply(fd, 0, NULL, "unknown id");
+        return;
+    }
+
+    vwm_attention_set(w);
+    ctl_reply(fd, 1, NULL, NULL);
+}
+
+static void
 ctl_dispatch(int fd, cJSON *req)
 {
     const char  *op;
@@ -1881,6 +1935,7 @@ ctl_dispatch(int fd, cJSON *req)
     else if(strcmp(op, "send-keys") == 0)     op_send_keys(fd, req);
     else if(strcmp(op, "capture") == 0)       op_capture(fd, req);
     else if(strcmp(op, "screenshot") == 0)    op_screenshot(fd, req);
+    else if(strcmp(op, "attention") == 0)     op_attention(fd, req);
     else
         ctl_reply(fd, 0, NULL, "unknown op");
 }

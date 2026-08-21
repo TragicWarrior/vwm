@@ -32,6 +32,15 @@ void    vwm_restore_window(vk_widget_t *widget);
 int     vwm_widget_desktop(vk_widget_t *widget);
 void    vwm_fit_window_onscreen(vk_widget_t *widget, int scr_w, int scr_h);
 
+/* place then add: offset +2,+2 while another visible member shares
+   the same origin, if the window still fits.  fullscreen skipped. */
+int     vwm_deck_add_window(vk_deck_t *deck, vk_widget_t *widget,
+            int position);
+
+void    vwm_attention_set(vk_widget_t *widget);
+void    vwm_attention_clear(vk_widget_t *widget);
+int     vwm_attention_is(vk_widget_t *widget);
+
 void    vwm_default_WINDOW_MOVE_UP(vk_widget_t *widget);
 void    vwm_default_WINDOW_MOVE_DOWN(vk_widget_t *widget);
 void    vwm_default_WINDOW_MOVE_LEFT(vk_widget_t *widget);

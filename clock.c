@@ -10,6 +10,7 @@
 #include "panel.h"
 #include "screensaver.h"
 #include "signals.h"
+#include "winman.h"
 
 /*
     Two reattach/resize cases the poll loop can't see on its own, both
@@ -91,6 +92,16 @@ vwm_clock_driver(void * const env)
         vwm_panel_ON_CLOCK_TICK(vwm_panel_get_data());
         vwm_screensaver_tick();
         check_destination_resize(vwm);
+        if(vwm->attention != NULL)
+        {
+            vwm->attention_hold++;
+            if(vwm->attention_hold >= VWM_ATTENTION_TICKS)
+            {
+                vwm->attention_hold = 0;
+                vwm->attention_phase = !vwm->attention_phase;
+                vk_window_update(VK_WINDOW(vwm->attention));
+            }
+        }
         vk_screen_refresh(vwm->screen);
         ctx_timer->did_work = 1;
         pt_yield(ctx_timer);

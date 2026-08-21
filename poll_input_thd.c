@@ -237,6 +237,8 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
 static void
 raise_to_top(vwm_t *vwm, vk_widget_t *widget)
 {
+    vwm_attention_clear(widget);
+
     if(widget == vk_deck_get_top(vwm->deck)) return;
 
     /* set_top fires ON_FINALIZE, which repaints the outgoing and incoming
@@ -809,6 +811,7 @@ vwm_poll_input(void * const env)
 
             if(top != NULL)
             {
+                vwm_attention_clear(top);
                 vk_object_push_keystroke(VK_OBJECT(top), keystroke);
                 /*
                     fall-through keystrokes (no menubar / panel / dialog
