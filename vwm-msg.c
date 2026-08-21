@@ -26,7 +26,7 @@ usage(FILE *fp)
         "  move <id> [--dx N] [--dy N] [--x N] [--y N]\n"
         "  resize <id> [--dw N] [--dh N] [--width N] [--height N]\n"
         "  launch --bin PATH [--profile NAME] [--width N] [--height N]\n"
-        "         [--scrollback N] [--start-home] [-- ARG...]\n"
+        "         [--scrollback N] [--start-home] [--attention] [-- ARG...]\n"
         "  list-apps\n"
         "  launch-app <title words...>\n"
         "  send-keys <id> [--type] [--enter] [--file PATH | --text STR | TEXT]\n"
@@ -35,6 +35,8 @@ usage(FILE *fp)
         "  capture <id> [--scrollback [N]] [--path FILE]\n"
         "      --scrollback with no N dumps all history plus the live screen\n"
         "  screenshot [--target screen|top] [--path FILE]\n"
+        "  attention <id>\n"
+        "  attention-off [id]\n"
         "\n"
         "Talks to VWM_CONTROL_SOCK, else ~/.config/vwm/control.sock.\n");
 }
@@ -499,6 +501,7 @@ main(int argc, char **argv)
         const char  *height = NULL;
         const char  *scrollback = NULL;
         int         start_home = 0;
+        int         attention = 0;
         int         dash = 0;
         int         i;
         char        esc_bin[PATH_MAX + 8];
@@ -559,6 +562,11 @@ main(int argc, char **argv)
                 start_home = 1;
                 continue;
             }
+            if(strcmp(argv[i], "--attention") == 0)
+            {
+                attention = 1;
+                continue;
+            }
 
             fprintf(stderr, "vwm-msg: unknown flag %s\n", argv[i]);
             return 1;
@@ -603,6 +611,8 @@ main(int argc, char **argv)
         }
         if(start_home)
             strncat(req, ",\"start_home\":1", sizeof(req) - 1);
+        if(attention)
+            strncat(req, ",\"attention\":true", sizeof(req) - 1);
         if(args_json[0] != '\0')
         {
             strncat(req, ",\"args\":[", sizeof(req) - 1);
@@ -951,6 +961,24 @@ main(int argc, char **argv)
         }
 
         snprintf(req, sizeof(req), "{\"op\":\"screenshot\"%s}", extra);
+        return transact(req);
+    }
+
+    if(strcmp(op, "attention") == 0)
+    {
+        if(need(argc, 2, "id") != 0) return 1;
+        snprintf(req, sizeof(req), "{\"op\":\"attention\",\"id\":%s}",
+            argv[2]);
+        return transact(req);
+    }
+
+    if(strcmp(op, "attention-off") == 0)
+    {
+        if(argc >= 3)
+            snprintf(req, sizeof(req),
+                "{\"op\":\"attention\",\"id\":%s,\"off\":true}", argv[2]);
+        else
+            snprintf(req, sizeof(req), "{\"op\":\"attention\",\"off\":true}");
         return transact(req);
     }
 

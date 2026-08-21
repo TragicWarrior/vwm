@@ -13,7 +13,7 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"6.0.0"
+#define VWM_VERSION					"6.1.0"
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
    outer terminal may have changed under us -- teleport to a new PTY, a
@@ -34,6 +34,8 @@
 
 #define VWM_CLOCK_TICK              (0.1F)
 #define VWM_CLOCK_TICKS_PER_SEC     ((short int)(1/VWM_CLOCK_TICK))
+/* hold each attention-flash color this many 0.1s clock ticks (1/2 s) */
+#define VWM_ATTENTION_TICKS         5
 
 #define VWM_STATE_NORMAL            0
 #define VMW_STATE_ASLEEP            (1 << 1)    // screensaver active

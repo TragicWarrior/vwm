@@ -61,7 +61,21 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
 
     getmaxyx(canvas, y, x);
 
-    if(focused)
+    if(vwm->attention == VK_WIDGET(window))
+    {
+        extra = A_BOLD;
+        if(vwm->attention_phase)
+        {
+            pair = vdk_color_pair(COLOR_WHITE, COLOR_RED);
+            vk_window_set_border_colors(window, COLOR_WHITE, COLOR_RED);
+        }
+        else
+        {
+            pair = vdk_color_pair(COLOR_BLACK, COLOR_YELLOW);
+            vk_window_set_border_colors(window, COLOR_BLACK, COLOR_YELLOW);
+        }
+    }
+    else if(focused)
     {
         pair = vdk_color_pair(COLOR_WHITE, COLOR_MAGENTA);
         extra = A_BOLD;

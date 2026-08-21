@@ -134,6 +134,7 @@ vwm_default_WINDOW_CLOSE(vk_widget_t *widget)
     if(widget == NULL) return;
 
     vwm = vwm_get_instance();
+    vwm_attention_clear(widget);
     desk = vwm_widget_desktop(widget);
     deck = (desk >= 0) ? vwm->decks[desk] : vwm->deck;
     if(deck == NULL) return;
@@ -168,6 +169,7 @@ vwm_minimize_window(vk_widget_t *widget)
     if(widget == NULL) return;
 
     vwm = vwm_get_instance();
+    vwm_attention_clear(widget);
     desk = vwm_widget_desktop(widget);
     deck = (desk >= 0) ? vwm->decks[desk] : vwm->deck;
     if(deck == NULL) return;
@@ -362,6 +364,126 @@ vwm_default_WINDOW_DECREASE_HEIGHT(vk_widget_t *widget)
     vk_widget_resize(widget, width, height - 1);
     vk_window_update(VK_WINDOW(widget));
     vk_screen_refresh(vwm_get_instance()->screen);
+}
+
+#define VWM_CASCADE_DX  2
+#define VWM_CASCADE_DY  2
+
+static int
+cascade_origin_taken(vk_deck_t *deck, vk_widget_t *self, int x, int y)
+{
+    int     n, i;
+
+    n = vk_deck_count(deck);
+    for(i = 0; i < n; i++)
+    {
+        vk_widget_t *w;
+        int         ox, oy;
+
+        w = vk_deck_get_widget(deck, i);
+        if(w == NULL || w == self) continue;
+        if(!(vk_widget_get_state(w) & VK_STATE_VISIBLE)) continue;
+
+        vk_widget_get_position(w, &ox, &oy);
+        if(ox == x && oy == y)
+            return 1;
+    }
+
+    return 0;
+}
+
+static void
+cascade_place(vk_deck_t *deck, vk_widget_t *widget)
+{
+    vwm_t   *vwm;
+    int     x, y, ww, wh;
+    int     scr_w, scr_h;
+
+    if(deck == NULL || widget == NULL) return;
+    if(vk_widget_get_state(widget) & VK_STATE_NORESIZE)
+        return;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL || vwm->screen == NULL) return;
+
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+    vk_widget_get_position(widget, &x, &y);
+    vk_widget_get_metrics(widget, &ww, &wh);
+
+    while(cascade_origin_taken(deck, widget, x, y))
+    {
+        int nx = x + VWM_CASCADE_DX;
+        int ny = y + VWM_CASCADE_DY;
+
+        if(nx < 0 || ny < 1) break;
+        if(nx + ww > scr_w) break;
+        if(ny + wh > scr_h - 1) break;
+
+        x = nx;
+        y = ny;
+    }
+
+    vk_widget_move(widget, x, y);
+}
+
+int
+vwm_deck_add_window(vk_deck_t *deck, vk_widget_t *widget, int position)
+{
+    if(deck == NULL || widget == NULL) return -1;
+
+    cascade_place(deck, widget);
+    return vk_deck_add_widget(deck, widget, position);
+}
+
+void
+vwm_attention_clear(vk_widget_t *widget)
+{
+    vwm_t   *vwm = vwm_get_instance();
+
+    if(vwm == NULL) return;
+    if(widget != NULL && vwm->attention != widget) return;
+
+    if(vwm->attention == NULL) return;
+
+    vwm->attention = NULL;
+    vwm->attention_phase = 0;
+    vwm->attention_hold = 0;
+}
+
+void
+vwm_attention_set(vk_widget_t *widget)
+{
+    vwm_t       *vwm = vwm_get_instance();
+    int         desk;
+
+    if(vwm == NULL || widget == NULL) return;
+
+    desk = vwm_widget_desktop(widget);
+    if(desk < 0) return;
+
+    if(!(vk_widget_get_state(widget) & VK_STATE_VISIBLE))
+        vk_widget_show(widget);
+
+    if(vk_screen_get_active_surface(vwm->screen) != desk)
+        vk_screen_set_surface(vwm->screen, desk);
+
+    vk_deck_set_top(vwm->decks[desk], widget);
+
+    vwm->attention = widget;
+    vwm->attention_phase = 1;
+    vwm->attention_hold = 0;
+
+    vk_window_update(VK_WINDOW(widget));
+    vk_screen_refresh(vwm->screen);
+}
+
+int
+vwm_attention_is(vk_widget_t *widget)
+{
+    vwm_t   *vwm = vwm_get_instance();
+
+    if(vwm == NULL || widget == NULL) return 0;
+    return (vwm->attention == widget);
 }
 
 void
