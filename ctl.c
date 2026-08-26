@@ -11,6 +11,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <sys/types.h>
 
@@ -28,6 +29,7 @@
 #include "modules/vwmterm3/vwmterm.h"
 
 #define VWM_CTL_MAX_REQ     (256 * 1024)
+#define VWM_CTL_IO_TIMEO    2           /* seconds; bound a stalled peer */
 
 static int      listen_fd = -1;
 static char     sock_path[PATH_MAX];
@@ -36,6 +38,8 @@ static void     ctl_reply(int fd, int ok, cJSON *data, const char *err);
 static void     ctl_dispatch(int fd, cJSON *req);
 static vk_widget_t *ctl_find_id(uint32_t id, int *desktop);
 static int      ctl_switch_desktop(int n);
+static void     ctl_set_io_timeout(int fd);
+static int      ctl_write_all(int fd, const void *buf, size_t n);
 
 static void
 ctl_sock_path(char *buf, size_t n)
@@ -187,6 +191,48 @@ ctl_peer_ok(int fd)
     return 1;
 }
 
+/*
+    Bound a stalled peer so ctl_serve() cannot freeze the render loop.
+    accept(2) does not inherit O_NONBLOCK from the listen socket, so
+    without this a connect-and-silence blocks read() forever.
+*/
+static void
+ctl_set_io_timeout(int fd)
+{
+    struct timeval  tv;
+
+    tv.tv_sec  = VWM_CTL_IO_TIMEO;
+    tv.tv_usec = 0;
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+}
+
+/* write the whole buffer or fail; retry EINTR, give up on timeout/dead peer */
+static int
+ctl_write_all(int fd, const void *buf, size_t n)
+{
+    const char  *p = buf;
+    size_t      left = n;
+
+    while(left > 0)
+    {
+        ssize_t w = write(fd, p, left);
+
+        if(w < 0)
+        {
+            if(errno == EINTR) continue;
+            return -1;
+        }
+        if(w == 0)
+            return -1;
+
+        p += (size_t)w;
+        left -= (size_t)w;
+    }
+
+    return 0;
+}
+
 static void
 ctl_serve(int cfd)
 {
@@ -194,6 +240,8 @@ ctl_serve(int cfd)
     size_t  used = 0;
     ssize_t n;
     cJSON   *req;
+
+    ctl_set_io_timeout(cfd);
 
     if(!ctl_peer_ok(cfd))
     {
@@ -208,6 +256,8 @@ ctl_serve(int cfd)
         if(n < 0)
         {
             if(errno == EINTR) continue;
+            /* timeout (EAGAIN/ETIMEDOUT) or a dead peer: drop this
+               connection rather than stall the scheduler */
             close(cfd);
             return;
         }
@@ -294,8 +344,10 @@ ctl_reply(int fd, int ok, cJSON *data, const char *err)
         size_t  len = strlen(txt);
         char    nl = '\n';
 
-        if(write(fd, txt, len) < 0) { /* ignore */ }
-        if(write(fd, &nl, 1) < 0) { /* ignore */ }
+        /* only frame the reply if the body landed in full -- a short
+           write plus a newline looks like valid JSON and is not */
+        if(ctl_write_all(fd, txt, len) == 0)
+            ctl_write_all(fd, &nl, 1);
     }
 
     free(txt);
