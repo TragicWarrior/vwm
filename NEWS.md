@@ -1,3 +1,15 @@
+2026-08-25
+
+vwmterm init no longer dies when the unversioned libutil.so symlink
+is missing (glibc 2.34+ merged libutil into libc).  It tries
+libutil.so, then libutil.so.1, and otherwise continues if libc
+already provides forkpty.  That was GitHub issue #88 -- a missing
+devel symlink used to take the whole window manager down because
+the terminal module would not register.
+
+Building this release needs libvterm 10.9+ and libviper 7.2.0+.
+
+
 2026-08-22
 
 Manage Desktop -> Move -> Reorient (was Home coordinates) uses the
