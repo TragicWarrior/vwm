@@ -707,11 +707,15 @@ move_apply(void)
 
     if(idx == 0)
     {
-        /* Home coordinates -- move every checked window to (1, 1) on the
-           current desktop (they stack) */
+        /* Reorient -- same fit as restore: pull the origin on-screen,
+           then shrink if the window is still clipped.  Leaves each
+           window on the current desktop. */
+        int scr_h, scr_w;
+
+        getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
         for(i = 0; i < n; i++)
         {
-            vk_widget_move(checked[i], 1, 1);
+            vwm_fit_window_onscreen(checked[i], scr_w, scr_h);
             vk_window_update(VK_WINDOW(checked[i]));
         }
         free(checked);
@@ -784,9 +788,9 @@ move_popup_open(void)
     desktops = vwm->surface_count;
 
     /*
-        always 1 row for "Home coordinates", plus 1 row per desktop when
+        always 1 row for "Reorient", plus 1 row per desktop when
         there is more than one.  cap the listbox at 6 rows so we never
-        run past the popup height (VWM_MAX_DESKTOPS == 6, "Home" + 6 = 7).
+        run past the popup height (VWM_MAX_DESKTOPS == 6, "Reorient" + 6 = 7).
     */
     lb_height = 1 + (desktops > 1 ? desktops : 0);
     if(lb_height > 7) lb_height = 7;
@@ -817,7 +821,7 @@ move_popup_open(void)
     vk_listbox_set_unfocused(move_listbox, COLOR_BLACK, COLOR_WHITE);
     vk_listbox_set_wrap(move_listbox, FALSE);
 
-    vk_listbox_add_item(move_listbox, "Home coordinates", NULL, NULL);
+    vk_listbox_add_item(move_listbox, "Reorient", NULL, NULL);
     if(desktops > 1)
     {
         for(i = 0; i < desktops; i++)

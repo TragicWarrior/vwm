@@ -1,3 +1,21 @@
+2026-08-22
+
+Manage Desktop -> Move -> Reorient (was Home coordinates) uses the
+same fit as restore: pull the window origin on-screen, then shrink
+if it still hangs off the right or bottom edge.  That recovers a
+clipped window from the picker instead of leaving it stuck, which
+is what a hard move to (1, 1) used to do (ncurses mvwin refuses
+any destination that would still overflow).
+
+vwm-msg launch and launch-app run that fit after spawn.  vwm-msg
+resize no longer honors a width/height that would hang off the
+right edge or cover the status row -- it clamps to the remaining
+space from the window's current origin.  That was how an agent
+could open a window too large to move.
+
+Building this release needs libvterm 10.9+ and libviper 7.2.0+.
+
+
 2026-08-17
 
 New windows no longer land on the exact same origin as another window
