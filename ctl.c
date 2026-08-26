@@ -754,6 +754,68 @@ op_move(int fd, cJSON *req)
     ctl_reply(fd, 1, NULL, NULL);
 }
 
+/*
+    Screen geometry for clamp/fit.  Returns 0, or -1 if the SCREEN is
+    not usable.  Height includes the panel (row 0) and status (last
+    row); callers that size a window treat those as reserved.
+*/
+static int
+ctl_screen_size(int *scr_w, int *scr_h)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     h, w;
+
+    if(vwm == NULL || vwm->screen == NULL) return -1;
+
+    getmaxyx(vk_screen_get_window(vwm->screen), h, w);
+    if(w < 3 || h < 3) return -1;
+
+    if(scr_w != NULL) *scr_w = w;
+    if(scr_h != NULL) *scr_h = h;
+    return 0;
+}
+
+/*
+    Cap a resize so the window stays on-screen from its current origin.
+    Right edge must not pass COLS; bottom must stay off the status row.
+    A size that would hang off is how windows became unmovable (mvwin
+    then refuses every later move).  Floor is 3, same as the resize
+    hotkeys / the old ctl minimum.
+*/
+static void
+ctl_clamp_metrics(vk_widget_t *w, int *ww, int *wh)
+{
+    int x, y, scr_w, scr_h, max_w, max_h;
+
+    if(w == NULL || ww == NULL || wh == NULL) return;
+    if(ctl_screen_size(&scr_w, &scr_h) != 0) return;
+
+    vk_widget_get_position(w, &x, &y);
+
+    max_w = scr_w - x;
+    max_h = (scr_h - 1) - y;
+    if(max_w < 3) max_w = 3;
+    if(max_h < 3) max_h = 3;
+
+    if(*ww > max_w) *ww = max_w;
+    if(*wh > max_h) *wh = max_h;
+    if(*ww < 3) *ww = 3;
+    if(*wh < 3) *wh = 3;
+}
+
+/* After launch: same on-screen fit as restore.  Skips fullscreen. */
+static void
+ctl_fit_new_window(vk_widget_t *w)
+{
+    int scr_w, scr_h;
+
+    if(w == NULL) return;
+    if(vk_widget_get_state(w) & VK_STATE_NORESIZE) return;
+    if(ctl_screen_size(&scr_w, &scr_h) != 0) return;
+
+    vwm_fit_window_onscreen(w, scr_w, scr_h);
+}
+
 static void
 op_resize(int fd, cJSON *req)
 {
@@ -789,6 +851,8 @@ op_resize(int fd, cJSON *req)
 
     if(ww < 3) ww = 3;
     if(wh < 3) wh = 3;
+
+    ctl_clamp_metrics(w, &ww, &wh);
 
     vk_widget_resize(w, ww, wh);
     vk_window_update(VK_WINDOW(w));
@@ -910,6 +974,7 @@ op_launch(int fd, cJSON *req)
     }
 
     vwm_deck_add_window(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+    ctl_fit_new_window(VK_WIDGET(window));
     if(ctl_json_bool(req, "attention", NULL))
         vwm_attention_set(VK_WIDGET(window));
     vk_screen_refresh(vwm->screen);
@@ -1109,6 +1174,7 @@ op_launch_app(int fd, cJSON *req)
     }
 
     vwm_deck_add_window(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+    ctl_fit_new_window(VK_WIDGET(window));
     if(ctl_json_bool(req, "attention", NULL))
         vwm_attention_set(VK_WIDGET(window));
     vk_screen_refresh(vwm->screen);

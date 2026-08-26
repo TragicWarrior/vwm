@@ -1,3 +1,15 @@
+Version 6.1.1
+
+*  [Bryan Christ] Manage Desktop -> Move -> Reorient (was Home
+   coordinates) now runs the same on-screen fit as restore: pull the
+   origin back, then shrink if the window is still clipped.  A window
+   hanging off the right or bottom edge can be recovered from the
+   picker, not only by minimize/restore.
+*  [Bryan Christ] vwm-msg launch / launch-app run that same fit after
+   spawn so a requested size cannot hang off the screen.  vwm-msg
+   resize clamps width/height to the remaining space from the window's
+   current origin (right edge on-screen, bottom above the status row).
+
 Version 6.1.0
 
 *  [Bryan Christ] New windows cascade +2 columns and +2 rows when they
