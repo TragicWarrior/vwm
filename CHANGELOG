@@ -1,3 +1,8 @@
+Version 6.1.4
+
+*  [Bryan Christ] CMake project() is C-only (LANGUAGES C).  A fresh
+   configure no longer requires a C++ compiler; vwm has no C++ sources.
+
 Version 6.1.3
 
 *  [Bryan Christ] Control socket I/O is bounded and complete.  Accepted
