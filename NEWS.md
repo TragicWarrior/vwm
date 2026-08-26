@@ -1,3 +1,14 @@
+2026-08-26
+
+The vwm-msg control socket no longer hangs the window manager if a
+client connects and sends nothing, and large replies (capture,
+screenshot, list-apps) are no longer truncated on a short write.
+Accepted fds get a 2-second send/recv timeout; replies are written
+in full before the trailing newline.  GitHub issue #89.
+
+Building this release needs libvterm 10.9+ and libviper 7.2.0+.
+
+
 2026-08-25
 
 vwmterm init no longer dies when the unversioned libutil.so symlink
