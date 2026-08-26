@@ -157,10 +157,22 @@ vwm_mod_init(const char *modpath)
 
     vwmterm_init_keycodes();
 
-	dynlib = dlopen("libutil.so", RTLD_LAZY | RTLD_GLOBAL);
+    /*
+        libutil used to export forkpty/openpty.  glibc 2.34 folded it
+        into libc and distros dropped the unversioned libutil.so
+        symlink, so a hard dlopen("libutil.so") fails even when the
+        symbols are already in the process (vwm is linked -lutil, and
+        libc itself provides forkpty).  Try the historical name, then
+        the SONAME, then accept a libc that already has forkpty.
+    */
+    dynlib = dlopen("libutil.so", RTLD_LAZY | RTLD_GLOBAL);
     if(dynlib == NULL)
+        dynlib = dlopen("libutil.so.1", RTLD_LAZY | RTLD_GLOBAL);
+
+    if(dynlib == NULL && dlsym(RTLD_DEFAULT, "forkpty") == NULL)
     {
-        fprintf(stderr, "[EE] Could not load libutil.so\n\r");
+        fprintf(stderr, "[EE] Could not load libutil.so, and libc does not "
+            "provide forkpty\n\r");
         return -1;
     }
 

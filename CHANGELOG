@@ -1,3 +1,11 @@
+Version 6.1.2
+
+*  [Bryan Christ] vwmterm init no longer treats a missing unversioned
+   libutil.so as fatal (glibc 2.34+ folded libutil into libc and
+   distros dropped that symlink).  Tries libutil.so, then
+   libutil.so.1, then accepts a libc that already provides forkpty.
+   Fixes GitHub issue #88.
+
 Version 6.1.1
 
 *  [Bryan Christ] Manage Desktop -> Move -> Reorient (was Home
