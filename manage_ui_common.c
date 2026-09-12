@@ -60,7 +60,7 @@ vwm_warning_popup_show(void)
     {
         vk_filler_t *top_pad = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_RED, COLOR_WHITE);
-        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad), VK_INHERIT_NONE);
 
         vk_label_t *line1 = vk_label_create(popup_w - 2);
         vk_label_set_justify(line1, VK_JUSTIFY_CENTER);
@@ -68,7 +68,7 @@ vwm_warning_popup_show(void)
             "If the terminal becomes too small, this dialog");
         vk_widget_set_colors(VK_WIDGET(line1), COLOR_RED, COLOR_WHITE);
         vk_label_update(line1);
-        vk_box_set_widget(client, 1, VK_WIDGET(line1));
+        vk_box_set_widget(client, 1, VK_WIDGET(line1), VK_INHERIT_NONE);
 
         vk_label_t *line2 = vk_label_create(popup_w - 2);
         vk_label_set_justify(line2, VK_JUSTIFY_CENTER);
@@ -76,11 +76,11 @@ vwm_warning_popup_show(void)
             "will close and unsaved changes may be lost.");
         vk_widget_set_colors(VK_WIDGET(line2), COLOR_RED, COLOR_WHITE);
         vk_label_update(line2);
-        vk_box_set_widget(client, 2, VK_WIDGET(line2));
+        vk_box_set_widget(client, 2, VK_WIDGET(line2), VK_INHERIT_NONE);
 
         vk_filler_t *bot_pad = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_RED, COLOR_WHITE);
-        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad));
+        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad), VK_INHERIT_NONE);
     }
 
     vk_popup_set_client(popup, VK_WIDGET(client));
@@ -165,7 +165,7 @@ vwm_saved_popup_show(const char *msg)
     {
         vk_filler_t *top_pad = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_WHITE, COLOR_BLUE);
-        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad), VK_INHERIT_NONE);
     }
 
     label = vk_label_create(popup_w - 2);
@@ -173,12 +173,12 @@ vwm_saved_popup_show(const char *msg)
     vk_label_set_text(label, msg);
     vk_widget_set_colors(VK_WIDGET(label), COLOR_WHITE, COLOR_BLUE);
     vk_label_update(label);
-    vk_box_set_widget(client, 1, VK_WIDGET(label));
+    vk_box_set_widget(client, 1, VK_WIDGET(label), VK_INHERIT_NONE);
 
     {
         vk_filler_t *bot_pad = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_WHITE, COLOR_BLUE);
-        vk_box_set_widget(client, 2, VK_WIDGET(bot_pad));
+        vk_box_set_widget(client, 2, VK_WIDGET(bot_pad), VK_INHERIT_NONE);
     }
 
     vk_popup_set_client(popup, VK_WIDGET(client));
@@ -255,25 +255,25 @@ vwm_confirm_popup_show(void)
     {
         vk_filler_t *top_pad = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_RED, COLOR_WHITE);
-        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad), VK_INHERIT_NONE);
 
         vk_label_t *line1 = vk_label_create(popup_w - 2);
         vk_label_set_justify(line1, VK_JUSTIFY_CENTER);
         vk_label_set_text(line1, "You have unsaved changes.");
         vk_widget_set_colors(VK_WIDGET(line1), COLOR_RED, COLOR_WHITE);
         vk_label_update(line1);
-        vk_box_set_widget(client, 1, VK_WIDGET(line1));
+        vk_box_set_widget(client, 1, VK_WIDGET(line1), VK_INHERIT_NONE);
 
         vk_label_t *line2 = vk_label_create(popup_w - 2);
         vk_label_set_justify(line2, VK_JUSTIFY_CENTER);
         vk_label_set_text(line2, "Discard changes and close?");
         vk_widget_set_colors(VK_WIDGET(line2), COLOR_RED, COLOR_WHITE);
         vk_label_update(line2);
-        vk_box_set_widget(client, 2, VK_WIDGET(line2));
+        vk_box_set_widget(client, 2, VK_WIDGET(line2), VK_INHERIT_NONE);
 
         vk_filler_t *bot_pad = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_RED, COLOR_WHITE);
-        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad));
+        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad), VK_INHERIT_NONE);
     }
 
     vk_popup_set_client(popup, VK_WIDGET(client));
@@ -488,7 +488,7 @@ vwm_error_popup_show(const char *msg, int popup_w, int popup_h)
     {
         vk_filler_t *top_pad = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_RED, COLOR_WHITE);
-        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad), VK_INHERIT_NONE);
     }
 
     label = vk_label_create(popup_w - 2);
@@ -496,12 +496,12 @@ vwm_error_popup_show(const char *msg, int popup_w, int popup_h)
     vk_label_set_text(label, msg);
     vk_widget_set_colors(VK_WIDGET(label), COLOR_RED, COLOR_WHITE);
     vk_label_update(label);
-    vk_box_set_widget(client, 1, VK_WIDGET(label));
+    vk_box_set_widget(client, 1, VK_WIDGET(label), VK_INHERIT_NONE);
 
     {
         vk_filler_t *bot_pad = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_RED, COLOR_WHITE);
-        vk_box_set_widget(client, 2, VK_WIDGET(bot_pad));
+        vk_box_set_widget(client, 2, VK_WIDGET(bot_pad), VK_INHERIT_NONE);
     }
 
     vk_popup_set_client(popup, VK_WIDGET(client));

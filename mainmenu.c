@@ -292,7 +292,7 @@ create_file_dropdown(vwm_t *vwm)
     vk_window_set_border_style(window, VK_BORDER_SINGLE);
     vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
     vk_window_set_border_attrs(window, A_BOLD);
-    vk_window_set_child(window, VK_WIDGET(listbox));
+    vk_window_set_child(window, VK_WIDGET(listbox), VK_INHERIT_NONE);
 
     return window;
 }
@@ -368,7 +368,7 @@ create_apps_dropdown(vwm_t *vwm)
     vk_window_set_border_style(window, VK_BORDER_SINGLE);
     vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
     vk_window_set_border_attrs(window, A_BOLD);
-    vk_window_set_child(window, VK_WIDGET(listbox));
+    vk_window_set_child(window, VK_WIDGET(listbox), VK_INHERIT_NONE);
 
     {
         vk_scroller_t *scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
@@ -458,7 +458,7 @@ create_minimized_dropdown(vwm_t *vwm)
     vk_window_set_border_style(window, VK_BORDER_SINGLE);
     vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
     vk_window_set_border_attrs(window, A_BOLD);
-    vk_window_set_child(window, VK_WIDGET(listbox));
+    vk_window_set_child(window, VK_WIDGET(listbox), VK_INHERIT_NONE);
 
     return window;
 }
@@ -722,7 +722,7 @@ vwm_menubar_close_dropdown(void)
 
     /* detach the child while both are still valid: otherwise the window
        dtor list_del()s a freed listbox node and corrupts the heap */
-    vk_window_set_child(menu, NULL);
+    vk_window_set_child(menu, NULL, VK_INHERIT_NONE);
 
     vk_listbox_destroy(listbox);
     vk_window_destroy(menu);

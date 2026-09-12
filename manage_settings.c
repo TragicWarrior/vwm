@@ -1389,7 +1389,7 @@ modify_popup_open(int setting_idx)
         }
         vk_widget_set_colors(VK_WIDGET(lbl), COLOR_WHITE, COLOR_BLUE);
         vk_label_update(lbl);
-        vk_box_set_widget(modify_client, 0, VK_WIDGET(lbl));
+        vk_box_set_widget(modify_client, 0, VK_WIDGET(lbl), VK_INHERIT_NONE);
 
         modify_input = vk_input_create(popup_w - 4);
         vk_input_set_border_style(modify_input, VK_BORDER_SINGLE);
@@ -1399,7 +1399,7 @@ modify_popup_open(int setting_idx)
             model->values[setting_idx]);
         vk_input_show_cursor(modify_input, true);
         vk_input_update(modify_input);
-        vk_box_set_widget(modify_client, 1, VK_WIDGET(modify_input));
+        vk_box_set_widget(modify_client, 1, VK_WIDGET(modify_input), VK_INHERIT_NONE);
 
         vk_popup_set_client(modify_popup, VK_WIDGET(modify_client));
     }
@@ -1478,16 +1478,16 @@ modify_popup_open(int setting_idx)
             vk_box_set_homogeneous(fg_group, false);
             vk_widget_set_colors(VK_WIDGET(fg_group),
                 COLOR_WHITE, COLOR_BLUE);
-            vk_box_set_widget(fg_group, 0, VK_WIDGET(modify_fg_label));
-            vk_box_set_widget(fg_group, 1, VK_WIDGET(modify_color_fg));
+            vk_box_set_widget(fg_group, 0, VK_WIDGET(modify_fg_label), VK_INHERIT_NONE);
+            vk_box_set_widget(fg_group, 1, VK_WIDGET(modify_color_fg), VK_INHERIT_NONE);
 
             bg_group = vk_box_create(COLOR_SWATCH_W, COLOR_SWATCH_H + 1,
                 VK_BOX_VERTICAL, 2);
             vk_box_set_homogeneous(bg_group, false);
             vk_widget_set_colors(VK_WIDGET(bg_group),
                 COLOR_WHITE, COLOR_BLUE);
-            vk_box_set_widget(bg_group, 0, VK_WIDGET(modify_bg_label));
-            vk_box_set_widget(bg_group, 1, VK_WIDGET(modify_color_bg));
+            vk_box_set_widget(bg_group, 0, VK_WIDGET(modify_bg_label), VK_INHERIT_NONE);
+            vk_box_set_widget(bg_group, 1, VK_WIDGET(modify_color_bg), VK_INHERIT_NONE);
 
             l = vk_filler_create(); m = vk_filler_create();
             r = vk_filler_create();
@@ -1503,11 +1503,11 @@ modify_popup_open(int setting_idx)
             vk_box_set_homogeneous(pickers, false);
             vk_widget_set_colors(VK_WIDGET(pickers),
                 COLOR_WHITE, COLOR_BLUE);
-            vk_box_set_widget(pickers, 0, VK_WIDGET(l));
-            vk_box_set_widget(pickers, 1, VK_WIDGET(fg_group));
-            vk_box_set_widget(pickers, 2, VK_WIDGET(m));
-            vk_box_set_widget(pickers, 3, VK_WIDGET(bg_group));
-            vk_box_set_widget(pickers, 4, VK_WIDGET(r));
+            vk_box_set_widget(pickers, 0, VK_WIDGET(l), VK_INHERIT_NONE);
+            vk_box_set_widget(pickers, 1, VK_WIDGET(fg_group), VK_INHERIT_NONE);
+            vk_box_set_widget(pickers, 2, VK_WIDGET(m), VK_INHERIT_NONE);
+            vk_box_set_widget(pickers, 3, VK_WIDGET(bg_group), VK_INHERIT_NONE);
+            vk_box_set_widget(pickers, 4, VK_WIDGET(r), VK_INHERIT_NONE);
 
             pl = vk_filler_create(); pr = vk_filler_create();
             vk_widget_set_colors(VK_WIDGET(pl), COLOR_WHITE, COLOR_BLUE);
@@ -1520,17 +1520,17 @@ modify_popup_open(int setting_idx)
             vk_box_set_homogeneous(preview_row, false);
             vk_widget_set_colors(VK_WIDGET(preview_row),
                 COLOR_WHITE, COLOR_BLUE);
-            vk_box_set_widget(preview_row, 0, VK_WIDGET(pl));
-            vk_box_set_widget(preview_row, 1, VK_WIDGET(modify_preview));
-            vk_box_set_widget(preview_row, 2, VK_WIDGET(pr));
+            vk_box_set_widget(preview_row, 0, VK_WIDGET(pl), VK_INHERIT_NONE);
+            vk_box_set_widget(preview_row, 1, VK_WIDGET(modify_preview), VK_INHERIT_NONE);
+            vk_box_set_widget(preview_row, 2, VK_WIDGET(pr), VK_INHERIT_NONE);
 
             modify_client = vk_box_create(popup_w - 2, popup_h - 5,
                 VK_BOX_VERTICAL, 2);
             vk_box_set_homogeneous(modify_client, false);
             vk_widget_set_colors(VK_WIDGET(modify_client),
                 COLOR_WHITE, COLOR_BLUE);
-            vk_box_set_widget(modify_client, 0, VK_WIDGET(pickers));
-            vk_box_set_widget(modify_client, 1, VK_WIDGET(preview_row));
+            vk_box_set_widget(modify_client, 0, VK_WIDGET(pickers), VK_INHERIT_NONE);
+            vk_box_set_widget(modify_client, 1, VK_WIDGET(preview_row), VK_INHERIT_NONE);
 
             /* vk_box_update does NOT recurse into nested boxes -- canvases
                only composite one level up per update.  Keep handles to the
@@ -1996,7 +1996,7 @@ save_confirm_popup_show(void)
         vk_filler_t *top_pad = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(top_pad),
             COLOR_RED, COLOR_WHITE);
-        vk_box_set_widget(client, 0, VK_WIDGET(top_pad));
+        vk_box_set_widget(client, 0, VK_WIDGET(top_pad), VK_INHERIT_NONE);
 
         vk_label_t *line1 = vk_label_create(popup_w - 2);
         vk_label_set_justify(line1, VK_JUSTIFY_CENTER);
@@ -2004,7 +2004,7 @@ save_confirm_popup_show(void)
         vk_widget_set_colors(VK_WIDGET(line1),
             COLOR_RED, COLOR_WHITE);
         vk_label_update(line1);
-        vk_box_set_widget(client, 1, VK_WIDGET(line1));
+        vk_box_set_widget(client, 1, VK_WIDGET(line1), VK_INHERIT_NONE);
 
         vk_label_t *line2 = vk_label_create(popup_w - 2);
         vk_label_set_justify(line2, VK_JUSTIFY_CENTER);
@@ -2012,12 +2012,12 @@ save_confirm_popup_show(void)
         vk_widget_set_colors(VK_WIDGET(line2),
             COLOR_RED, COLOR_WHITE);
         vk_label_update(line2);
-        vk_box_set_widget(client, 2, VK_WIDGET(line2));
+        vk_box_set_widget(client, 2, VK_WIDGET(line2), VK_INHERIT_NONE);
 
         vk_filler_t *bot_pad = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(bot_pad),
             COLOR_RED, COLOR_WHITE);
-        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad));
+        vk_box_set_widget(client, 3, VK_WIDGET(bot_pad), VK_INHERIT_NONE);
     }
 
     vk_popup_set_client(save_confirm_popup, VK_WIDGET(client));
@@ -2419,7 +2419,7 @@ build_dialog(void)
         VK_BORDER_SINGLE | VK_RELIEF_SUNKEN);
     vk_frame_set_border_colors(listbox_frame, COLOR_YELLOW, COLOR_CYAN);
     vk_frame_set_border_attrs(listbox_frame, A_BOLD);
-    vk_frame_set_child(listbox_frame, VK_WIDGET(settings_listbox));
+    vk_frame_set_child(listbox_frame, VK_WIDGET(settings_listbox), VK_INHERIT_NONE);
     vk_widget_set_expand(VK_WIDGET(listbox_frame));
 
     listbox_scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
@@ -2460,16 +2460,16 @@ build_dialog(void)
     vk_widget_set_colors(VK_WIDGET(button_spacer), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_expand(VK_WIDGET(button_spacer));
 
-    vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_MODIFY]));
-    vk_box_set_widget(button_hbox, 1, VK_WIDGET(button_spacer));
-    vk_box_set_widget(button_hbox, 2, VK_WIDGET(buttons[BTN_SAVE]));
-    vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_LOAD]));
-    vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_CLOSE]));
+    vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_MODIFY]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 1, VK_WIDGET(button_spacer), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 2, VK_WIDGET(buttons[BTN_SAVE]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_LOAD]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_CLOSE]), VK_INHERIT_NONE);
 
-    vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame));
-    vk_box_set_widget(main_vbox, 1, VK_WIDGET(button_hbox));
+    vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame), VK_INHERIT_NONE);
+    vk_box_set_widget(main_vbox, 1, VK_WIDGET(button_hbox), VK_INHERIT_NONE);
 
-    vk_window_set_child(dialog_window, VK_WIDGET(main_vbox));
+    vk_window_set_child(dialog_window, VK_WIDGET(main_vbox), VK_INHERIT_NONE);
     vk_object_set_kmio(VK_OBJECT(dialog_window), manage_settings_kmio);
 
     rebuild_listbox();

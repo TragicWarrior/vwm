@@ -221,7 +221,7 @@ build_pick(print_session_t *s)
     vk_filedialog_set_filter(fd, "pdf,md,txt");
     vk_widget_set_expand(VK_WIDGET(fd));
 
-    vk_window_set_child(win, VK_WIDGET(fd));
+    vk_window_set_child(win, VK_WIDGET(fd), VK_INHERIT_NONE);
     vk_object_set_kmio(VK_OBJECT(win), session_kmio);
 
     s->fd = fd;
@@ -409,10 +409,10 @@ build_printers(print_session_t *s)
 
     vk_listbox_set_curr(lb, 0);
     vk_widget_set_expand(VK_WIDGET(lb));
-    vk_frame_set_child(frame, VK_WIDGET(lb));
+    vk_frame_set_child(frame, VK_WIDGET(lb), VK_INHERIT_NONE);
 
     vk_widget_set_expand(VK_WIDGET(frame));
-    vk_box_set_widget(client, 0, VK_WIDGET(frame));
+    vk_box_set_widget(client, 0, VK_WIDGET(frame), VK_INHERIT_NONE);
 
     vk_popup_set_client(popup, VK_WIDGET(client));
 
@@ -475,15 +475,15 @@ build_result(const char *msg)
     vk_label_set_text(line, msg);
     vk_widget_set_colors(VK_WIDGET(line), COLOR_BLACK, COLOR_CYAN);
     vk_label_update(line);
-    vk_box_set_widget(box, 0, VK_WIDGET(line));
+    vk_box_set_widget(box, 0, VK_WIDGET(line), VK_INHERIT_NONE);
 
     foot = vk_label_create(W - 2);
     vk_label_set_text(foot, " Press any key to close.");
     vk_widget_set_colors(VK_WIDGET(foot), COLOR_BLACK, COLOR_CYAN);
     vk_label_update(foot);
-    vk_box_set_widget(box, 2, VK_WIDGET(foot));
+    vk_box_set_widget(box, 2, VK_WIDGET(foot), VK_INHERIT_NONE);
 
-    vk_window_set_child(win, VK_WIDGET(box));
+    vk_window_set_child(win, VK_WIDGET(box), VK_INHERIT_NONE);
     vk_object_set_kmio(VK_OBJECT(win), session_kmio);
 
     s_session->client_box = box;

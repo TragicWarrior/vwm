@@ -1071,7 +1071,7 @@ build_dialog(void)
         VK_BORDER_SINGLE | VK_RELIEF_SUNKEN);
     vk_frame_set_border_colors(listbox_frame, COLOR_YELLOW, COLOR_CYAN);
     vk_frame_set_border_attrs(listbox_frame, A_BOLD);
-    vk_frame_set_child(listbox_frame, VK_WIDGET(hotkey_listbox));
+    vk_frame_set_child(listbox_frame, VK_WIDGET(hotkey_listbox), VK_INHERIT_NONE);
     vk_widget_set_expand(VK_WIDGET(listbox_frame));
 
     listbox_scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
@@ -1113,17 +1113,17 @@ build_dialog(void)
     vk_widget_set_colors(VK_WIDGET(button_spacer), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_expand(VK_WIDGET(button_spacer));
 
-    vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_MODIFY]));
-    vk_box_set_widget(button_hbox, 1, VK_WIDGET(buttons[BTN_RESET]));
-    vk_box_set_widget(button_hbox, 2, VK_WIDGET(button_spacer));
-    vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_SAVE]));
-    vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_LOAD]));
-    vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_CLOSE]));
+    vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_MODIFY]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 1, VK_WIDGET(buttons[BTN_RESET]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 2, VK_WIDGET(button_spacer), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_SAVE]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_LOAD]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_CLOSE]), VK_INHERIT_NONE);
 
-    vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame));
-    vk_box_set_widget(main_vbox, 1, VK_WIDGET(button_hbox));
+    vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame), VK_INHERIT_NONE);
+    vk_box_set_widget(main_vbox, 1, VK_WIDGET(button_hbox), VK_INHERIT_NONE);
 
-    vk_window_set_child(dialog_window, VK_WIDGET(main_vbox));
+    vk_window_set_child(dialog_window, VK_WIDGET(main_vbox), VK_INHERIT_NONE);
     vk_object_set_kmio(VK_OBJECT(dialog_window), manage_hotkeys_kmio);
 
     rebuild_listbox();

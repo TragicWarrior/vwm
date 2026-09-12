@@ -1170,40 +1170,40 @@ edit_popup_open(void)
     vk_label_set_text(lbl, "  Title");
     vk_widget_set_colors(VK_WIDGET(lbl), COLOR_WHITE, COLOR_BLUE);
     vk_label_update(lbl);
-    vk_box_set_widget(edit_client, 0, VK_WIDGET(lbl));
+    vk_box_set_widget(edit_client, 0, VK_WIDGET(lbl), VK_INHERIT_NONE);
 
     edit_input_title = vk_input_create(EDIT_INTERIOR_W);
     vk_input_set_border_style(edit_input_title, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(edit_input_title), COLOR_BLACK, COLOR_BLUE);
     vk_input_set_text(edit_input_title, e->title);
     vk_input_update(edit_input_title);
-    vk_box_set_widget(edit_client, 1, VK_WIDGET(edit_input_title));
+    vk_box_set_widget(edit_client, 1, VK_WIDGET(edit_input_title), VK_INHERIT_NONE);
 
     lbl = vk_label_create(EDIT_INTERIOR_W);
     vk_label_set_text(lbl, "  Binary");
     vk_widget_set_colors(VK_WIDGET(lbl), COLOR_WHITE, COLOR_BLUE);
     vk_label_update(lbl);
-    vk_box_set_widget(edit_client, 2, VK_WIDGET(lbl));
+    vk_box_set_widget(edit_client, 2, VK_WIDGET(lbl), VK_INHERIT_NONE);
 
     edit_input_binary = vk_input_create(EDIT_INTERIOR_W);
     vk_input_set_border_style(edit_input_binary, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(edit_input_binary), COLOR_BLACK, COLOR_BLUE);
     vk_input_set_text(edit_input_binary, e->bin);
     vk_input_update(edit_input_binary);
-    vk_box_set_widget(edit_client, 3, VK_WIDGET(edit_input_binary));
+    vk_box_set_widget(edit_client, 3, VK_WIDGET(edit_input_binary), VK_INHERIT_NONE);
 
     lbl = vk_label_create(EDIT_INTERIOR_W);
     vk_label_set_text(lbl, "  Params   (%fd = file picker at launch)");
     vk_widget_set_colors(VK_WIDGET(lbl), COLOR_WHITE, COLOR_BLUE);
     vk_label_update(lbl);
-    vk_box_set_widget(edit_client, 4, VK_WIDGET(lbl));
+    vk_box_set_widget(edit_client, 4, VK_WIDGET(lbl), VK_INHERIT_NONE);
 
     edit_input_params = vk_input_create(EDIT_INTERIOR_W);
     vk_input_set_border_style(edit_input_params, VK_BORDER_SINGLE);
     vk_widget_set_colors(VK_WIDGET(edit_input_params), COLOR_BLACK, COLOR_BLUE);
     vk_input_set_text(edit_input_params, e->params);
     vk_input_update(edit_input_params);
-    vk_box_set_widget(edit_client, 5, VK_WIDGET(edit_input_params));
+    vk_box_set_widget(edit_client, 5, VK_WIDGET(edit_input_params), VK_INHERIT_NONE);
 
     vk_popup_set_client(edit_popup, VK_WIDGET(edit_client));
     vk_object_set_kmio(VK_OBJECT(edit_popup), edit_popup_kmio);
@@ -2021,7 +2021,7 @@ build_dialog(void)
     vk_frame_set_border_style(listbox_frame,
         VK_BORDER_SINGLE | VK_RELIEF_SUNKEN);
     vk_frame_set_border_colors(listbox_frame, COLOR_BLACK, COLOR_CYAN);
-    vk_frame_set_child(listbox_frame, VK_WIDGET(app_listbox));
+    vk_frame_set_child(listbox_frame, VK_WIDGET(app_listbox), VK_INHERIT_NONE);
     vk_widget_set_expand(VK_WIDGET(listbox_frame));
 
     listbox_scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
@@ -2204,13 +2204,13 @@ build_dialog(void)
     vk_widget_set_colors(VK_WIDGET(button_spacer), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_expand(VK_WIDGET(button_spacer));
 
-    vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_ADD]));
-    vk_box_set_widget(button_hbox, 1, VK_WIDGET(buttons[BTN_REMOVE]));
-    vk_box_set_widget(button_hbox, 2, VK_WIDGET(buttons[BTN_EDIT]));
-    vk_box_set_widget(button_hbox, 3, VK_WIDGET(button_spacer));
-    vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_SAVE]));
-    vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_LOAD]));
-    vk_box_set_widget(button_hbox, 6, VK_WIDGET(buttons[BTN_CANCEL]));
+    vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_ADD]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 1, VK_WIDGET(buttons[BTN_REMOVE]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 2, VK_WIDGET(buttons[BTN_EDIT]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 3, VK_WIDGET(button_spacer), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_SAVE]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_LOAD]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 6, VK_WIDGET(buttons[BTN_CANCEL]), VK_INHERIT_NONE);
 
     /*
         Category band: four-column layout — category (left, 32), expanding
@@ -2229,33 +2229,33 @@ build_dialog(void)
         vk_box_set_homogeneous(cat_label_row, false);
         vk_widget_set_colors(VK_WIDGET(cat_label_row),
             COLOR_BLACK, COLOR_CYAN);
-        vk_box_set_widget(cat_label_row, 0, VK_WIDGET(cat_label));
+        vk_box_set_widget(cat_label_row, 0, VK_WIDGET(cat_label), VK_INHERIT_NONE);
 
         label_spacer = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(label_spacer), COLOR_BLACK, COLOR_CYAN);
         vk_widget_set_expand(VK_WIDGET(label_spacer));
-        vk_box_set_widget(cat_label_row, 1, VK_WIDGET(label_spacer));
+        vk_box_set_widget(cat_label_row, 1, VK_WIDGET(label_spacer), VK_INHERIT_NONE);
 
         vk_box_set_widget(cat_label_row, 2,
-            VK_WIDGET(width_label_widget));
+            VK_WIDGET(width_label_widget), VK_INHERIT_NONE);
         vk_box_set_widget(cat_label_row, 3,
-            VK_WIDGET(height_label_widget));
+            VK_WIDGET(height_label_widget), VK_INHERIT_NONE);
 
         cat_widget_row = vk_box_create(INTERIOR_WIDTH, 3,
             VK_BOX_HORIZONTAL, 4);
         vk_box_set_homogeneous(cat_widget_row, false);
         vk_widget_set_colors(VK_WIDGET(cat_widget_row),
             COLOR_BLACK, COLOR_CYAN);
-        vk_box_set_widget(cat_widget_row, 0, VK_WIDGET(cat_dropdown));
+        vk_box_set_widget(cat_widget_row, 0, VK_WIDGET(cat_dropdown), VK_INHERIT_NONE);
 
         widget_spacer = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(widget_spacer),
             COLOR_BLACK, COLOR_CYAN);
         vk_widget_set_expand(VK_WIDGET(widget_spacer));
-        vk_box_set_widget(cat_widget_row, 1, VK_WIDGET(widget_spacer));
+        vk_box_set_widget(cat_widget_row, 1, VK_WIDGET(widget_spacer), VK_INHERIT_NONE);
 
-        vk_box_set_widget(cat_widget_row, 2, VK_WIDGET(width_spin));
-        vk_box_set_widget(cat_widget_row, 3, VK_WIDGET(height_spin));
+        vk_box_set_widget(cat_widget_row, 2, VK_WIDGET(width_spin), VK_INHERIT_NONE);
+        vk_box_set_widget(cat_widget_row, 3, VK_WIDGET(height_spin), VK_INHERIT_NONE);
 
         term_label_row = vk_box_create(INTERIOR_WIDTH, 1,
             VK_BOX_HORIZONTAL, 3);
@@ -2267,10 +2267,10 @@ build_dialog(void)
         vk_widget_set_colors(VK_WIDGET(label_spacer), COLOR_BLACK, COLOR_CYAN);
         vk_widget_set_expand(VK_WIDGET(label_spacer));
 
-        vk_box_set_widget(term_label_row, 0, VK_WIDGET(term_label));
-        vk_box_set_widget(term_label_row, 1, VK_WIDGET(label_spacer));
+        vk_box_set_widget(term_label_row, 0, VK_WIDGET(term_label), VK_INHERIT_NONE);
+        vk_box_set_widget(term_label_row, 1, VK_WIDGET(label_spacer), VK_INHERIT_NONE);
         vk_box_set_widget(term_label_row, 2,
-            VK_WIDGET(scrollback_label_widget));
+            VK_WIDGET(scrollback_label_widget), VK_INHERIT_NONE);
 
         term_widget_row = vk_box_create(INTERIOR_WIDTH, 3,
             VK_BOX_HORIZONTAL, 3);
@@ -2283,9 +2283,9 @@ build_dialog(void)
             COLOR_BLACK, COLOR_CYAN);
         vk_widget_set_expand(VK_WIDGET(widget_spacer));
 
-        vk_box_set_widget(term_widget_row, 0, VK_WIDGET(term_dropdown));
-        vk_box_set_widget(term_widget_row, 1, VK_WIDGET(widget_spacer));
-        vk_box_set_widget(term_widget_row, 2, VK_WIDGET(scrollback_spin));
+        vk_box_set_widget(term_widget_row, 0, VK_WIDGET(term_dropdown), VK_INHERIT_NONE);
+        vk_box_set_widget(term_widget_row, 1, VK_WIDGET(widget_spacer), VK_INHERIT_NONE);
+        vk_box_set_widget(term_widget_row, 2, VK_WIDGET(scrollback_spin), VK_INHERIT_NONE);
 
         /* Visibility + Start directory: same two-column layout */
         {
@@ -2303,10 +2303,10 @@ build_dialog(void)
                 COLOR_BLACK, COLOR_CYAN);
             vk_widget_set_expand(VK_WIDGET(vis_label_spacer));
 
-            vk_box_set_widget(vis_label_row, 0, VK_WIDGET(vis_label));
-            vk_box_set_widget(vis_label_row, 1, VK_WIDGET(vis_label_spacer));
+            vk_box_set_widget(vis_label_row, 0, VK_WIDGET(vis_label), VK_INHERIT_NONE);
+            vk_box_set_widget(vis_label_row, 1, VK_WIDGET(vis_label_spacer), VK_INHERIT_NONE);
             vk_box_set_widget(vis_label_row, 2,
-                VK_WIDGET(start_dir_label_widget));
+                VK_WIDGET(start_dir_label_widget), VK_INHERIT_NONE);
 
             vis_widget_row = vk_box_create(INTERIOR_WIDTH, 3,
                 VK_BOX_HORIZONTAL, 3);
@@ -2319,23 +2319,23 @@ build_dialog(void)
                 COLOR_BLACK, COLOR_CYAN);
             vk_widget_set_expand(VK_WIDGET(vis_widget_spacer));
 
-            vk_box_set_widget(vis_widget_row, 0, VK_WIDGET(vis_dropdown));
-            vk_box_set_widget(vis_widget_row, 1, VK_WIDGET(vis_widget_spacer));
+            vk_box_set_widget(vis_widget_row, 0, VK_WIDGET(vis_dropdown), VK_INHERIT_NONE);
+            vk_box_set_widget(vis_widget_row, 1, VK_WIDGET(vis_widget_spacer), VK_INHERIT_NONE);
             vk_box_set_widget(vis_widget_row, 2,
-                VK_WIDGET(start_dir_dropdown));
+                VK_WIDGET(start_dir_dropdown), VK_INHERIT_NONE);
         }
 
-        vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame));
-        vk_box_set_widget(main_vbox, 1, VK_WIDGET(cat_label_row));
-        vk_box_set_widget(main_vbox, 2, VK_WIDGET(cat_widget_row));
-        vk_box_set_widget(main_vbox, 3, VK_WIDGET(term_label_row));
-        vk_box_set_widget(main_vbox, 4, VK_WIDGET(term_widget_row));
-        vk_box_set_widget(main_vbox, 5, VK_WIDGET(vis_label_row));
-        vk_box_set_widget(main_vbox, 6, VK_WIDGET(vis_widget_row));
-        vk_box_set_widget(main_vbox, 7, VK_WIDGET(button_hbox));
+        vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame), VK_INHERIT_NONE);
+        vk_box_set_widget(main_vbox, 1, VK_WIDGET(cat_label_row), VK_INHERIT_NONE);
+        vk_box_set_widget(main_vbox, 2, VK_WIDGET(cat_widget_row), VK_INHERIT_NONE);
+        vk_box_set_widget(main_vbox, 3, VK_WIDGET(term_label_row), VK_INHERIT_NONE);
+        vk_box_set_widget(main_vbox, 4, VK_WIDGET(term_widget_row), VK_INHERIT_NONE);
+        vk_box_set_widget(main_vbox, 5, VK_WIDGET(vis_label_row), VK_INHERIT_NONE);
+        vk_box_set_widget(main_vbox, 6, VK_WIDGET(vis_widget_row), VK_INHERIT_NONE);
+        vk_box_set_widget(main_vbox, 7, VK_WIDGET(button_hbox), VK_INHERIT_NONE);
     }
 
-    vk_window_set_child(dialog_window, VK_WIDGET(main_vbox));
+    vk_window_set_child(dialog_window, VK_WIDGET(main_vbox), VK_INHERIT_NONE);
     vk_object_set_kmio(VK_OBJECT(dialog_window), manage_apps_kmio);
 
     listbox_rebuild();

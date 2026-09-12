@@ -103,7 +103,7 @@ vwm_panel_init(vwm_t *vwm)
     {
         vk_filler_t *spacer = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(spacer), COLOR_BLACK, COLOR_WHITE);
-        vk_box_set_widget(vwm_panel->box, 2, VK_WIDGET(spacer));
+        vk_box_set_widget(vwm_panel->box, 2, VK_WIDGET(spacer), VK_INHERIT_NONE);
     }
 
     vwm_panel->task_label = vk_label_create(4);
@@ -134,22 +134,22 @@ vwm_panel_init(vwm_t *vwm)
     vk_activity_start(vwm_panel->activity);
 
     vk_box_set_widget(vwm_panel->box, 0,
-        VK_WIDGET(vwm_panel->msg_label));
+        VK_WIDGET(vwm_panel->msg_label), VK_INHERIT_NONE);
     vk_box_set_widget(vwm_panel->box, 1,
-        VK_WIDGET(vwm_panel->menubar));
+        VK_WIDGET(vwm_panel->menubar), VK_INHERIT_NONE);
     vk_box_set_widget(vwm_panel->box, 3,
-        VK_WIDGET(vwm_panel->task_label));
+        VK_WIDGET(vwm_panel->task_label), VK_INHERIT_NONE);
     vk_box_set_widget(vwm_panel->box, 4,
-        VK_WIDGET(vwm_panel->clock_label));
+        VK_WIDGET(vwm_panel->clock_label), VK_INHERIT_NONE);
     vk_box_set_widget(vwm_panel->box, 5,
-        VK_WIDGET(vwm_panel->activity));
+        VK_WIDGET(vwm_panel->activity), VK_INHERIT_NONE);
 
     {
         vk_label_t *pad = vk_label_create(1);
         vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_CYAN);
         vk_label_set_text(pad, " ");
         vk_label_update(pad);
-        vk_box_set_widget(vwm_panel->box, 6, VK_WIDGET(pad));
+        vk_box_set_widget(vwm_panel->box, 6, VK_WIDGET(pad), VK_INHERIT_NONE);
     }
 
     vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm_panel->box));
@@ -175,7 +175,7 @@ vwm_panel_init(vwm_t *vwm)
             vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_WHITE);
             vk_label_set_text(pad, " ");
             vk_label_update(pad);
-            vk_box_set_widget(vwm_panel->status_box, 0, VK_WIDGET(pad));
+            vk_box_set_widget(vwm_panel->status_box, 0, VK_WIDGET(pad), VK_INHERIT_NONE);
         }
 
         vwm_panel->status_marquee = vk_marquee_create(1);
@@ -227,15 +227,15 @@ vwm_panel_init(vwm_t *vwm)
             vk_label_update(dtach_txt);
 
             vk_box_set_widget(vwm_panel->status_box, 2,
-                VK_WIDGET(dtach_dot));
+                VK_WIDGET(dtach_dot), VK_INHERIT_NONE);
             vk_box_set_widget(vwm_panel->status_box, 3,
-                VK_WIDGET(dtach_txt));
+                VK_WIDGET(dtach_txt), VK_INHERIT_NONE);
         }
 
         vk_box_set_widget(vwm_panel->status_box, 1,
-            VK_WIDGET(vwm_panel->status_marquee));
+            VK_WIDGET(vwm_panel->status_marquee), VK_INHERIT_NONE);
         vk_box_set_widget(vwm_panel->status_box, 4,
-            VK_WIDGET(vwm_panel->version_label));
+            VK_WIDGET(vwm_panel->version_label), VK_INHERIT_NONE);
 
         vk_widget_move(VK_WIDGET(vwm_panel->status_box), 0, max_y - 1);
         vk_screen_attach_widget(vwm->screen, 0,
@@ -920,7 +920,7 @@ vwm_calendar_toggle(void)
         window = vk_window_create(win_w, win_h);
         vk_window_set_border_style(window, VK_BORDER_SINGLE);
         vk_window_set_border_colors(window, COLOR_BLACK, COLOR_CYAN);
-        vk_window_set_child(window, VK_WIDGET(calendar));
+        vk_window_set_child(window, VK_WIDGET(calendar), VK_INHERIT_NONE);
 
         vk_widget_get_position(VK_WIDGET(vwm_panel->clock_label),
             &clock_x, &clock_y);
@@ -965,7 +965,7 @@ vwm_calendar_close(void)
 
     /* detach the child while both are still valid: otherwise the window
        dtor list_del()s a freed calendar node and corrupts the heap */
-    vk_window_set_child(popup, NULL);
+    vk_window_set_child(popup, NULL, VK_INHERIT_NONE);
 
     vk_calendar_destroy(calendar);
     vk_window_destroy(popup);
