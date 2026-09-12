@@ -368,7 +368,7 @@ vwmterm_main(vwm_module_t *mod)
     vterm_wnd_set(vterm, vk_widget_get_canvas(content));
     vterm_erase(vterm, -1, ' ');
 
-    vk_window_set_child(window, content);
+    vk_window_set_child(window, content, VK_INHERIT_NONE);
     vk_object_set_kmio(VK_OBJECT(window), vwmterm_ON_KEYSTROKE);
 
     vwmterm_data = (vwmterm_data_t*)calloc(1, sizeof(vwmterm_data_t));
