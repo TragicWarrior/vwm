@@ -149,15 +149,15 @@ vwm_default_WINDOW_CLOSE(vk_widget_t *widget)
     if(vk_deck_get_top(vwm->deck) == NULL)
         vwm_panel_set_status("Press Alt ~ for Menu");
 
-    vwm_minimized_refresh();
+    vwm_window_menu_refresh();
     vk_screen_refresh(vwm->screen);
 }
 
 /*
     Minimize a window: hide it in place (the deck blitter skips non-visible
     members) and hand focus to the next visible window.  The window stays in
-    the deck -- the "(N) Minimized" panel item and the manage-windows tool
-    enumerate the hidden members and restore them.
+    the deck -- the "(N) Windows" menu still lists it (flagged with a minimized
+    marker) and the manage-windows tool can restore it.
 */
 void
 vwm_minimize_window(vk_widget_t *widget)
@@ -183,7 +183,7 @@ vwm_minimize_window(vk_widget_t *widget)
     if(vk_deck_get_top(vwm->deck) == NULL)
         vwm_panel_set_status("Press Alt ~ for Menu");
 
-    vwm_minimized_refresh();
+    vwm_window_menu_refresh();
     vk_screen_refresh(vwm->screen);
 }
 
@@ -273,7 +273,7 @@ vwm_restore_window(vk_widget_t *widget)
             vk_deck_set_top(deck, widget);
     }
 
-    vwm_minimized_refresh();
+    vwm_window_menu_refresh();
     vk_screen_refresh(vwm->screen);
 }
 
@@ -429,10 +429,17 @@ cascade_place(vk_deck_t *deck, vk_widget_t *widget)
 int
 vwm_deck_add_window(vk_deck_t *deck, vk_widget_t *widget, int position)
 {
+    int     rc;
+
     if(deck == NULL || widget == NULL) return -1;
 
     cascade_place(deck, widget);
-    return vk_deck_add_widget(deck, widget, position);
+    rc = vk_deck_add_widget(deck, widget, position);
+
+    /* a new window changes the current desktop's window count */
+    vwm_window_menu_refresh();
+
+    return rc;
 }
 
 void

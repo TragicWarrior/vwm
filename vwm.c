@@ -490,8 +490,8 @@ vwm_on_surface_change(vk_object_t *object, int event, void *anything)
         }
     }
 
-    /* the "(N) Minimized" count is per-desktop -- recount for the new deck */
-    vwm_minimized_refresh();
+    /* the "(N) Windows" count is per-desktop -- recount for the new deck */
+    vwm_window_menu_refresh();
 
     return 0;
 }

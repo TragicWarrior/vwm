@@ -37,6 +37,7 @@
 #include "manage_windows.h"
 #include "screensaver.h"
 #include "winman.h"
+#include "bkgd.h"
 
 /* Has BUTTON1_PRESSED landed inside the open dropdown since it opened?
    The menubar opens the dropdown on its OWN press, and the matching
@@ -384,6 +385,12 @@ create_apps_dropdown(vwm_t *vwm)
     return window;
 }
 
+/*
+    Window-menu item callback: raise the chosen window to the top of its deck,
+    unhiding it first if it was minimized.  vwm_restore_window() does both (a
+    show on an already-visible window is a no-op), so this one handler serves
+    visible and minimized rows alike.
+*/
 static int
 vwm_restore_minimized(vk_widget_t *widget, void *anything)
 {
@@ -395,13 +402,14 @@ vwm_restore_minimized(vk_widget_t *widget, void *anything)
 }
 
 static vk_window_t*
-create_minimized_dropdown(vwm_t *vwm)
+create_windows_dropdown(vwm_t *vwm)
 {
     vk_listbox_t    *listbox;
     vk_window_t     *window;
     vk_widget_t     *w;
     const char      *title;
-    const char      *caption = " Minimized ";
+    const char      *mark;
+    const char      *caption = " Windows ";
     char            buf[NAME_MAX];
     int             max_width = 0;
     int             max_height = 0;
@@ -421,17 +429,28 @@ create_minimized_dropdown(vwm_t *vwm)
     vk_listbox_set_wrap(listbox, TRUE);
     vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
 
+    /* List every window on the current desktop's deck -- visible and
+       minimized alike.  Selecting one raises it to the top (and unhides it if
+       it was minimized).  Minimized (hidden) windows carry a leading
+       down-arrow marker; visible windows get a blank slot in its place so the
+       titles stay column-aligned.  (A VDK listbox paints every row with one
+       set of attributes, so hidden rows are flagged with a glyph rather than a
+       dimmer color -- this matches the marker the Manage-windows tool uses.) */
     count = vk_deck_count(vwm->deck);
     for(i = 0; i < count; i++)
     {
         w = vk_deck_get_widget(vwm->deck, i);
         if(w == NULL) continue;
-        if(vk_widget_get_state(w) & VK_STATE_VISIBLE) continue;  /* only hidden */
+
+        if(vk_widget_get_state(w) & VK_STATE_VISIBLE)
+            mark = " ";
+        else
+            mark = vwm_has_utf8() ? "\xe2\x86\x93" : "v";   /* U+2193 down arrow */
 
         title = vk_window_get_title(VK_WINDOW(w));
         if(title == NULL || title[0] == '\0') title = "(untitled)";
 
-        snprintf(buf, sizeof(buf), "%s", title);
+        snprintf(buf, sizeof(buf), "%s %s", mark, title);
         vk_listbox_add_item(listbox, buf, vwm_restore_minimized, w);
         shown++;
     }
@@ -475,7 +494,7 @@ open_dropdown(vwm_t *vwm, int idx)
     if(idx == 0)
         window = create_apps_dropdown(vwm);
     else if(idx == 2)
-        window = create_minimized_dropdown(vwm);
+        window = create_windows_dropdown(vwm);
     else
         window = create_file_dropdown(vwm);
 
@@ -619,14 +638,14 @@ vwm_menubar_init(void)
         vwm_apps_menu_activate, NULL);
     vk_menubar_add_item(vwm->menubar, "VWM",
         vwm_file_menu_activate, NULL);
-    vk_menubar_add_item(vwm->menubar, "(0) Minimized",
+    vk_menubar_add_item(vwm->menubar, "(0) Windows",
         vwm_minimized_menu_activate, NULL);
 
     vk_object_register_event(VK_OBJECT(vwm->menubar),
         VK_EVENT_ON_SELECT, vwm_menubar_on_select, NULL);
 
-    // " Apps " + "|" + " VWM " + "|" + " (99) Minimized " = 6+1+5+1+16 = 29
-    menubar_width = 29;
+    // " Apps " + "|" + " VWM " + "|" + " (99) Windows " = 6+1+5+1+14 = 27
+    menubar_width = 27;
     vk_widget_resize(VK_WIDGET(vwm->menubar), menubar_width, 1);
 
     vk_menubar_update(vwm->menubar);
@@ -641,12 +660,15 @@ vwm_menubar_init(void)
 }
 
 /*
-    Recount the minimized (hidden) windows and update the "(N) Minimized"
-    menu-bar item, then repaint the panel row.  Called whenever a window is
-    minimized or restored.
+    Recount the windows on the current desktop's deck and update the
+    "(N) Windows" menu-bar item, then repaint the panel row.  Called whenever
+    the deck's membership can change -- a window opening, closing, or moving
+    between desktops.  Minimizing/restoring leaves membership unchanged but
+    refreshes through here too (cheap, and keeps the count correct if a hidden
+    window is closed).
 */
 void
-vwm_minimized_refresh(void)
+vwm_window_menu_refresh(void)
 {
     vwm_t       *vwm;
     vk_widget_t *w;
@@ -661,10 +683,10 @@ vwm_minimized_refresh(void)
     {
         w = vk_deck_get_widget(vwm->deck, i);
         if(w == NULL) continue;
-        if(!(vk_widget_get_state(w) & VK_STATE_VISIBLE)) n++;
+        n++;
     }
 
-    snprintf(label, sizeof(label), "(%d) Minimized", n);
+    snprintf(label, sizeof(label), "(%d) Windows", n);
     vk_menubar_set_item_label(vwm->menubar, 2, label);
 
     {
