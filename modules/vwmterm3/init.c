@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <dlfcn.h>
+#include <string.h>
 
 #include <vdk.h>
 #include <vterm.h>
@@ -35,7 +36,6 @@
 #include "../../private.h"
 #include "../../panel.h"
 #include "../../winman.h"
-#include "../../protothread.h"
 #include "../../sched.h"
 
 int

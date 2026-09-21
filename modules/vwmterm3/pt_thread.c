@@ -33,7 +33,6 @@
 #include "../../vwm.h"
 #include "../../private.h"
 #include "../../winman.h"
-#include "../../protothread.h"
 #include "../../sched.h"
 
 /*
