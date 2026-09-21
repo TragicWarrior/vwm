@@ -1,4 +1,5 @@
 #include <ncursesw/curses.h>
+#include <string.h>
 
 #include "protothread.h"
 

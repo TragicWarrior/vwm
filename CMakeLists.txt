@@ -26,8 +26,6 @@ find_package(Curses REQUIRED)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
-#find_package(PROTOTHREAD REQUIRED)
-
 find_package(VTERM REQUIRED)
 
 # use libviper source tree (headers + library not yet installed).
@@ -44,7 +42,21 @@ if(NOT EXISTS "${LIBVIPER_SOURCE_DIR}/libvdk.so")
     "to point at your libviper checkout.")
 endif()
 
-include_directories(BEFORE ${LIBVIPER_SOURCE_DIR}/vdk ${LIBVIPER_SOURCE_DIR}/vkmio)
+# Header-only protothread. Defaults to the sibling checkout.
+set(PROTOTHREAD_SOURCE_DIR "${PROJECT_SOURCE_DIR}/../protothread"
+    CACHE PATH "Path to the protothread source tree (contains protothread.h)")
+get_filename_component(PROTOTHREAD_SOURCE_DIR "${PROTOTHREAD_SOURCE_DIR}" ABSOLUTE)
+
+if(NOT EXISTS "${PROTOTHREAD_SOURCE_DIR}/protothread.h")
+  message(FATAL_ERROR
+    "protothread.h not found at ${PROTOTHREAD_SOURCE_DIR}/protothread.h. "
+    "Check out protothread next to vwm, or pass -DPROTOTHREAD_SOURCE_DIR=<path>.")
+endif()
+
+include_directories(BEFORE
+    ${LIBVIPER_SOURCE_DIR}/vdk
+    ${LIBVIPER_SOURCE_DIR}/vkmio
+    ${PROTOTHREAD_SOURCE_DIR})
 set(VDK_LIBRARY "${LIBVIPER_SOURCE_DIR}/libvdk.so")
 
 find_package(GPM)

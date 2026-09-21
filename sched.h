@@ -5,6 +5,10 @@
 
 #include "protothread.h"
 
+#if !defined(PT_VERSION_NUMBER) || !PT_VERSION_AT_LEAST(2, 0, 0)
+#error vwm requires protothread 2.0.0 or later
+#endif
+
 /*
     compile-time cap on the number of concurrent tasks.  task creation
     fails when the ring is full.
@@ -33,9 +37,8 @@ enum
 };
 
 /*
-    base context embedded in every task's env struct.  the protothread
-    library requires a pt_func_t named 'pt_func' at a fixed offset in
-    whatever struct is passed as env; this shape satisfies that.
+    base context embedded in every task's env struct.  pt_create()
+    requires a pt_func_t member named pt_func; this shape satisfies that.
 
     did_work:   task sets this to 1 when it did something useful on
                 its latest run.  the scheduler reads and clears it
@@ -73,8 +76,8 @@ vwm_sched_t*    vwm_sched_init(void);
 void            vwm_sched_deinit(vwm_sched_t *sched);
 
 /*
-    register a task.  'ctx' must remain valid for the task's lifetime
-    (the task typically frees it just before returning PT_DONE).
+    register a task.  'ctx' may be freed just before returning PT_DONE.
+    The pt_thread_t lives in the scheduler slot, not in ctx.
     'priority' is VWM_SCHED_NORMAL or VWM_SCHED_HIGH.
 
     returns 0 on success, -1 if the ring is full.

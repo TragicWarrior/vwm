@@ -147,8 +147,7 @@ vwm_sched_task_create(vwm_sched_t *sched, vwm_sched_ctx_t *ctx,
         trampoline will be called (not the user's function) so the
         scheduler can sample did_work and detect PT_DONE.
     */
-    pt_create_thread(pt, &slot->pt_thread, &ctx->pt_func,
-        vwm_sched_trampoline, ctx);
+    pt_create(pt, &slot->pt_thread, vwm_sched_trampoline, ctx);
 
     return 0;
 }
@@ -363,12 +362,13 @@ vwm_sched_dump(vwm_sched_t *sched)
     trampoline invoked by the protothread library on the scheduler's
     behalf.  calls the user's function and inspects its return:
 
-      PT_WAIT -- task yielded.  ctx is still valid; harvest did_work
-                 into the slot's ref bit and clear it.
+      anything but PT_DONE -- task yielded.  ctx is still valid;
+                 harvest did_work into the slot's ref bit and clear it.
 
       PT_DONE -- task finished.  the task has already freed ctx (per
                  the established vwmterm pattern), so do NOT touch
-                 ctx.  mark the slot free.
+                 ctx.  mark the slot free.  the pt_thread_t stays in
+                 the slot: protothread_run() writes it after we return.
 */
 static pt_t
 vwm_sched_trampoline(void * const env)
@@ -379,7 +379,7 @@ vwm_sched_trampoline(void * const env)
 
     result = slot->user_func(env);
 
-    if(result.pt_rv == PT_RETURN_WAIT)
+    if(result.pt_rv != PT_DONE.pt_rv)
     {
         if(ctx->did_work)
         {
