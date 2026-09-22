@@ -33,6 +33,8 @@
 
 static int      listen_fd = -1;
 static char     sock_path[PATH_MAX];
+static int      have_bound_st = 0;
+static struct stat  bound_st;    /* on-disk entry we minted at bind() */
 
 static void     ctl_reply(int fd, int ok, cJSON *data, const char *err);
 static void     ctl_dispatch(int fd, cJSON *req);
@@ -40,6 +42,7 @@ static vk_widget_t *ctl_find_id(uint32_t id, int *desktop);
 static int      ctl_switch_desktop(int n);
 static void     ctl_set_io_timeout(int fd);
 static int      ctl_write_all(int fd, const void *buf, size_t n);
+static int      ctl_probe_live(const char *path);
 
 static void
 ctl_sock_path(char *buf, size_t n)
@@ -101,6 +104,54 @@ vwm_ctl_listen_fd(void)
     return listen_fd;
 }
 
+/*
+    Probe for a live control socket without disturbing it.  Returns 1
+    when a vwm is already listening on `path` (connect succeeds), 0 when
+    the path is absent (ENOENT) or stale -- a bound file with no
+    listener answers ECONNREFUSED.  Never unlinks and never binds, so it
+    is safe to call before ncurses: a second vwm can refuse to start
+    rather than unlink the running session's socket.  The transient
+    connect is a no-op on the live peer (it reads EOF and drops us).
+*/
+static int
+ctl_probe_live(const char *path)
+{
+    struct sockaddr_un  addr;
+    int                 fd;
+    int                 rc;
+
+    if(path == NULL || path[0] == '\0')
+        return 0;
+    if(strlen(path) >= sizeof(addr.sun_path))
+        return 0;
+
+    fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if(fd < 0)
+        return 0;
+
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    memcpy(addr.sun_path, path, strlen(path) + 1);
+
+    rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+    close(fd);
+
+    return (rc == 0) ? 1 : 0;
+}
+
+int
+vwm_ctl_preflight(char *pathbuf, size_t n)
+{
+    char    path[PATH_MAX];
+
+    ctl_sock_path(path, sizeof(path));
+
+    if(pathbuf != NULL && n > 0)
+        snprintf(pathbuf, n, "%s", path);
+
+    return ctl_probe_live(path);
+}
+
 int
 vwm_ctl_init(void)
 {
@@ -113,11 +164,36 @@ vwm_ctl_init(void)
     if(ctl_mkdir_parent(sock_path) != 0)
         return -1;
 
+    /* never unlink a path a live vwm is still serving.  main's
+       preflight already refuses to start when a sibling answers, but a
+       second vwm could bind between that check and here -- only clear a
+       stale entry (no listener), never a live one. */
+    if(ctl_probe_live(sock_path))
+    {
+        sock_path[0] = '\0';
+        return -1;
+    }
+
     unlink(sock_path);
 
+#ifdef SOCK_CLOEXEC
+    fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+#else
     fd = socket(AF_UNIX, SOCK_STREAM, 0);
+#endif
     if(fd < 0)
         return -1;
+
+    /* the listen fd must not survive fork/exec into child terminals.
+       children reach the control plane through $VWM_CONTROL_SOCK as
+       clients; one that inherited the listen fd would keep the socket's
+       inode alive after we exit and could unlink our path on its own
+       exit.  belt-and-suspenders for platforms lacking SOCK_CLOEXEC. */
+    {
+        int fdflags = fcntl(fd, F_GETFD);
+        if(fdflags != -1)
+            fcntl(fd, F_SETFD, fdflags | FD_CLOEXEC);
+    }
 
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
@@ -150,6 +226,12 @@ vwm_ctl_init(void)
     if(flags != -1)
         fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
+    /* remember the on-disk inode we just minted so shutdown can tell
+       our own directory entry from one a second process rebound over
+       it.  bind() creates a fresh inode per path, so a changed st_ino
+       means the name is no longer ours. */
+    have_bound_st = (stat(sock_path, &bound_st) == 0) ? 1 : 0;
+
     listen_fd = fd;
     setenv("VWM_CONTROL_SOCK", sock_path, 1);
 
@@ -167,9 +249,29 @@ vwm_ctl_shutdown(void)
 
     if(sock_path[0] != '\0')
     {
-        unlink(sock_path);
+        struct stat now_st;
+
+        /* remove the directory entry only if it still names the very
+           socket this process bound.  a second vwm that unlinked our
+           path and bound its own inode there must not have its name
+           deleted by our shutdown, and we must not delete a name we no
+           longer own.  a matching (st_dev, st_ino) means the entry is
+           still ours.  (the listen fd can't be compared here: an
+           AF_UNIX socket fd lives in a separate inode space from its
+           on-disk entry, so fstat(listen_fd).st_ino never equals
+           stat(path).st_ino.) */
+        if(have_bound_st
+            && stat(sock_path, &now_st) == 0
+            && now_st.st_dev == bound_st.st_dev
+            && now_st.st_ino == bound_st.st_ino)
+        {
+            unlink(sock_path);
+        }
+
         sock_path[0] = '\0';
     }
+
+    have_bound_st = 0;
 }
 
 static int
@@ -308,6 +410,14 @@ vwm_ctl_poll(void)
         {
             if(errno == EINTR) continue;
             break;
+        }
+
+        /* dispatch may fork+exec a child terminal (launch-app) while
+           this client fd is open; keep it out of that child. */
+        {
+            int fdflags = fcntl(cfd, F_GETFD);
+            if(fdflags != -1)
+                fcntl(cfd, F_SETFD, fdflags | FD_CLOEXEC);
         }
 
         ctl_serve(cfd);
