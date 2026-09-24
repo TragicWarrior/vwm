@@ -17,7 +17,8 @@ FEATURES
    clipboard, child OSC 52 copy (vim, Grok, tmux, …) on the same path, and
    middle-click paste.
 *  Menubar with two dropdowns: VWM (system tools) and Apps (user-configured
-   launchers).  Reach it with the menubar hotkey or mouse.
+   launchers, grouped into category submenus that open beside the menu as
+   you move over them).  Reach it with the menubar hotkey or mouse.
 *  In-app configuration dialogs -- no editor required for common changes:
    -  Settings: per-desktop foreground/background colors and wallpapers,
       screensaver command and idle timeout, copy-to-clipboard transport
@@ -55,7 +56,7 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-libviper 7.2.0+  - https://github.com/TragicWarrior/libviper
+libviper 7.8.0+  - https://github.com/TragicWarrior/libviper
 libgpm (optional)
 libvterm 10.9+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for screen capture; DejaVu Sans Mono is bundled)

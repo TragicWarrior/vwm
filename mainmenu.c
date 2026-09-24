@@ -51,6 +51,24 @@
    across two separate dropdown lifecycles. */
 static bool g_dropdown_press_armed = false;
 
+/*
+    Apps menu categories.  The Apps dropdown lists one row per category
+    that has visible apps, each marked as a submenu; the highlighted
+    category's apps open in a second window beside that row (g_sub).
+    Moving onto a category -- by key or by mouse -- opens its submenu;
+    Right / Enter (or a click) moves the focus into it, Left / Esc brings
+    the focus back.  g_cat_types[] maps a top-level row to its category.
+*/
+static vk_window_t  *g_sub = NULL;
+static int          g_sub_row = -1;         /* top-level row it belongs to */
+static bool         g_sub_focus = false;    /* keys go to the submenu */
+static int          g_cat_types[VWM_MOD_TYPE_MAX];
+static int          g_cat_count = 0;
+
+static void apps_submenu_close(void);
+static void apps_submenu_sync(vwm_t *vwm);
+static void apps_submenu_focus(vwm_t *vwm, bool focus);
+
 static void
 vwm_menu_scroll_info(vk_widget_t *child,
     int *content_h, int *content_w,
@@ -96,6 +114,195 @@ vwm_dropdown_kmio(vk_object_t *object, int32_t keystroke)
 
 static void
 open_dropdown(vwm_t *vwm, int idx);
+
+/* the apps of one category, styled like the Apps dropdown */
+static vk_window_t*
+create_category_menu(vwm_t *vwm, int type)
+{
+    vk_listbox_t    *listbox;
+    vk_window_t     *window;
+    vwm_module_t    *vwm_module = NULL;
+    char            buf[NAME_MAX];
+    int             max_width = 0;
+    int             max_height = 0;
+    int             scr_width, scr_height;
+    bool            scroll;
+
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
+    scr_width -= 4;
+    scr_height = (scr_height * 3) / 4;
+
+    listbox = vk_listbox_create(8, 10);
+    vk_widget_set_colors(VK_WIDGET(listbox), COLOR_WHITE, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(listbox), A_BOLD);
+    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_BLACK);
+    vk_listbox_set_highlight_attrs(listbox, A_BOLD);
+    vk_listbox_set_unfocused(listbox, COLOR_WHITE, COLOR_CYAN);
+    vk_listbox_set_wrap(listbox, FALSE);
+    vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
+
+    do
+    {
+        vwm_module = vwm_module_find_by_type(vwm_module, type);
+        if(vwm_module == NULL) break;
+
+        if(vwm_module_get_zone(vwm_module) == MODULE_ZONE_CORE) continue;
+        if(vwm_module_is_hidden(vwm_module)) continue;
+
+        vwm_module_get_title(vwm_module, buf, sizeof(buf) - 1);
+        vk_listbox_add_item(listbox, buf, vwm_menu_helper, vwm_module);
+    }
+    while(vwm_module != NULL);
+
+    vk_listbox_update(listbox);
+    vk_listbox_get_metrics(listbox, &max_width, &max_height);
+    max_width += 4;
+    scroll = max_height > scr_height;
+    if(max_width > scr_width) max_width = scr_width;
+    if(max_height > scr_height) max_height = scr_height;
+
+    vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
+
+    window = vk_window_create(max_width + 2, max_height + 2);
+    vk_window_set_border_style(window, VK_BORDER_SINGLE);
+    vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
+    vk_window_set_border_attrs(window, A_BOLD);
+    vk_window_set_child(window, VK_WIDGET(listbox), VK_INHERIT_NONE);
+
+    if(scroll)
+    {
+        vk_scroller_t *scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
+        vk_scroller_set_border_style(scroller, VK_BORDER_SINGLE);
+        vk_scroller_set_border_colors(scroller, COLOR_BLACK, COLOR_CYAN);
+        vk_widget_set_attrs(VK_WIDGET(scroller), A_BOLD);
+        vk_scroller_set_scroll_source(scroller, VK_WIDGET(listbox));
+        vk_scroller_set_scroll_info(scroller, vwm_menu_scroll_info);
+        vk_scroller_set_scroll_apply(scroller, vk_listbox_scroll_apply);
+        vk_widget_attach_scroller(VK_WIDGET(listbox), scroller);
+    }
+
+    return window;
+}
+
+static void
+apps_submenu_close(void)
+{
+    vwm_t           *vwm;
+    vk_listbox_t    *listbox;
+
+    if(g_sub == NULL) return;
+
+    vwm = vwm_get_instance();
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen), VK_WIDGET(g_sub));
+
+    listbox = VK_LISTBOX(vk_window_get_child(g_sub));
+    vk_window_set_child(g_sub, NULL, VK_INHERIT_NONE);
+    vk_listbox_destroy(listbox);
+    vk_window_destroy(g_sub);
+
+    g_sub = NULL;
+    g_sub_row = -1;
+    g_sub_focus = false;
+}
+
+/*
+    Show the submenu of the Apps row under the highlight, beside that row:
+    to the right of the dropdown, or to its left when it would run off
+    the screen, and moved up when it would run off the bottom.
+*/
+static void
+apps_submenu_sync(vwm_t *vwm)
+{
+    vk_listbox_t    *top;
+    int             row, mx, my, mw, mh, sw, sh, x, y;
+    int             scr_w, scr_h;
+
+    if(vwm->menu == NULL || vwm->menu_item_idx != 0) return;
+
+    top = VK_LISTBOX(vk_window_get_child(vwm->menu));
+    row = vk_listbox_get_curr(top);
+
+    if(row == g_sub_row && g_sub != NULL) return;
+
+    apps_submenu_close();
+
+    if(row < 0 || row >= g_cat_count) return;
+    if(!vk_listbox_item_has_submenu(top, row)) return;
+
+    g_sub = create_category_menu(vwm, g_cat_types[row]);
+    g_sub_row = row;
+
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_h, scr_w);
+    vk_widget_get_position(VK_WIDGET(vwm->menu), &mx, &my);
+    vk_widget_get_metrics(VK_WIDGET(vwm->menu), &mw, &mh);
+    vk_widget_get_metrics(VK_WIDGET(g_sub), &sw, &sh);
+
+    /* right of the dropdown; else left of it; else as far right as the
+       screen allows (overlapping the dropdown rather than hiding it) */
+    x = mx + mw;
+    if(x + sw > scr_w) x = mx - sw;
+    if(x < 0) x = scr_w - sw;
+    if(x < 0) x = 0;
+
+    /* the submenu's first item lines up with the category row */
+    y = my + (row - vk_listbox_get_scroll_pos(top));
+    if(y + sh > scr_h) y = scr_h - sh;
+    if(y < 1) y = 1;
+
+    vk_widget_move(VK_WIDGET(g_sub), x, y);
+    vk_screen_attach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen), VK_WIDGET(g_sub));
+
+    apps_submenu_focus(vwm, false);
+}
+
+/* Move the keyboard focus into the submenu (true) or back to the Apps
+   list (false); the unfocused list keeps its row in a dim highlight. */
+static void
+apps_submenu_focus(vwm_t *vwm, bool focus)
+{
+    vk_listbox_t    *sub;
+
+    if(g_sub == NULL) focus = false;
+    g_sub_focus = focus;
+
+    if(vwm->menu != NULL)
+    {
+        vk_listbox_t *top = VK_LISTBOX(vk_window_get_child(vwm->menu));
+
+        vk_listbox_set_focused(top, !focus);
+        vk_listbox_update(top);
+        vk_window_update(vwm->menu);
+    }
+
+    if(g_sub == NULL) return;
+
+    sub = VK_LISTBOX(vk_window_get_child(g_sub));
+    vk_listbox_set_focused(sub, focus);
+    vk_listbox_update(sub);
+    vk_window_update(g_sub);
+}
+
+vk_window_t*
+vwm_menubar_get_submenu(void)
+{
+    return g_sub;
+}
+
+/* after a terminal resize: close the submenu and reopen it beside the
+   highlighted category (the dropdown itself was resized by the caller) */
+void
+vwm_menubar_refresh_submenu(void)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    bool    focus = g_sub_focus;
+
+    if(g_sub == NULL) return;
+    apps_submenu_close();
+    apps_submenu_sync(vwm);
+    apps_submenu_focus(vwm, focus);
+}
 
 static int
 vwm_menubar_on_select(vk_object_t *object, int event, void *anything)
@@ -323,6 +530,8 @@ create_apps_dropdown(vwm_t *vwm)
     vk_listbox_set_wrap(listbox, FALSE);
     vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
 
+    /* one row per category that has at least one visible app */
+    g_cat_count = 0;
     for(i = 0; i < VWM_MOD_TYPE_MAX; i++)
     {
         vwm_module = NULL;
@@ -337,24 +546,17 @@ create_apps_dropdown(vwm_t *vwm)
             if(vwm_module_is_hidden(vwm_module)) continue;
 
             category_found = TRUE;
-
-            vwm_module_get_title(vwm_module, buf, sizeof(buf) - 1);
-
-            vk_listbox_add_item(listbox, buf,
-                vwm_menu_helper, vwm_module);
         }
-        while(vwm_module != NULL);
+        while(vwm_module != NULL && category_found == FALSE);
 
-        if(category_found == TRUE)
-            vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
-    }
+        if(category_found == FALSE) continue;
 
-    /* remove trailing separator */
-    {
-        int last = vk_listbox_get_item_count(listbox) - 1;
-        if(last >= 0 && vk_listbox_item_is_separator(listbox, last))
-            vk_listbox_remove_item(listbox, last);
+        snprintf(buf, sizeof(buf), "%s", vwm_module_type_string(i));
+        vk_listbox_add_item(listbox, buf, NULL, NULL);
+        vk_listbox_set_item_submenu(listbox, g_cat_count, true);
+        g_cat_types[g_cat_count++] = i;
     }
+    vk_listbox_set_unfocused(listbox, COLOR_WHITE, COLOR_BLUE);
 
     vk_listbox_update(listbox);
     vk_listbox_get_metrics(listbox, &max_width, &max_height);
@@ -513,6 +715,67 @@ open_dropdown(vwm_t *vwm, int idx)
 
     /* a brand-new dropdown has seen no presses yet */
     g_dropdown_press_armed = false;
+
+    /* the highlighted category shows its apps right away */
+    if(idx == 0) apps_submenu_sync(vwm);
+}
+
+/* Mouse inside the Apps submenu: hover moves its highlight (and the
+   focus); a click runs the app and closes both menus. */
+static int
+apps_submenu_mouse(vwm_t *vwm, MEVENT *mouse_event)
+{
+    vk_listbox_t    *listbox = VK_LISTBOX(vk_window_get_child(g_sub));
+    int             beg_x, beg_y, row;
+    mmask_t         bs = mouse_event->bstate;
+    bool            was_armed;
+
+    vk_widget_get_position(VK_WIDGET(g_sub), &beg_x, &beg_y);
+    row = (mouse_event->y - beg_y - 1) + vk_listbox_get_scroll_pos(listbox);
+
+    if(bs & (BUTTON1_CLICKED | BUTTON1_RELEASED))
+    {
+        was_armed = g_dropdown_press_armed;
+        g_dropdown_press_armed = false;
+
+        if(!(bs & BUTTON1_CLICKED) && !was_armed) return 0;
+
+        if(row >= 0 && row < vk_listbox_get_item_count(listbox))
+        {
+            vk_listbox_set_curr(listbox, row);
+            vk_listbox_exec_curr(listbox);
+            vwm_menubar_close_dropdown();
+            vk_menubar_set_focused(vwm->menubar, false);
+            vk_menubar_update(vwm->menubar);
+        }
+        return 0;
+    }
+
+    if(bs & (BUTTON4_PRESSED | BUTTON5_PRESSED))
+    {
+        vk_scroller_t *scr = vk_widget_get_vscroller(VK_WIDGET(listbox));
+
+        if(scr != NULL &&
+           vk_scroller_nudge(scr, (bs & BUTTON4_PRESSED) ? -1 : 1, 0) == 0)
+        {
+            vk_listbox_update(listbox);
+            vk_window_update(g_sub);
+        }
+        return 0;
+    }
+
+    if((bs & REPORT_MOUSE_POSITION) || (bs & BUTTON1_PRESSED))
+    {
+        if(bs & BUTTON1_PRESSED) g_dropdown_press_armed = true;
+
+        if(row >= 0 && row < vk_listbox_get_item_count(listbox))
+        {
+            vk_listbox_set_curr(listbox, row);
+            apps_submenu_focus(vwm, true);
+        }
+    }
+
+    return 0;
 }
 
 int
@@ -531,6 +794,18 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
     vwm = vwm_get_instance();
     menu = vwm->menu;
     if(menu == NULL) return -1;
+
+    /* the Apps submenu sits beside (and may overlap) the dropdown */
+    if(g_sub != NULL)
+    {
+        int sx, sy, sw, sh;
+
+        vk_widget_get_position(VK_WIDGET(g_sub), &sx, &sy);
+        vk_widget_get_metrics(VK_WIDGET(g_sub), &sw, &sh);
+        if(mouse_event->x >= sx && mouse_event->x < sx + sw &&
+           mouse_event->y >= sy && mouse_event->y < sy + sh)
+            return apps_submenu_mouse(vwm, mouse_event);
+    }
 
     vk_widget_get_position(VK_WIDGET(menu), &beg_x, &beg_y);
     vk_widget_get_metrics(VK_WIDGET(menu), &w, &h);
@@ -561,6 +836,16 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
         listbox = VK_LISTBOX(vk_window_get_child(menu));
         row = (mouse_event->y - beg_y - 1)
             + vk_listbox_get_scroll_pos(listbox);
+
+        if(row >= 0 && row < vk_listbox_get_item_count(listbox)
+            && vk_listbox_item_has_submenu(listbox, row))
+        {
+            /* a category: go into its submenu */
+            vk_listbox_set_curr(listbox, row);
+            apps_submenu_sync(vwm);
+            apps_submenu_focus(vwm, true);
+            return 0;
+        }
 
         if(row >= 0 && row < vk_listbox_get_item_count(listbox)
             && !vk_listbox_item_is_separator(listbox, row))
@@ -617,6 +902,12 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
             && !vk_listbox_item_is_separator(listbox, row))
         {
             vk_listbox_set_curr(listbox, row);
+            /* hover by mouse: the category shows its apps */
+            if(vwm->menu_item_idx == 0)
+            {
+                apps_submenu_sync(vwm);
+                apps_submenu_focus(vwm, false);
+            }
             vk_listbox_update(listbox);
             vk_window_update(menu);
         }
@@ -735,6 +1026,8 @@ vwm_menubar_close_dropdown(void)
     vwm = vwm_get_instance();
     menu = vwm->menu;
 
+    apps_submenu_close();
+
     if(menu == NULL) return;
 
     vk_screen_detach_widget(vwm->screen,
@@ -765,8 +1058,60 @@ vwm_menubar_ON_KEYSTROKE(int32_t keystroke)
     vwm = vwm_get_instance();
     menu = vwm->menu;
 
+    if(menu != NULL && g_sub != NULL && g_sub_focus)
+    {
+        vk_listbox_t *sub = VK_LISTBOX(vk_window_get_child(g_sub));
+
+        if(keystroke == vwm->hotkey_menu)
+        {
+            vwm_menubar_close_dropdown();
+            vk_menubar_set_focused(vwm->menubar, false);
+            vk_menubar_update(vwm->menubar);
+            return KMIO_HANDLED;
+        }
+
+        /* back to the category list; the submenu stays open */
+        if(keystroke == 27 || keystroke == KEY_LEFT)
+        {
+            apps_submenu_focus(vwm, false);
+            return KMIO_HANDLED;
+        }
+
+        if(keystroke == KEY_RIGHT) return KMIO_HANDLED;
+
+        retval = vk_object_push_keystroke(VK_OBJECT(sub), keystroke);
+
+        if(keystroke == KEY_CRLF && retval == 0)
+        {
+            vwm_menubar_close_dropdown();
+            vk_menubar_set_focused(vwm->menubar, false);
+            vk_menubar_update(vwm->menubar);
+            return KMIO_HANDLED;
+        }
+
+        if(retval == 0)
+        {
+            vk_window_update(g_sub);
+            return KMIO_HANDLED;
+        }
+
+        return keystroke;
+    }
+
     if(menu != NULL)
     {
+        vk_listbox_t *top = VK_LISTBOX(vk_window_get_child(menu));
+        int          cur = vk_listbox_get_curr(top);
+
+        /* on a category: Right / Enter go into its submenu */
+        if(vwm->menu_item_idx == 0 && g_sub != NULL &&
+           vk_listbox_item_has_submenu(top, cur) &&
+           (keystroke == KEY_RIGHT || keystroke == KEY_CRLF))
+        {
+            apps_submenu_focus(vwm, true);
+            return KMIO_HANDLED;
+        }
+
         if(keystroke == vwm->hotkey_menu || keystroke == 27)
         {
             vwm_menubar_close_dropdown();
@@ -802,6 +1147,8 @@ vwm_menubar_ON_KEYSTROKE(int32_t keystroke)
         if(retval == 0)
         {
             vk_window_update(menu);
+            /* hover by key: the new category shows its apps */
+            apps_submenu_sync(vwm);
             return KMIO_HANDLED;
         }
 

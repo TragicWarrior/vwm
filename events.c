@@ -41,5 +41,8 @@ vwm_dropdown_ON_TERM_RESIZED(void)
     vk_listbox_update(listbox);
     vk_window_update(menu);
 
+    /* the Apps submenu is placed against the dropdown: rebuild it there */
+    vwm_menubar_refresh_submenu();
+
     vk_screen_refresh(vwm->screen);
 }

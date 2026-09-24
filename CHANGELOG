@@ -1,3 +1,17 @@
+Version 6.4.0
+
+*  [Bryan Christ] The Apps menu groups launchers by category.  The Apps
+   dropdown lists one row per category that has visible apps (Tool,
+   System, Game, ...), each marked with a submenu arrow; the highlighted
+   category's apps open in a second menu beside that row.  Hovering a
+   category -- with the arrow keys or the mouse -- opens its submenu;
+   Right, Enter or a click moves into it, Left or Esc comes back, and Esc
+   again (or the menu hotkey) closes both.  The submenu opens to the
+   right of the dropdown, or to its left when it would run off the
+   screen, with its first app on the category's row.  The arrow is "▸",
+   or ">" when the terminal cannot show UTF-8.  Needs libviper 7.8.0
+   (vk_listbox_set_item_submenu).
+
 Version 6.1.4
 
 *  [Bryan Christ] CMake project() is C-only (LANGUAGES C).  A fresh

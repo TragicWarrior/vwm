@@ -1,3 +1,16 @@
+2026-09-24
+
+The Apps menu now groups your launchers by category.  Instead of one
+long list, the Apps dropdown shows the categories (Tool, System, Game,
+Office, ...), and the apps of whichever category is highlighted open in
+a submenu beside it -- move onto a category with the arrow keys or the
+mouse and its apps appear.  Press Right or Enter (or click) to go into
+the submenu, Left or Esc to come back.  The submenu arrow is a small
+triangle, or ">" on terminals without UTF-8.
+
+Building this release needs libvterm 10.9+ and libviper 7.8.0+.
+
+
 2026-08-26
 
 CMake no longer looks for a C++ compiler on a fresh configure.
