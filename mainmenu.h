@@ -10,6 +10,9 @@ int             vwm_menubar_hotkey(void);
 void            vwm_menubar_close_dropdown(void);
 int             vwm_menubar_ON_KEYSTROKE(int32_t keystroke);
 int             vwm_dropdown_mouse(MEVENT *mouse_event);
+/* the Apps category submenu, or NULL */
+vk_window_t*    vwm_menubar_get_submenu(void);
+void            vwm_menubar_refresh_submenu(void);
 void            vwm_window_menu_refresh(void);
 
 #endif

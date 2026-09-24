@@ -202,6 +202,7 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
     }
 
     MHIT(VK_WIDGET(vwm->calendar_popup), ZONE_CALENDAR);
+    MHIT(VK_WIDGET(vwm_menubar_get_submenu()), ZONE_MENU);
     MHIT(VK_WIDGET(vwm->menu),           ZONE_MENU);
 
 #undef MHIT
