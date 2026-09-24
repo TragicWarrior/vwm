@@ -92,6 +92,35 @@ int main(int argc,char **argv)
     vwm_sched_ctx_t         *ctx_poll_input;
     MEVENT                  mouse_event;
 
+    /* answer probes before ncurses or the control socket exist.  a
+       piped `vwm --version` must not walk on to vwm_ctl_init() and
+       become a second window manager -- that process would unlink the
+       live session's control socket. */
+    {
+        int i;
+
+        for(i = 1; i < argc; i++)
+        {
+            if(strcmp(argv[i], "--version") == 0 ||
+               strcmp(argv[i], "-V") == 0)
+            {
+                printf("vwm %s\n", VWM_VERSION);
+                return 0;
+            }
+            if(strcmp(argv[i], "--help") == 0 ||
+               strcmp(argv[i], "-h") == 0)
+            {
+                printf(
+                    "Usage: vwm [options]\n"
+                    "  -h, --help             show this help and exit\n"
+                    "  -V, --version          show version and exit\n"
+                    "      --ignore-tty-size  skip the 80x25 minimum "
+                    "check\n");
+                return 0;
+            }
+        }
+    }
+
     sched = vwm_sched_init();
 
     // setup clock task (NORMAL priority)
@@ -141,6 +170,25 @@ int main(int argc,char **argv)
                     return 1;
                 }
             }
+        }
+    }
+
+    /* refuse to start if another vwm is already serving the control
+       socket.  a second full session would unlink the live one's path
+       (ctl_init) and, worse, delete it again on exit -- leaving the
+       original listener bound to an unnamed inode and vwm-msg dead for
+       the rest of the session.  do this before ncurses so the message
+       is visible and the terminal is untouched. */
+    {
+        char    ctl_path[4096];
+
+        if(vwm_ctl_preflight(ctl_path, sizeof(ctl_path)) != 0)
+        {
+            fprintf(stderr,
+                "vwm: another session is already listening on %s;\n"
+                "     refusing to start.  (use vwm-msg to talk to it.)\n",
+                ctl_path);
+            return 1;
         }
     }
 

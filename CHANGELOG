@@ -1,3 +1,15 @@
+Version 6.4.1
+
+*  [Bryan Christ] The vwm-msg control socket survives a stray second
+   vwm.  vwm now answers --help/--version and exits before ncurses, so
+   a piped probe no longer starts a window manager that unlinks the live
+   session's socket.  vwm refuses to start when another session is
+   already listening, ctl_init never unlinks a live socket (only a stale
+   one), the listen and accepted fds are close-on-exec so child
+   terminals cannot inherit or later unlink them, and shutdown removes
+   the socket path only when its inode is still the one this process
+   bound.
+
 Version 6.4.0
 
 *  [Bryan Christ] The Apps menu groups launchers by category.  The Apps

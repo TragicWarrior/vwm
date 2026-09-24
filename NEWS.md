@@ -1,5 +1,17 @@
 2026-09-24
 
+A stray `vwm --version` (or any second vwm) no longer kills vwm-msg for
+the rest of your session.  vwm now prints its version or help and exits
+before touching the terminal, refuses to start when another session is
+already listening, and never unlinks a control socket that a live vwm
+still owns.  Child terminals no longer inherit the control socket, so
+one exiting can't take the path down with it.
+
+Building this release needs libvterm 10.9+ and libviper 7.8.0+.
+
+
+2026-09-24
+
 The Apps menu now groups your launchers by category.  Instead of one
 long list, the Apps dropdown shows the categories (Tool, System, Game,
 Office, ...), and the apps of whichever category is highlighted open in

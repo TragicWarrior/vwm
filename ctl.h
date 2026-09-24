@@ -7,6 +7,7 @@
 */
 
 int     vwm_ctl_init(void);
+int     vwm_ctl_preflight(char *pathbuf, size_t n);
 void    vwm_ctl_poll(void);
 void    vwm_ctl_shutdown(void);
 int     vwm_ctl_listen_fd(void);
