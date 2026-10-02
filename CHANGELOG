@@ -1,3 +1,13 @@
+Version 6.4.2
+
+*  [Bryan Christ] Removed the menu-glyph label from the left end of the
+   top panel.  Its glyph, U+2630, is two columns wide to glibc 2.43
+   (Unicode 16) but one column wide to VTE, so ncurses and the terminal
+   disagreed on the cursor position and two cells of the panel were left
+   unpainted (black) on Ubuntu 26.04.  The label was also the only place
+   panel messages were shown, so the unused vwm_panel_message_* API
+   (add, del, find, touch, promote) is removed with it.
+
 Version 6.4.1
 
 *  [Bryan Christ] The vwm-msg control socket survives a stray second

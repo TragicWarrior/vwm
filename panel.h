@@ -9,17 +9,10 @@
 
 #include "list.h"
 
-#define  VWM_PANEL_MSG_TTL_MAX   30
-
 typedef struct
 {
-    struct list_head    msg_list;
-    int8_t              msg_count;
-
     vk_box_t            *box;
     vk_menubar_t        *menubar;
-    vk_label_t          *msg_label;
-    const char          *msg_default;
     vk_label_t          *task_label;
     vk_label_t          *clock_label;
     vk_activity_t       *activity;
@@ -38,22 +31,6 @@ typedef struct
 }
 VWM_PANEL;
 
-typedef struct
-{
-    union
-    {
-        void            *msg_addr;
-        uintmax_t       msg_handle;
-    }
-                        msg_id;
-    struct list_head    list;
-    char                *msg;
-    int                 msg_len;
-    int32_t             timeout;
-    int32_t             touch_val;
-}
-VWM_PANEL_MSG;
-
 /* panel events   */
 void    vwm_panel_ON_TERM_RESIZED(VWM_PANEL *panel);
 void    vwm_panel_ON_CLOCK_TICK(VWM_PANEL *panel);
@@ -66,7 +43,6 @@ VWM_PANEL*  vwm_panel_get_data(void);
 void    vwm_panel_update_throbber(VWM_PANEL *panel);
 void    vwm_panel_update_taskcount(VWM_PANEL *panel);
 void    vwm_panel_update_clock(VWM_PANEL *panel);
-void    vwm_panel_display(VWM_PANEL *panel);
 void    vwm_panel_set_status(const char *text);
 
 void    vwm_desktop_prompt_show(void);
