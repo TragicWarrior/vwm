@@ -13,7 +13,7 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"6.4.1"
+#define VWM_VERSION					"6.4.2"
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
    outer terminal may have changed under us -- teleport to a new PTY, a
@@ -91,11 +91,6 @@ void            vwm_apply_surface_count(int new_count);
 
 /* panel facilities  */
 void            vwm_panel_init(vwm_t *vwm);
-uintmax_t       vwm_panel_message_add(char *msg, int timeout);
-void            vwm_panel_message_del(uintmax_t msg_id);
-uintmax_t       vwm_panel_message_find(char *msg);
-int             vwm_panel_message_touch(uintmax_t msg_id);
-int             vwm_panel_message_promote(uintmax_t msg_id);
 
 /*	extensibility functions	*/
 vwm_module_t*   vwm_module_create(void);

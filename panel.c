@@ -76,22 +76,10 @@ vwm_panel_init(vwm_t *vwm)
             has_utf8 = 0;
     }
 
-    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 7);
+    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 6);
     vk_box_set_homogeneous(vwm_panel->box, false);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->box),
         COLOR_BLACK, COLOR_WHITE);
-
-    if(has_utf8)
-        vwm_panel->msg_default = "  \xe2\x98\xb0";
-    else
-        vwm_panel->msg_default = " [=]";
-
-    vwm_panel->msg_label = vk_label_create(5);
-    vk_widget_set_colors(VK_WIDGET(vwm_panel->msg_label),
-        COLOR_WHITE, COLOR_BLUE);
-    vk_widget_set_attrs(VK_WIDGET(vwm_panel->msg_label), A_BOLD);
-    vk_label_set_text(vwm_panel->msg_label, vwm_panel->msg_default);
-    vk_label_update(vwm_panel->msg_label);
 
     vwm_panel->menubar = vk_menubar_create(1);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->menubar),
@@ -103,7 +91,7 @@ vwm_panel_init(vwm_t *vwm)
     {
         vk_filler_t *spacer = vk_filler_create();
         vk_widget_set_colors(VK_WIDGET(spacer), COLOR_BLACK, COLOR_WHITE);
-        vk_box_set_widget(vwm_panel->box, 2, VK_WIDGET(spacer), VK_INHERIT_NONE);
+        vk_box_set_widget(vwm_panel->box, 1, VK_WIDGET(spacer), VK_INHERIT_NONE);
     }
 
     vwm_panel->task_label = vk_label_create(4);
@@ -134,14 +122,12 @@ vwm_panel_init(vwm_t *vwm)
     vk_activity_start(vwm_panel->activity);
 
     vk_box_set_widget(vwm_panel->box, 0,
-        VK_WIDGET(vwm_panel->msg_label), VK_INHERIT_NONE);
-    vk_box_set_widget(vwm_panel->box, 1,
         VK_WIDGET(vwm_panel->menubar), VK_INHERIT_NONE);
-    vk_box_set_widget(vwm_panel->box, 3,
+    vk_box_set_widget(vwm_panel->box, 2,
         VK_WIDGET(vwm_panel->task_label), VK_INHERIT_NONE);
-    vk_box_set_widget(vwm_panel->box, 4,
+    vk_box_set_widget(vwm_panel->box, 3,
         VK_WIDGET(vwm_panel->clock_label), VK_INHERIT_NONE);
-    vk_box_set_widget(vwm_panel->box, 5,
+    vk_box_set_widget(vwm_panel->box, 4,
         VK_WIDGET(vwm_panel->activity), VK_INHERIT_NONE);
 
     {
@@ -149,7 +135,7 @@ vwm_panel_init(vwm_t *vwm)
         vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_CYAN);
         vk_label_set_text(pad, " ");
         vk_label_update(pad);
-        vk_box_set_widget(vwm_panel->box, 6, VK_WIDGET(pad), VK_INHERIT_NONE);
+        vk_box_set_widget(vwm_panel->box, 5, VK_WIDGET(pad), VK_INHERIT_NONE);
     }
 
     vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm_panel->box));
@@ -244,8 +230,6 @@ vwm_panel_init(vwm_t *vwm)
         vk_box_update(vwm_panel->status_box);
         vk_widget_draw(VK_WIDGET(vwm_panel->status_box));
     }
-
-    INIT_LIST_HEAD(&vwm_panel->msg_list);
 }
 
 void
@@ -623,8 +607,6 @@ vwm_panel_ON_CLOCK_TICK(VWM_PANEL *vwm_panel)
         vwm_panel_update_clock(vwm_panel);
     }
 
-    vwm_panel_display(vwm_panel);
-
     vk_box_update(vwm_panel->box);
 
     vk_marquee_run(vwm_panel->status_marquee);
@@ -668,172 +650,6 @@ vwm_panel_update_clock(VWM_PANEL *panel)
 
     vk_label_set_text(panel->clock_label, buf);
     vk_label_update(panel->clock_label);
-}
-
-void
-vwm_panel_display(VWM_PANEL *vwm_panel)
-{
-    VWM_PANEL_MSG       *vwm_panel_msg;
-
-    if(list_empty(&vwm_panel->msg_list))
-    {
-        vk_label_set_text(vwm_panel->msg_label, vwm_panel->msg_default);
-        vk_label_update(vwm_panel->msg_label);
-        return;
-    }
-
-    vwm_panel_msg = list_first_entry(&vwm_panel->msg_list,
-        VWM_PANEL_MSG, list);
-
-    vk_label_set_text(vwm_panel->msg_label, vwm_panel_msg->msg);
-    vk_label_update(vwm_panel->msg_label);
-}
-
-uintmax_t
-vwm_panel_message_add(char *msg, int timeout)
-{
-    VWM_PANEL       *vwm_panel;
-    VWM_PANEL_MSG   *vwm_panel_msg;
-
-    if(msg == NULL) return 0;
-
-    vwm_panel = vwm_panel_get_data();
-    if(vwm_panel == NULL) return 0;
-
-    if(timeout == 0 || timeout > VWM_PANEL_MSG_TTL_MAX)
-        timeout = VWM_PANEL_MSG_TTL_MAX;
-
-    vwm_panel_msg = (VWM_PANEL_MSG*)calloc(1, sizeof(VWM_PANEL_MSG));
-    vwm_panel_msg->msg = strdup(msg);
-    vwm_panel_msg->msg_len = strlen(msg);
-    vwm_panel_msg->timeout = timeout;
-    vwm_panel_msg->touch_val = timeout;
-    vwm_panel_msg->msg_id.msg_addr = vwm_panel_msg;
-
-    list_add(&vwm_panel_msg->list, &vwm_panel->msg_list);
-    vwm_panel->msg_count++;
-
-    return vwm_panel_msg->msg_id.msg_handle;
-}
-
-void
-vwm_panel_message_del(uintmax_t msg_id)
-{
-    VWM_PANEL           *vwm_panel;
-    VWM_PANEL_MSG       *vwm_panel_msg;
-    struct list_head    *pos;
-
-    if(msg_id == 0) return;
-
-    vwm_panel = vwm_panel_get_data();
-    if(vwm_panel == NULL) return;
-
-    list_for_each(pos, &vwm_panel->msg_list)
-    {
-        vwm_panel_msg = list_entry(pos, VWM_PANEL_MSG, list);
-
-        if(vwm_panel_msg->msg_id.msg_handle == msg_id) break;
-
-        vwm_panel_msg = NULL;
-    }
-
-    if(vwm_panel_msg != NULL)
-    {
-        list_del(pos);
-
-        free(vwm_panel_msg->msg);
-        free(vwm_panel_msg);
-
-        vwm_panel->msg_count--;
-
-    }
-
-    return;
-}
-
-int
-vwm_panel_message_touch(uintmax_t msg_id)
-{
-    VWM_PANEL           *vwm_panel;
-    VWM_PANEL_MSG       *vwm_panel_msg;
-    struct list_head    *pos;
-
-    if(msg_id == 0) return -1;
-
-    vwm_panel = vwm_panel_get_data();
-    if(vwm_panel == NULL) return -1;
-
-    list_for_each(pos, &vwm_panel->msg_list)
-    {
-        vwm_panel_msg = list_entry(pos, VWM_PANEL_MSG, list);
-
-        if(vwm_panel_msg->msg_id.msg_handle == msg_id) break;
-
-        vwm_panel_msg = NULL;
-    }
-
-    if(vwm_panel_msg != NULL)
-    {
-        vwm_panel_msg->timeout = vwm_panel_msg->touch_val;
-        return (int)vwm_panel_msg->timeout;
-    }
-
-    return -1;
-}
-
-int
-vwm_panel_message_promote(uintmax_t msg_id)
-{
-    VWM_PANEL           *vwm_panel;
-    VWM_PANEL_MSG       *vwm_panel_msg;
-    struct list_head    *pos;
-
-    if(msg_id == 0) return -1;
-
-    vwm_panel = vwm_panel_get_data();
-    if(vwm_panel == NULL) return -1;
-
-    list_for_each(pos, &vwm_panel->msg_list)
-    {
-        vwm_panel_msg = list_entry(pos, VWM_PANEL_MSG, list);
-
-        if(vwm_panel_msg->msg_id.msg_handle == msg_id) break;
-
-        vwm_panel_msg = NULL;
-    }
-
-    if(vwm_panel_msg != NULL)
-    {
-        list_move(pos, &vwm_panel->msg_list);
-    }
-
-    return 0;
-}
-
-uintmax_t
-vwm_panel_message_find(char *msg)
-{
-    VWM_PANEL           *vwm_panel;
-    VWM_PANEL_MSG       *vwm_panel_msg;
-    struct list_head    *pos;
-
-    if(msg == NULL) return 0;
-
-    vwm_panel = vwm_panel_get_data();
-    if(vwm_panel == NULL) return 0;
-
-    list_for_each(pos, &vwm_panel->msg_list)
-    {
-        vwm_panel_msg = list_entry(pos, VWM_PANEL_MSG, list);
-
-        if(strncmp(vwm_panel_msg->msg, msg, vwm_panel_msg->msg_len) == 0) break;
-
-        vwm_panel_msg = NULL;
-    }
-
-    if(vwm_panel_msg == NULL) return 0;
-
-    return vwm_panel_msg->msg_id.msg_handle;
 }
 
 void

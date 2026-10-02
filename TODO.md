@@ -162,7 +162,7 @@ MEDIUM IMPACT
        construction remains.
 
 [ ] 8. Panel display redoes vk_widget_set_colors every clock tick
-       panel.c  vwm_panel_display() + its callees
+       panel.c  vwm_panel_ON_CLOCK_TICK() + its callees
        Every clock tick (10x per second per VWM_CLOCK_TICKS_PER_SEC)
        walks the panel widget tree and calls vk_widget_set_colors on
        every box / label / spacer, plus vk_label_update on each.  Most

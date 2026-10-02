@@ -1,3 +1,17 @@
+2026-10-01
+
+The two black cells in the top panel on Ubuntu 26.04 are gone.  The
+small menu glyph at the left end of the panel was drawn two columns wide
+by the newer C library but one column wide by the terminal, which left
+gaps in the bar.  The glyph never did much, so it has been removed; the
+panel now starts with the Apps menu.
+
+Module authors: the vwm_panel_message_* functions are removed.  Nothing
+displayed those messages any more.
+
+Building this release needs libvterm 10.9+ and libviper 7.8.0+.
+
+
 2026-09-24
 
 A stray `vwm --version` (or any second vwm) no longer kills vwm-msg for
