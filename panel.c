@@ -19,7 +19,6 @@
 
 #include <string.h>
 #include <time.h>
-#include <langinfo.h>
 
 #include <ncursesw/curses.h>
 
@@ -33,6 +32,7 @@
 #include "list.h"
 #include "winman.h"
 #include "mainmenu.h"
+#include "bkgd.h"
 
 #define     KEY_PLUS            '+'
 #define     KEY_CTRL_DOWN       525
@@ -56,12 +56,63 @@ vwm_panel_get_data(void)
     return panel_data;
 }
 
+/*
+    Give the panel's two glyph-bearing widgets the form the current
+    terminal can show: braille activity dots and a round dtach dot where
+    UTF-8 works, a spinner and an "o" where it does not.  Run at init and
+    again whenever the terminal type changes -- these widgets live for
+    the whole session, so nothing else would ever re-pick them.
+*/
+static void
+vwm_panel_apply_glyphs(VWM_PANEL *vwm_panel)
+{
+    bool    has_utf8 = vwm_has_utf8();
+
+    if(vwm_panel->activity != NULL)
+    {
+        if(has_utf8)
+        {
+            vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
+                COLOR_WHITE, COLOR_CYAN);
+            vk_widget_set_attrs(VK_WIDGET(vwm_panel->activity), A_BOLD);
+            vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_DOTS);
+        }
+        else
+        {
+            vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
+                COLOR_BLACK, COLOR_CYAN);
+            vk_widget_set_attrs(VK_WIDGET(vwm_panel->activity), A_NORMAL);
+            vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_SPINNER);
+        }
+    }
+
+    if(vwm_panel->dtach_dot != NULL)
+    {
+        vk_label_set_text(vwm_panel->dtach_dot,
+            has_utf8 ? " \xe2\x97\x8f " : " o ");
+        vk_label_update(vwm_panel->dtach_dot);
+    }
+}
+
+/* see panel.h */
+void
+vwm_panel_refresh_glyphs(void)
+{
+    VWM_PANEL   *vwm_panel = vwm_panel_get_data();
+
+    if(vwm_panel == NULL) return;
+
+    vwm_panel_apply_glyphs(vwm_panel);
+
+    vk_box_update(vwm_panel->box);
+    vk_box_update(vwm_panel->status_box);
+}
+
 void
 vwm_panel_init(vwm_t *vwm)
 {
     VWM_PANEL       *vwm_panel;
     int             max_y, max_x;
-    int             has_utf8;
 
     if(panel_data != NULL) return;
 
@@ -69,12 +120,6 @@ vwm_panel_init(vwm_t *vwm)
     panel_data = vwm_panel;
 
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
-    {
-        const char *term = getenv("TERM");
-        has_utf8 = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0);
-        if(term != NULL && strcmp(term, "linux") == 0)
-            has_utf8 = 0;
-    }
 
     vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 6);
     vk_box_set_homogeneous(vwm_panel->box, false);
@@ -104,20 +149,9 @@ vwm_panel_init(vwm_t *vwm)
         COLOR_BLACK, COLOR_CYAN);
     vwm_panel_update_clock(vwm_panel);
 
+    /* style and colors come from vwm_panel_apply_glyphs() */
     vwm_panel->activity = vk_activity_create();
-    if(has_utf8)
-    {
-        vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
-            COLOR_WHITE, COLOR_CYAN);
-        vk_widget_set_attrs(VK_WIDGET(vwm_panel->activity), A_BOLD);
-        vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_DOTS);
-    }
-    else
-    {
-        vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
-            COLOR_BLACK, COLOR_CYAN);
-        vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_SPINNER);
-    }
+    vwm_panel_apply_glyphs(vwm_panel);
     vk_activity_set_speed(vwm_panel->activity, 2);
     vk_activity_start(vwm_panel->activity);
 
@@ -204,8 +238,9 @@ vwm_panel_init(vwm_t *vwm)
             vk_widget_set_colors(VK_WIDGET(dtach_dot), dot, gray);
             vk_widget_set_attrs(VK_WIDGET(dtach_dot),
                 under_dtach ? A_BOLD : A_NORMAL);
-            vk_label_set_text(dtach_dot, has_utf8 ? " \xe2\x97\x8f " : " o ");
-            vk_label_update(dtach_dot);
+            /* the glyph itself comes from vwm_panel_apply_glyphs() */
+            vwm_panel->dtach_dot = dtach_dot;
+            vwm_panel_apply_glyphs(vwm_panel);
 
             vk_widget_set_colors(VK_WIDGET(dtach_txt), white, gray);
             vk_widget_set_attrs(VK_WIDGET(dtach_txt), A_BOLD);
@@ -303,6 +338,40 @@ vwm_desktop_prompt_close(void)
     vk_box_update(vwm_panel->box);
 }
 
+#define VWM_TELEPORT_PROMPT  " Teleport to: "
+#define VWM_TELEPORT_HINT    "Esc to cancel"
+
+/*
+    Show the gray "Esc to cancel" hint in the empty input area, and take
+    it away as soon as there is typed text (it comes back if the text is
+    erased).  The hint is its own label laid over the prompt row: a label
+    has one color, and the hint has to be dimmer than the prompt.
+*/
+static void
+vwm_teleport_hint_sync(void)
+{
+    vwm_t       *vwm = vwm_get_instance();
+    VWM_PANEL   *vwm_panel = vwm_panel_get_data();
+    bool        want;
+    int         surface;
+
+    if(vwm_panel->teleport_hint == NULL) return;
+
+    want = (vwm_panel->teleport_pos == 0);
+    if(want == vwm_panel->teleport_hint_shown) return;
+
+    surface = vk_screen_get_active_surface(vwm->screen);
+
+    if(want)
+        vk_screen_attach_widget(vwm->screen, surface,
+            VK_WIDGET(vwm_panel->teleport_hint));
+    else
+        vk_screen_detach_widget(vwm->screen, surface,
+            VK_WIDGET(vwm_panel->teleport_hint));
+
+    vwm_panel->teleport_hint_shown = want;
+}
+
 static void
 vwm_teleport_prompt_redraw(void)
 {
@@ -312,10 +381,12 @@ vwm_teleport_prompt_redraw(void)
     vwm_panel = vwm_panel_get_data();
     if(vwm_panel->teleport_prompt == NULL) return;
 
-    snprintf(text, sizeof(text), " Teleport to: %s",
+    snprintf(text, sizeof(text), VWM_TELEPORT_PROMPT "%s",
         vwm_panel->teleport_text);
     vk_label_set_text(vwm_panel->teleport_prompt, text);
     vk_label_update(vwm_panel->teleport_prompt);
+
+    vwm_teleport_hint_sync();
 }
 
 void
@@ -346,7 +417,7 @@ vwm_teleport_prompt_show(void)
     prompt = vk_label_create(max_x);
     vk_widget_set_colors(VK_WIDGET(prompt), COLOR_WHITE, COLOR_BLUE);
     vk_widget_set_attrs(VK_WIDGET(prompt), A_BOLD);
-    vk_label_set_text(prompt, " Teleport to: ");
+    vk_label_set_text(prompt, VWM_TELEPORT_PROMPT);
     vk_label_update(prompt);
 
     surface = vk_screen_get_active_surface(vwm->screen);
@@ -355,6 +426,23 @@ vwm_teleport_prompt_show(void)
     vk_screen_attach_widget(vwm->screen, surface, VK_WIDGET(prompt));
 
     vwm_panel->teleport_prompt = prompt;
+
+    /* the hint sits where the typed text will go.  Plain white on the
+       prompt's bold white reads as light gray.  Attached after the
+       prompt so it paints on top of it. */
+    {
+        vk_label_t  *hint = vk_label_create((int)strlen(VWM_TELEPORT_HINT));
+
+        vk_widget_set_colors(VK_WIDGET(hint), COLOR_WHITE, COLOR_BLUE);
+        vk_widget_set_attrs(VK_WIDGET(hint), A_NORMAL);
+        vk_label_set_text(hint, VWM_TELEPORT_HINT);
+        vk_label_update(hint);
+        vk_widget_move(VK_WIDGET(hint), (int)strlen(VWM_TELEPORT_PROMPT), 0);
+
+        vwm_panel->teleport_hint = hint;
+        vwm_panel->teleport_hint_shown = false;
+        vwm_teleport_hint_sync();
+    }
 }
 
 static void
@@ -370,6 +458,18 @@ vwm_teleport_prompt_close(void)
     if(vwm_panel->teleport_prompt == NULL) return;
 
     surface = vk_screen_get_active_surface(vwm->screen);
+
+    /* the hint goes with the prompt, shown or not */
+    if(vwm_panel->teleport_hint != NULL)
+    {
+        if(vwm_panel->teleport_hint_shown)
+            vk_screen_detach_widget(vwm->screen, surface,
+                VK_WIDGET(vwm_panel->teleport_hint));
+        vk_label_destroy(vwm_panel->teleport_hint);
+        vwm_panel->teleport_hint = NULL;
+        vwm_panel->teleport_hint_shown = false;
+    }
+
     vk_screen_detach_widget(vwm->screen, surface,
         VK_WIDGET(vwm_panel->teleport_prompt));
     vk_label_destroy(vwm_panel->teleport_prompt);
@@ -435,7 +535,10 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
 
             snprintf(path, sizeof(path), "%s", panel_data->teleport_text);
             vwm_teleport_prompt_close();
-            vk_screen_teleport(vwm->screen, path);
+            /* same path as `vwm-msg adopt`, minus the terminal type:
+               a typed device path cannot say what it is, so only a
+               console (/dev/ttyN -> linux) is recognised */
+            vwm_adopt_terminal(path, NULL, NULL);
             vk_screen_refresh(vwm->screen);
             return KMIO_HANDLED;
         }

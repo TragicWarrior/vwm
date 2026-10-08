@@ -327,6 +327,12 @@ vwm_poll_input(void * const env)
             continue;
         }
 
+        /* a reattach is when a held `vwm-msg adopt` takes effect: the
+           dtach client is on the line now, so the rebuilt screen's init
+           strings reach a terminal instead of being dropped. */
+        if(keystroke == KEY_RESIZE)
+            vwm_adopt_apply_pending();
+
         /* while the screensaver is up, all input is locked to it -- EXCEPT a
            terminal resize (e.g. a dtach reattach onto a different-size tty),
            which we let through so the fullscreen saver overlay and the locked

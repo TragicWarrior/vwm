@@ -67,6 +67,9 @@ static int
 vwm_on_teleport(vk_object_t *object, int event, void *anything);
 
 static void
+vwm_home_note(vwm_t *vwm);
+
+static void
 vwm_sched_render(void *arg);
 
 vwm_sched_t             *sched = NULL;
@@ -333,6 +336,7 @@ vwm_init(void)
         vwm->screen = vk_screen_create();
         vdk_color_init();
         vwm_input_rearm(vwm);
+        vwm_home_note(vwm);
 
         vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
 
@@ -437,6 +441,296 @@ vwm_input_rearm(vwm_t *vwm)
        ordinary resize it is a harmless no-op. */
     vk_kmio_init(vk_screen_get_fd(vwm->screen), VWM_KMIO_FLAGS);
     nodelay(stdscr, TRUE);
+}
+
+/*
+    the console number of /dev/ttyN (1-63), or 0 for any other terminal.
+*/
+static int
+vwm_tty_vc(const char *tty)
+{
+    char    *end;
+    long    vc;
+
+    if(tty == NULL || strncmp(tty, "/dev/tty", 8) != 0) return 0;
+    if(tty[8] < '0' || tty[8] > '9') return 0;
+
+    vc = strtol(tty + 8, &end, 10);
+    if(*end != '\0' || vc < 1 || vc > 63) return 0;
+
+    return (int)vc;
+}
+
+/*
+    Terminals this session has been on, and the type each was driven as.
+    `vwm-msg adopt` is told the type; the menu Teleport only gets a path,
+    so it looks the path up here -- that is what makes "back to where I
+    started" come out as the right type.  Small and fixed: the oldest
+    entry is overwritten.
+*/
+#define VWM_KNOWN_TTYS  8
+
+static struct
+{
+    char    tty[64];
+    char    term[64];
+}
+vwm_known_tty[VWM_KNOWN_TTYS];
+static int  vwm_known_next = 0;
+
+static void
+vwm_known_tty_note(const char *tty, const char *term)
+{
+    int     i;
+
+    if(tty == NULL || term == NULL || tty[0] == '\0' || term[0] == '\0')
+        return;
+
+    for(i = 0; i < VWM_KNOWN_TTYS; i++)
+        if(strcmp(vwm_known_tty[i].tty, tty) == 0) break;
+
+    if(i == VWM_KNOWN_TTYS)
+    {
+        i = vwm_known_next;
+        vwm_known_next = (vwm_known_next + 1) % VWM_KNOWN_TTYS;
+    }
+
+    snprintf(vwm_known_tty[i].tty, sizeof(vwm_known_tty[i].tty), "%s", tty);
+    snprintf(vwm_known_tty[i].term, sizeof(vwm_known_tty[i].term), "%s",
+        term);
+}
+
+/*
+    The type to drive `tty` as when the caller could not say.  A terminal
+    we have been on keeps the type it had.  An unknown one keeps the
+    current type -- unless that is "linux", which is only ever right for
+    a console: then borrow the type of the last non-console terminal.
+    Returns NULL for "leave the type alone".
+*/
+static const char *
+vwm_known_tty_guess(const char *tty)
+{
+    const char  *cur = getenv("TERM");
+    int         i;
+
+    for(i = 0; i < VWM_KNOWN_TTYS; i++)
+        if(strcmp(vwm_known_tty[i].tty, tty) == 0)
+            return vwm_known_tty[i].term;
+
+    if(cur == NULL || strcmp(cur, "linux") != 0) return NULL;
+
+    for(i = 1; i <= VWM_KNOWN_TTYS; i++)
+    {
+        int j = (vwm_known_next - i + 2 * VWM_KNOWN_TTYS) % VWM_KNOWN_TTYS;
+
+        if(vwm_known_tty[j].term[0] != '\0'
+            && strcmp(vwm_known_tty[j].term, "linux") != 0)
+            return vwm_known_tty[j].term;
+    }
+
+    return NULL;
+}
+
+/* where vwm was started, and as what: the target of "Teleport home" */
+static char vwm_home_tty[64];
+static char vwm_home_term[64];
+
+/*
+    Record the starting terminal.  Called once from vwm_init, while the
+    screen is still on it.
+*/
+static void
+vwm_home_note(vwm_t *vwm)
+{
+    const char  *tty = ttyname(vk_screen_get_fd(vwm->screen));
+    const char  *term = getenv("TERM");
+
+    snprintf(vwm_home_tty, sizeof(vwm_home_tty), "%s",
+        (tty != NULL) ? tty : "");
+    snprintf(vwm_home_term, sizeof(vwm_home_term), "%s",
+        (term != NULL) ? term : "");
+
+    vwm_known_tty_note(tty, term);
+}
+
+static struct
+{
+    bool    pending;
+    bool    has_term;
+    char    term[64];
+    int     vc;
+}
+vwm_adopt_held;
+
+/*
+    Do the adopt.  pty == NULL rebuilds the screen where it is.  The
+    environment is the hand-off to libviper and libgpm: TERM picks the
+    terminfo entry and decides whether GPM is tried at all, VK_GPM_VC
+    names the console.  Returns 0, or -1 if the screen could not be
+    rebuilt (the old terminal type is restored).
+*/
+static int
+vwm_adopt_apply(const char *pty, const char *term, int vc)
+{
+    vwm_t       *vwm = vwm_get_instance();
+    const char  *cur = getenv("TERM");
+    char        old_term[64];
+    char        buf[16];
+    bool        had_term = (cur != NULL);
+    bool        term_changed;
+    bool        console;
+    int         retval = 0;
+
+    const char  *old_vc_env = getenv("VK_GPM_VC");
+    char        old_vc[16];
+    bool        had_vc = (old_vc_env != NULL);
+
+    snprintf(old_vc, sizeof(old_vc), "%s", had_vc ? old_vc_env : "");
+    snprintf(old_term, sizeof(old_term), "%s", had_term ? cur : "");
+    term_changed = (term != NULL && term[0] != '\0'
+        && strcmp(old_term, term) != 0);
+
+    if(term_changed) setenv("TERM", term, 1);
+
+    if(vc > 0)
+    {
+        snprintf(buf, sizeof(buf), "%d", vc);
+        setenv("VK_GPM_VC", buf, 1);
+    }
+    else
+        unsetenv("VK_GPM_VC");
+
+    /* forget the old GPM verdict; the next fetch re-reads both */
+    vk_kmio_gpm_reset();
+
+    if(pty != NULL || term_changed)
+    {
+        /* emits VK_EVENT_ON_TELEPORT -> vwm_on_teleport re-arms input */
+        if(vk_screen_adopt(vwm->screen, pty, NULL) != 0)
+        {
+            /* still where we were: put the description back */
+            if(term_changed)
+            {
+                if(had_term) setenv("TERM", old_term, 1);
+                else unsetenv("TERM");
+            }
+            if(had_vc) setenv("VK_GPM_VC", old_vc, 1);
+            else unsetenv("VK_GPM_VC");
+            vk_kmio_gpm_reset();
+            retval = -1;
+        }
+    }
+    else
+        vwm_input_rearm(vwm);
+
+    /* gpm draws no pointer for a client; on the console vwm draws its
+       own.  Follow whichever terminal type we ended up on. */
+    cur = getenv("TERM");
+    console = (cur != NULL && strcmp(cur, "linux") == 0);
+    vwm->show_cursor = console;
+    vk_screen_set_overlay(vwm->screen, console ? vwm_cursor_overlay : NULL);
+
+    vwm->screen_dirty = 1;
+
+    return retval;
+}
+
+/* see vwm.h.  The entry point for `vwm-msg adopt` and the menu Teleport. */
+int
+vwm_adopt_terminal(const char *tty, const char *term, const char **err)
+{
+    vwm_t       *vwm = vwm_get_instance();
+    const char  *here;
+    const char  *dummy;
+    int         vc;
+
+    if(err == NULL) err = &dummy;
+    *err = NULL;
+
+    if(vwm == NULL || tty == NULL)
+    {
+        *err = "no vwm";
+        return -1;
+    }
+
+    vc = vwm_tty_vc(tty);
+
+    /* remember where we are before leaving it */
+    here = ttyname(vk_screen_get_fd(vwm->screen));
+    vwm_known_tty_note(here, getenv("TERM"));
+
+    /* no type given (Teleport by path): a Linux console is the one
+       terminal whose type the path gives away; otherwise go by what we
+       know of that terminal */
+    if(term == NULL || term[0] == '\0')
+        term = (vc > 0) ? "linux" : vwm_known_tty_guess(tty);
+
+    if(getenv("VWM_SOCK") != NULL)
+    {
+        /* dtach: nothing to move, and nobody attached to show it to yet */
+        vwm_adopt_held.pending = true;
+        vwm_adopt_held.vc = vc;
+        vwm_adopt_held.has_term = (term != NULL && term[0] != '\0');
+        snprintf(vwm_adopt_held.term, sizeof(vwm_adopt_held.term), "%s",
+            vwm_adopt_held.has_term ? term : "");
+        return 0;
+    }
+
+    /* already there: rebuild in place rather than evict ourselves */
+    if(here != NULL && strcmp(here, tty) == 0) tty = NULL;
+
+    if(vwm_adopt_apply(tty, term, vc) != 0)
+    {
+        *err = "adopt failed";
+        return -1;
+    }
+
+    here = ttyname(vk_screen_get_fd(vwm->screen));
+    vwm_known_tty_note(here, getenv("TERM"));
+
+    return 0;
+}
+
+/* see vwm.h.  Decides whether "Teleport home" is offered as active. */
+bool
+vwm_at_home(void)
+{
+    vwm_t       *vwm = vwm_get_instance();
+    const char  *here;
+
+    if(vwm == NULL || vwm_home_tty[0] == '\0') return true;
+
+    here = ttyname(vk_screen_get_fd(vwm->screen));
+
+    return here != NULL && strcmp(here, vwm_home_tty) == 0;
+}
+
+/* see vwm.h.  The "Teleport home" menu entry. */
+int
+vwm_teleport_home(void)
+{
+    vwm_t       *vwm = vwm_get_instance();
+
+    if(vwm == NULL || vwm_home_tty[0] == '\0') return -1;
+
+    if(vwm_at_home()) return 0;
+
+    return vwm_adopt_terminal(vwm_home_tty,
+        (vwm_home_term[0] != '\0') ? vwm_home_term : NULL, NULL);
+}
+
+/* see vwm.h.  Called on KEY_RESIZE: a dtach client has just attached. */
+bool
+vwm_adopt_apply_pending(void)
+{
+    if(!vwm_adopt_held.pending) return false;
+
+    vwm_adopt_held.pending = false;
+    vwm_adopt_apply(NULL,
+        vwm_adopt_held.has_term ? vwm_adopt_held.term : NULL,
+        vwm_adopt_held.vc);
+
+    return true;
 }
 
 void
@@ -607,6 +901,11 @@ vwm_on_teleport(vk_object_t *object, int event, void *anything)
        the \033[?1003h hover escape has to land on the new fd (kmio
        writes it directly to whatever fd we hand it) */
     vwm_input_rearm(vwm);
+
+    /* the new terminal may be of another type: re-pick the panel's
+       UTF-8 / ASCII glyphs.  Everything else that asks (wallpaper,
+       window buttons, menus) asks at draw time and follows by itself. */
+    vwm_panel_refresh_glyphs();
 
     /* queue a KEY_RESIZE so the poll loop runs the same cascade it does
        for a real terminal resize (panel + status bar + dialogs) */

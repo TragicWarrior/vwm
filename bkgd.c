@@ -23,7 +23,6 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <wchar.h>
-#include <langinfo.h>
 
 #include "vwm.h"
 #include "private.h"
@@ -45,25 +44,17 @@ vwm_register_font_renderer(vwm_font_render_fn render,
 }
 
 /*
-    Cheap, cached "does the terminal speak UTF-8?" check.  Used to fall
-    back the brick wallpapers (WACS box drawing) to Stiple (ACS_CKBOARD)
-    when the term can't render wide characters.  Mirrors the detection
-    in vwm_panel_init: locale CODESET must be UTF-8 and TERM must not
-    be "linux" (the bare console).
+    "Does the terminal speak UTF-8?"  Used to fall back the brick
+    wallpapers (WACS box drawing) to Stiple (ACS_CKBOARD) when the term
+    can't render wide characters.  libviper owns the rule -- locale
+    CODESET is UTF-8 and TERM is not "linux" (the bare console) -- and
+    answers it live, so this follows the session when it moves to a
+    terminal of another type.
 */
 static bool
 _bkgd_has_utf8(void)
 {
-    static int cached = -1;
-    const char *term;
-
-    if(cached >= 0) return cached != 0;
-
-    cached = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0) ? 1 : 0;
-    term = getenv("TERM");
-    if(term != NULL && strcmp(term, "linux") == 0) cached = 0;
-
-    return cached != 0;
+    return vdk_has_utf8();
 }
 
 /* public wrapper so other modules (e.g. the window decorator) can pick

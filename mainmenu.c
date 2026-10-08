@@ -341,6 +341,17 @@ vwm_switch_desktop(vk_widget_t *widget, void *anything)
 }
 
 static int
+vwm_teleport_home_item(vk_widget_t *widget, void *anything)
+{
+    (void)widget;
+    (void)anything;
+
+    vwm_teleport_home();
+
+    return 0;
+}
+
+static int
 vwm_teleport(vk_widget_t *widget, void *anything)
 {
     (void)widget;
@@ -477,8 +488,24 @@ create_file_dropdown(vwm_t *vwm)
        there is no way back "home".  VWM_SOCK is how vwm-start marks a
        dtach session (same test as the panel indicator). */
     if(getenv("VWM_SOCK") == NULL)
-        vk_listbox_add_item(listbox, "Teleport",
+    {
+        /* home: back to the terminal vwm was started on.  Its shell is
+           blocked behind vwm, so it cannot call the session back with
+           vwm-resume; this entry is the way home. */
+        vk_listbox_add_item(listbox, "Teleport home",
+            vwm_teleport_home_item, NULL);
+
+        /* nowhere to go when already home: show the entry grayed out
+           (plain white on the menu's bold white reads as light gray)
+           and out of reach of the arrow keys and the mouse.  The
+           dropdown is rebuilt on every open, so this tracks moves. */
+        vk_listbox_set_inactive_colors(listbox, COLOR_WHITE, -1, A_NORMAL);
+        vk_listbox_set_item_active(listbox,
+            vk_listbox_get_item_count(listbox) - 1, !vwm_at_home());
+
+        vk_listbox_add_item(listbox, "Teleport to...",
             vwm_teleport, NULL);
+    }
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Manage Apps Menu",
         vwm_manage_apps_open, NULL);
@@ -745,7 +772,10 @@ apps_submenu_mouse(vwm_t *vwm, MEVENT *mouse_event)
 
         if(!(bs & BUTTON1_CLICKED) && !was_armed) return 0;
 
-        if(row >= 0 && row < vk_listbox_get_item_count(listbox))
+        /* an inactive row takes no click: set_curr would refuse it and
+           exec_curr would then run whatever row was current before */
+        if(row >= 0 && row < vk_listbox_get_item_count(listbox)
+            && vk_listbox_item_is_active(listbox, row))
         {
             vk_listbox_set_curr(listbox, row);
             vk_listbox_exec_curr(listbox);
@@ -853,7 +883,8 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
         }
 
         if(row >= 0 && row < vk_listbox_get_item_count(listbox)
-            && !vk_listbox_item_is_separator(listbox, row))
+            && !vk_listbox_item_is_separator(listbox, row)
+            && vk_listbox_item_is_active(listbox, row))
         {
             vk_listbox_set_curr(listbox, row);
             vk_listbox_exec_curr(listbox);
