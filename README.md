@@ -37,12 +37,13 @@ FEATURES
    -  Print File - sends a file to a CUPS-discovered printer.
    -  Lock Screen - invokes the screensaver on demand; also fires
       automatically after the configured idle timeout.
-   -  Teleport to... - migrate the active session to a different PTY
-      without restarting.  Teleport home - bring it back to the terminal
-      it was started on.  Neither is offered under dtach (vwm-start);
-      use vwm-resume.
-      vwm-resume, run from the target terminal, does the same move and
-      also carries that terminal's type.
+   -  Teleport home - bring a moved session back to the terminal it was
+      started on.  Grayed out while it is already there.
+   -  Teleport to... - move the session to another terminal by typing
+      its device path.  Running vwm-resume in that terminal does the
+      same move and also tells vwm the terminal's type, so prefer it.
+      Neither Teleport entry is offered under dtach (vwm-start); see
+      MOVING A SESSION.
 *  Permanent status bar with clock, hotkey hints, version, and a GPM-driven
    mouse cursor overlay.
 *  Optional host name in the desktop's bottom-left corner (off by default),
@@ -50,6 +51,9 @@ FEATURES
    Terminus pixel-font at one of nine grid sizes.
 *  Remote-friendly: run under dtach via the bundled vwm-start / vwm-resume
    launchers to detach and reattach a session across SSH disconnects.
+*  A session can move between terminals -- X terminal, SSH login, Linux
+   console -- and vwm adapts to each one: terminal type, mouse (xterm
+   reporting or GPM), and UTF-8 or ASCII glyphs.
 *  Control plane: vwm-msg talks to the running session (list / launch /
    focus / close / …) over a per-user Unix socket.
 *  Configuration persisted to JSON at ~/.config/vwm/config.json; a sane
@@ -88,8 +92,12 @@ shell -- including one inside a vwmterm -- run vwm-msg:
     vwm-msg screenshot --target top
     vwm-msg attention <id>
     vwm-msg close <id>
+    vwm-msg adopt
 
-See vwm-msg --help.  This is not the dtach socket (VWM_SOCK).
+ping also reports whether the session runs under dtach.  adopt brings the
+session to the terminal it is run from (or --tty PATH --term TYPE); it is
+what vwm-resume uses, and it is refused from a terminal inside the
+session.  See vwm-msg --help.  This is not the dtach socket (VWM_SOCK).
 
 INSTALLATION
 ============
@@ -129,11 +137,7 @@ vwm-start   - start a new detached session
 vwm-resume  - bring the running session to this terminal
 
 Detach at any time with Ctrl-\ ; vwm keeps running on the server.  Log back
-in and run vwm-resume to pick up where you left off.  vwm-resume tells vwm
-what the new terminal is (its tty and $TERM), so a session resumed from a
-different kind of terminal is driven correctly and, on a Linux console,
-gets the GPM mouse for that console.  It also works on a session started
-with plain vwm: the screen moves to the terminal you run it from.  vwm-start refuses to
+in and run vwm-resume to pick up where you left off.  vwm-start refuses to
 start over a session that is already running (use vwm-resume instead) and
 offers to clean up a leftover socket from a crashed one.  The socket
 defaults to ~/.vwm.sock; override it with VWM_SOCK to run more than one.
@@ -151,5 +155,34 @@ Save it as e.g. /etc/update-motd.d/99-vwm-session, make it executable, and
 it shows on your next login whenever vwm is up (and stays silent otherwise).
 These scripts run as root, so pgrep keeps it simpler than chasing a
 per-user ~/.vwm.sock path; use a lower number prefix to move the line up.
+
+MOVING A SESSION
+================
+
+vwm-resume means "bring the running session to this terminal".  Run it in
+the terminal where you want vwm; it works for both kinds of session:
+
+*  Started with vwm-start (dtach): the session is attached here and
+   detached from any other terminal it was showing on, which says so.
+*  Started with plain vwm: the screen moves here.  A terminal it had
+   moved onto earlier gets its shell back; the one vwm was started on
+   stays waiting for vwm to exit or come home.
+
+Either way vwm-resume tells vwm what this terminal is -- its tty and
+$TERM -- and vwm follows it: the right terminal type, the GPM mouse when
+it is a Linux console, xterm mouse reporting when it is an X terminal,
+and the glyphs that terminal can show.
+
+A session started with plain vwm cannot be called back from its starting
+terminal, because vwm is still the foreground job of that shell.  Use
+VWM > Teleport home for that.  VWM > Teleport to... moves by device path
+and is the fallback when you cannot run vwm-resume in the target; a path
+cannot say what kind of terminal it is, so vwm goes by what it knows:
+/dev/ttyN is a Linux console, and a terminal the session has been on
+before keeps the type it had.
+
+vwm-resume run from a terminal inside vwm is refused.  A session moved
+onto an SSH terminal without dtach still ends if that connection drops;
+use vwm-start when you need the session to survive disconnects.
 
 Enjoy!

@@ -1,3 +1,30 @@
+Version 7.0.0
+
+*  [Bryan Christ] Major version.  No code change from 6.5.0; the work
+   that landed there changes how a session is used and is worth the
+   number.  A session is no longer tied to the terminal, or the kind
+   of terminal, it was started on:
+
+   -  vwm-resume brings any running session -- dtach or not -- to the
+      terminal it is run from, and vwm adapts to that terminal: type,
+      mouse (xterm reporting or GPM), console pointer, UTF-8 or ASCII
+      glyphs.
+   -  Resuming a dtach session takes it away from other terminals
+      instead of mirroring it.
+   -  The VWM menu has "Teleport home" and "Teleport to..." in place of
+      "Teleport".
+   -  New control operation "adopt"; ping reports "dtach".
+
+   Changes in behaviour since 6.4.x that a script or habit may rely on:
+   vwm-resume detaches other attached terminals; vwm-resume on a
+   session started with plain vwm moves it rather than failing; the
+   menu entry "Teleport" is gone under that name; building needs
+   libviper 7.10.0; and (since 6.4.2) the vwm_panel_message_* functions
+   no longer exist for modules.
+
+*  [Bryan Christ] README: new section MOVING A SESSION; the Teleport,
+   control socket and remote session text brought up to date.
+
 Version 6.5.0
 
 *  [Bryan Christ] vwm-resume brings any running session to the terminal

@@ -7,7 +7,8 @@
 # vwm-resume to pick up exactly where you left off.
 #
 #   vwm-start   -- START a session (use this once)
-#   vwm-resume  -- RECONNECT to a session that is already running
+#   vwm-resume  -- BRING a session that is already running to this
+#                  terminal (reconnect, or move it from another one)
 #
 # Detach key while attached:  Ctrl-\
 #

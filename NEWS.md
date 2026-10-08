@@ -1,5 +1,21 @@
 2026-10-08
 
+vwm 7.0.0.  This is the release where a session stopped belonging to
+one terminal.  Start vwm anywhere, then run vwm-resume in whatever
+terminal you want it in -- another X terminal, an SSH login, a Linux
+console -- and it comes to you and adapts: the right terminal handling,
+the right mouse, glyphs that terminal can draw.  It works the same
+whether you started with vwm-start or plain vwm.  The details are in the
+entry below; the README has a new section, MOVING A SESSION.
+
+If you are upgrading: vwm-resume now takes a vwm-start session away from
+any other terminal it was showing on, the menu entry "Teleport" is now
+"Teleport home" and "Teleport to...", and building needs libviper
+7.10.0+ and libvterm 10.9+.
+
+
+2026-10-08
+
 vwm-resume now works on any running session and from any terminal.  Run
 it where you want the session: a vwm-start (dtach) session reattaches
 there, and a session started with plain vwm moves its screen there.
