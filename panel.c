@@ -19,7 +19,6 @@
 
 #include <string.h>
 #include <time.h>
-#include <langinfo.h>
 
 #include <ncursesw/curses.h>
 
@@ -33,6 +32,7 @@
 #include "list.h"
 #include "winman.h"
 #include "mainmenu.h"
+#include "bkgd.h"
 
 #define     KEY_PLUS            '+'
 #define     KEY_CTRL_DOWN       525
@@ -56,12 +56,63 @@ vwm_panel_get_data(void)
     return panel_data;
 }
 
+/*
+    Give the panel's two glyph-bearing widgets the form the current
+    terminal can show: braille activity dots and a round dtach dot where
+    UTF-8 works, a spinner and an "o" where it does not.  Run at init and
+    again whenever the terminal type changes -- these widgets live for
+    the whole session, so nothing else would ever re-pick them.
+*/
+static void
+vwm_panel_apply_glyphs(VWM_PANEL *vwm_panel)
+{
+    bool    has_utf8 = vwm_has_utf8();
+
+    if(vwm_panel->activity != NULL)
+    {
+        if(has_utf8)
+        {
+            vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
+                COLOR_WHITE, COLOR_CYAN);
+            vk_widget_set_attrs(VK_WIDGET(vwm_panel->activity), A_BOLD);
+            vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_DOTS);
+        }
+        else
+        {
+            vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
+                COLOR_BLACK, COLOR_CYAN);
+            vk_widget_set_attrs(VK_WIDGET(vwm_panel->activity), A_NORMAL);
+            vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_SPINNER);
+        }
+    }
+
+    if(vwm_panel->dtach_dot != NULL)
+    {
+        vk_label_set_text(vwm_panel->dtach_dot,
+            has_utf8 ? " \xe2\x97\x8f " : " o ");
+        vk_label_update(vwm_panel->dtach_dot);
+    }
+}
+
+/* see panel.h */
+void
+vwm_panel_refresh_glyphs(void)
+{
+    VWM_PANEL   *vwm_panel = vwm_panel_get_data();
+
+    if(vwm_panel == NULL) return;
+
+    vwm_panel_apply_glyphs(vwm_panel);
+
+    vk_box_update(vwm_panel->box);
+    vk_box_update(vwm_panel->status_box);
+}
+
 void
 vwm_panel_init(vwm_t *vwm)
 {
     VWM_PANEL       *vwm_panel;
     int             max_y, max_x;
-    int             has_utf8;
 
     if(panel_data != NULL) return;
 
@@ -69,12 +120,6 @@ vwm_panel_init(vwm_t *vwm)
     panel_data = vwm_panel;
 
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
-    {
-        const char *term = getenv("TERM");
-        has_utf8 = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0);
-        if(term != NULL && strcmp(term, "linux") == 0)
-            has_utf8 = 0;
-    }
 
     vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 6);
     vk_box_set_homogeneous(vwm_panel->box, false);
@@ -104,20 +149,9 @@ vwm_panel_init(vwm_t *vwm)
         COLOR_BLACK, COLOR_CYAN);
     vwm_panel_update_clock(vwm_panel);
 
+    /* style and colors come from vwm_panel_apply_glyphs() */
     vwm_panel->activity = vk_activity_create();
-    if(has_utf8)
-    {
-        vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
-            COLOR_WHITE, COLOR_CYAN);
-        vk_widget_set_attrs(VK_WIDGET(vwm_panel->activity), A_BOLD);
-        vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_DOTS);
-    }
-    else
-    {
-        vk_widget_set_colors(VK_WIDGET(vwm_panel->activity),
-            COLOR_BLACK, COLOR_CYAN);
-        vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_SPINNER);
-    }
+    vwm_panel_apply_glyphs(vwm_panel);
     vk_activity_set_speed(vwm_panel->activity, 2);
     vk_activity_start(vwm_panel->activity);
 
@@ -204,8 +238,9 @@ vwm_panel_init(vwm_t *vwm)
             vk_widget_set_colors(VK_WIDGET(dtach_dot), dot, gray);
             vk_widget_set_attrs(VK_WIDGET(dtach_dot),
                 under_dtach ? A_BOLD : A_NORMAL);
-            vk_label_set_text(dtach_dot, has_utf8 ? " \xe2\x97\x8f " : " o ");
-            vk_label_update(dtach_dot);
+            /* the glyph itself comes from vwm_panel_apply_glyphs() */
+            vwm_panel->dtach_dot = dtach_dot;
+            vwm_panel_apply_glyphs(vwm_panel);
 
             vk_widget_set_colors(VK_WIDGET(dtach_txt), white, gray);
             vk_widget_set_attrs(VK_WIDGET(dtach_txt), A_BOLD);

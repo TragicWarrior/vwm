@@ -43,9 +43,13 @@ Version 6.5.0
 *  [Bryan Christ] The "Teleport to:" prompt shows "Esc to cancel" in
    gray while nothing has been typed.
 
-*  [Bryan Christ] Not done yet: choices made once from TERM at startup
-   (UTF-8 or ASCII glyphs, wallpaper style) are not re-made after a
-   move.
+*  [Bryan Christ] The look follows the terminal too.  The UTF-8 or
+   ASCII choice was made once at startup; it is now asked when
+   drawing, and the panel's activity indicator and dtach dot are
+   re-picked after a move.  A session started in an X terminal gets
+   the console forms on the console (spinner, "o", "v", ">", Stiple in
+   place of the brick wallpapers), and one started on the console gets
+   the UTF-8 forms in an X terminal.
 
 Version 6.4.4
 

@@ -16,6 +16,7 @@ typedef struct
     vk_label_t          *task_label;
     vk_label_t          *clock_label;
     vk_activity_t       *activity;
+    vk_label_t          *dtach_dot;         /* status-bar dtach indicator */
 
     vk_label_t          *desktop_prompt;
 
@@ -46,6 +47,10 @@ void    vwm_panel_update_throbber(VWM_PANEL *panel);
 void    vwm_panel_update_taskcount(VWM_PANEL *panel);
 void    vwm_panel_update_clock(VWM_PANEL *panel);
 void    vwm_panel_set_status(const char *text);
+
+/* re-pick the panel's UTF-8 / ASCII glyphs for the terminal the session
+   is on now.  call after the terminal type changed (an adopt). */
+void    vwm_panel_refresh_glyphs(void);
 
 void    vwm_desktop_prompt_show(void);
 

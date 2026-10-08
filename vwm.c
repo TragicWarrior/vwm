@@ -902,6 +902,11 @@ vwm_on_teleport(vk_object_t *object, int event, void *anything)
        writes it directly to whatever fd we hand it) */
     vwm_input_rearm(vwm);
 
+    /* the new terminal may be of another type: re-pick the panel's
+       UTF-8 / ASCII glyphs.  Everything else that asks (wallpaper,
+       window buttons, menus) asks at draw time and follows by itself. */
+    vwm_panel_refresh_glyphs();
+
     /* queue a KEY_RESIZE so the poll loop runs the same cascade it does
        for a real terminal resize (panel + status bar + dialogs) */
     ungetch(KEY_RESIZE);

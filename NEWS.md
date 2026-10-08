@@ -23,9 +23,9 @@ back to the terminal you started vwm on -- no path to type.  The old
 entry is now "Teleport to...".  When you are already home, "Teleport
 home" is grayed out and the arrow keys skip it.
 
-Still to come: glyph and wallpaper choices made at startup are not
-revisited after a move, so a session started in an X terminal keeps its
-UTF-8 glyphs on the console.
+The look follows the terminal as well: after a move, vwm uses the same
+glyphs and wallpaper style it would have used had it been started
+there.
 
 Building this release needs libvterm 10.9+ and libviper 7.10.0+.
 
