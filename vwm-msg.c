@@ -37,6 +37,10 @@ usage(FILE *fp)
         "  screenshot [--target screen|top] [--path FILE]\n"
         "  attention <id>\n"
         "  attention-off [id]\n"
+        "  adopt [--tty PATH] [--term TYPE]\n"
+        "      bring the session to a terminal (default: this one and its\n"
+        "      $TERM).  A session started directly moves there; a dtach\n"
+        "      session applies it at the next vwm-resume\n"
         "\n"
         "Talks to VWM_CONTROL_SOCK, else ~/.config/vwm/control.sock.\n");
 }
@@ -979,6 +983,59 @@ main(int argc, char **argv)
                 "{\"op\":\"attention\",\"id\":%s,\"off\":true}", argv[2]);
         else
             snprintf(req, sizeof(req), "{\"op\":\"attention\",\"off\":true}");
+        return transact(req);
+    }
+
+    if(strcmp(op, "adopt") == 0)
+    {
+        const char  *tty = NULL;
+        const char  *term = getenv("TERM");
+        char        esc_tty[PATH_MAX + 8];
+        char        esc_term[160];
+        char        extra[224];
+        int         i;
+
+        for(i = 2; i < argc; i++)
+        {
+            if(strcmp(argv[i], "--tty") == 0)
+            {
+                if(need(argc, i + 1, "tty") != 0) return 1;
+                tty = argv[++i];
+                continue;
+            }
+            if(strcmp(argv[i], "--term") == 0)
+            {
+                if(need(argc, i + 1, "term") != 0) return 1;
+                term = argv[++i];
+                continue;
+            }
+            fprintf(stderr, "vwm-msg: unknown flag %s\n", argv[i]);
+            return 1;
+        }
+
+        if(tty == NULL)
+        {
+            for(i = 0; i < 3 && tty == NULL; i++)
+                if(isatty(i)) tty = ttyname(i);
+        }
+        if(tty == NULL)
+        {
+            fprintf(stderr, "vwm-msg: adopt: not on a terminal; "
+                "use --tty PATH\n");
+            return 1;
+        }
+
+        if(json_escape(esc_tty, sizeof(esc_tty), tty) != 0) return 1;
+
+        extra[0] = '\0';
+        if(term != NULL && term[0] != '\0')
+        {
+            if(json_escape(esc_term, sizeof(esc_term), term) != 0) return 1;
+            snprintf(extra, sizeof(extra), ",\"term\":%s", esc_term);
+        }
+
+        snprintf(req, sizeof(req), "{\"op\":\"adopt\",\"tty\":%s%s}",
+            esc_tty, extra);
         return transact(req);
     }
 

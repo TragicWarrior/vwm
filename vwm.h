@@ -13,7 +13,7 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"6.4.4"
+#define VWM_VERSION					"6.5.0"
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
    outer terminal may have changed under us -- teleport to a new PTY, a
@@ -86,6 +86,28 @@ vwm_t*          vwm_init(void);
    -- teleport (new fd) and dtach reattach (new outer tty, possibly
    post-`reset`), both of which arrive as KEY_RESIZE. */
 void            vwm_input_rearm(vwm_t *vwm);
+
+/* Adopt terminal `tty`, driven as type `term` (NULL: keep the current
+   type).  A session started directly moves its screen there at once.  A
+   dtach session stays on its pty -- the dtach client is what moves -- so
+   the request is held and applied on the next reattach (KEY_RESIZE),
+   when there is a client to see the new screen's init strings.
+   Returns 0, or -1 with *err set.  vwm_adopt_apply_pending() applies a
+   held request and returns true if there was one. */
+int             vwm_adopt_terminal(const char *tty, const char *term,
+                    const char **err);
+bool            vwm_adopt_apply_pending(void);
+
+/* Move the session back to the terminal vwm was started on, as the type
+   it had then.  A session started directly cannot be called home from
+   there -- vwm is still that shell's foreground job -- so this is the
+   way back.  Returns 0 (also when already home), -1 if there is no home
+   terminal or the move failed. */
+int             vwm_teleport_home(void);
+
+/* is the session on the terminal it was started on?  (also true when
+   there is no home terminal to go back to) */
+bool            vwm_at_home(void);
 
 void            vwm_apply_surface_count(int new_count);
 

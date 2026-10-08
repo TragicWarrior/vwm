@@ -37,8 +37,12 @@ FEATURES
    -  Print File - sends a file to a CUPS-discovered printer.
    -  Lock Screen - invokes the screensaver on demand; also fires
       automatically after the configured idle timeout.
-   -  Teleport - migrate the active session to a different PTY without
-      restarting.  Not offered under dtach (vwm-start); use vwm-resume.
+   -  Teleport to... - migrate the active session to a different PTY
+      without restarting.  Teleport home - bring it back to the terminal
+      it was started on.  Neither is offered under dtach (vwm-start);
+      use vwm-resume.
+      vwm-resume, run from the target terminal, does the same move and
+      also carries that terminal's type.
 *  Permanent status bar with clock, hotkey hints, version, and a GPM-driven
    mouse cursor overlay.
 *  Optional host name in the desktop's bottom-left corner (off by default),
@@ -56,7 +60,7 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-libviper 7.8.0+  - https://github.com/TragicWarrior/libviper
+libviper 7.10.0+ - https://github.com/TragicWarrior/libviper
 libgpm (optional)
 libvterm 10.9+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for screen capture; DejaVu Sans Mono is bundled)
@@ -122,10 +126,14 @@ To run vwm on a remote server and survive SSH disconnects, install the
 dtach package and use the bundled launchers instead of calling vwm directly:
 
 vwm-start   - start a new detached session
-vwm-resume  - reattach to a running session
+vwm-resume  - bring the running session to this terminal
 
 Detach at any time with Ctrl-\ ; vwm keeps running on the server.  Log back
-in and run vwm-resume to pick up where you left off.  vwm-start refuses to
+in and run vwm-resume to pick up where you left off.  vwm-resume tells vwm
+what the new terminal is (its tty and $TERM), so a session resumed from a
+different kind of terminal is driven correctly and, on a Linux console,
+gets the GPM mouse for that console.  It also works on a session started
+with plain vwm: the screen moves to the terminal you run it from.  vwm-start refuses to
 start over a session that is already running (use vwm-resume instead) and
 offers to clean up a leftover socket from a crashed one.  The socket
 defaults to ~/.vwm.sock; override it with VWM_SOCK to run more than one.

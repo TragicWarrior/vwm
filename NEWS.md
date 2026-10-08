@@ -1,5 +1,37 @@
 2026-10-08
 
+vwm-resume now works on any running session and from any terminal.  Run
+it where you want the session: a vwm-start (dtach) session reattaches
+there, and a session started with plain vwm moves its screen there.
+Either way vwm learns what the terminal is, so resuming on a Linux
+console from an X terminal, or the other way round, gets the right
+terminal handling and the GPM mouse.  Running it from a terminal inside
+vwm is refused.
+
+Resuming a vwm-start session that is still showing on another terminal
+now takes it away from that terminal instead of mirroring it to both.
+
+Teleport on the menu now treats /dev/ttyN as a Linux console, so the
+mouse works after teleporting to one, and remembers what kind of
+terminal each place was, so teleporting back to where you started
+works too.  For a terminal the session has never been on, vwm-resume
+from that terminal is the reliable way; a typed path cannot say what
+kind of terminal it is.
+
+The VWM menu has a new "Teleport home" entry that takes the session
+back to the terminal you started vwm on -- no path to type.  The old
+entry is now "Teleport to...".  When you are already home, "Teleport
+home" is grayed out and the arrow keys skip it.
+
+Still to come: glyph and wallpaper choices made at startup are not
+revisited after a move, so a session started in an X terminal keeps its
+UTF-8 glyphs on the console.
+
+Building this release needs libvterm 10.9+ and libviper 7.10.0+.
+
+
+2026-10-08
+
 Teleport is no longer on the VWM menu when vwm runs under dtach
 (vwm-start).  A teleported dtach session could not be brought back to
 where it started.  Detach and vwm-resume is the way to move a dtach

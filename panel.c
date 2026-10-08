@@ -303,6 +303,40 @@ vwm_desktop_prompt_close(void)
     vk_box_update(vwm_panel->box);
 }
 
+#define VWM_TELEPORT_PROMPT  " Teleport to: "
+#define VWM_TELEPORT_HINT    "Esc to cancel"
+
+/*
+    Show the gray "Esc to cancel" hint in the empty input area, and take
+    it away as soon as there is typed text (it comes back if the text is
+    erased).  The hint is its own label laid over the prompt row: a label
+    has one color, and the hint has to be dimmer than the prompt.
+*/
+static void
+vwm_teleport_hint_sync(void)
+{
+    vwm_t       *vwm = vwm_get_instance();
+    VWM_PANEL   *vwm_panel = vwm_panel_get_data();
+    bool        want;
+    int         surface;
+
+    if(vwm_panel->teleport_hint == NULL) return;
+
+    want = (vwm_panel->teleport_pos == 0);
+    if(want == vwm_panel->teleport_hint_shown) return;
+
+    surface = vk_screen_get_active_surface(vwm->screen);
+
+    if(want)
+        vk_screen_attach_widget(vwm->screen, surface,
+            VK_WIDGET(vwm_panel->teleport_hint));
+    else
+        vk_screen_detach_widget(vwm->screen, surface,
+            VK_WIDGET(vwm_panel->teleport_hint));
+
+    vwm_panel->teleport_hint_shown = want;
+}
+
 static void
 vwm_teleport_prompt_redraw(void)
 {
@@ -312,10 +346,12 @@ vwm_teleport_prompt_redraw(void)
     vwm_panel = vwm_panel_get_data();
     if(vwm_panel->teleport_prompt == NULL) return;
 
-    snprintf(text, sizeof(text), " Teleport to: %s",
+    snprintf(text, sizeof(text), VWM_TELEPORT_PROMPT "%s",
         vwm_panel->teleport_text);
     vk_label_set_text(vwm_panel->teleport_prompt, text);
     vk_label_update(vwm_panel->teleport_prompt);
+
+    vwm_teleport_hint_sync();
 }
 
 void
@@ -346,7 +382,7 @@ vwm_teleport_prompt_show(void)
     prompt = vk_label_create(max_x);
     vk_widget_set_colors(VK_WIDGET(prompt), COLOR_WHITE, COLOR_BLUE);
     vk_widget_set_attrs(VK_WIDGET(prompt), A_BOLD);
-    vk_label_set_text(prompt, " Teleport to: ");
+    vk_label_set_text(prompt, VWM_TELEPORT_PROMPT);
     vk_label_update(prompt);
 
     surface = vk_screen_get_active_surface(vwm->screen);
@@ -355,6 +391,23 @@ vwm_teleport_prompt_show(void)
     vk_screen_attach_widget(vwm->screen, surface, VK_WIDGET(prompt));
 
     vwm_panel->teleport_prompt = prompt;
+
+    /* the hint sits where the typed text will go.  Plain white on the
+       prompt's bold white reads as light gray.  Attached after the
+       prompt so it paints on top of it. */
+    {
+        vk_label_t  *hint = vk_label_create((int)strlen(VWM_TELEPORT_HINT));
+
+        vk_widget_set_colors(VK_WIDGET(hint), COLOR_WHITE, COLOR_BLUE);
+        vk_widget_set_attrs(VK_WIDGET(hint), A_NORMAL);
+        vk_label_set_text(hint, VWM_TELEPORT_HINT);
+        vk_label_update(hint);
+        vk_widget_move(VK_WIDGET(hint), (int)strlen(VWM_TELEPORT_PROMPT), 0);
+
+        vwm_panel->teleport_hint = hint;
+        vwm_panel->teleport_hint_shown = false;
+        vwm_teleport_hint_sync();
+    }
 }
 
 static void
@@ -370,6 +423,18 @@ vwm_teleport_prompt_close(void)
     if(vwm_panel->teleport_prompt == NULL) return;
 
     surface = vk_screen_get_active_surface(vwm->screen);
+
+    /* the hint goes with the prompt, shown or not */
+    if(vwm_panel->teleport_hint != NULL)
+    {
+        if(vwm_panel->teleport_hint_shown)
+            vk_screen_detach_widget(vwm->screen, surface,
+                VK_WIDGET(vwm_panel->teleport_hint));
+        vk_label_destroy(vwm_panel->teleport_hint);
+        vwm_panel->teleport_hint = NULL;
+        vwm_panel->teleport_hint_shown = false;
+    }
+
     vk_screen_detach_widget(vwm->screen, surface,
         VK_WIDGET(vwm_panel->teleport_prompt));
     vk_label_destroy(vwm_panel->teleport_prompt);
@@ -435,7 +500,10 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
 
             snprintf(path, sizeof(path), "%s", panel_data->teleport_text);
             vwm_teleport_prompt_close();
-            vk_screen_teleport(vwm->screen, path);
+            /* same path as `vwm-msg adopt`, minus the terminal type:
+               a typed device path cannot say what it is, so only a
+               console (/dev/ttyN -> linux) is recognised */
+            vwm_adopt_terminal(path, NULL, NULL);
             vk_screen_refresh(vwm->screen);
             return KMIO_HANDLED;
         }

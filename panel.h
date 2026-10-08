@@ -20,6 +20,8 @@ typedef struct
     vk_label_t          *desktop_prompt;
 
     vk_label_t          *teleport_prompt;
+    vk_label_t          *teleport_hint;     /* gray "Esc to cancel" */
+    bool                teleport_hint_shown;
     char                teleport_text[128];
     int                 teleport_pos;
 

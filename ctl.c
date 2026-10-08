@@ -582,9 +582,129 @@ op_ping(int fd)
     cJSON   *data = cJSON_CreateObject();
 
     if(data != NULL)
+    {
         cJSON_AddStringToObject(data, "version", VWM_VERSION);
+        /* lets vwm-resume choose: reattach (dtach) or adopt (direct) */
+        cJSON_AddBoolToObject(data, "dtach", getenv("VWM_SOCK") != NULL);
+    }
 
     ctl_reply(fd, 1, data, NULL);
+}
+
+/*
+    Is the control client running inside this session (a descendant of
+    vwm, i.e. started from one of its terminals)?  Adopting such a
+    terminal would point vwm's screen at one of its own windows.  Walks
+    the parent chain through /proc; where that is unreadable the answer
+    is "no" and the request goes ahead.
+*/
+static int
+ctl_peer_is_descendant(int fd)
+{
+#ifdef SO_PEERCRED
+    struct ucred    cred;
+    socklen_t       len = sizeof(cred);
+    pid_t           pid;
+    pid_t           self = getpid();
+    int             hops;
+
+    if(getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cred, &len) != 0)
+        return 0;
+
+    pid = cred.pid;
+
+    for(hops = 0; hops < 64 && pid > 1; hops++)
+    {
+        char    path[64];
+        char    buf[512];
+        char    *cp;
+        FILE    *fp;
+        int     ppid;
+
+        if(pid == self) return 1;
+
+        snprintf(path, sizeof(path), "/proc/%d/stat", (int)pid);
+        fp = fopen(path, "r");
+        if(fp == NULL) return 0;
+
+        if(fgets(buf, sizeof(buf), fp) == NULL)
+        {
+            fclose(fp);
+            return 0;
+        }
+        fclose(fp);
+
+        /* "pid (comm) state ppid ..." -- comm may hold spaces/parens */
+        cp = strrchr(buf, ')');
+        if(cp == NULL || sscanf(cp + 1, " %*c %d", &ppid) != 1)
+            return 0;
+
+        pid = (pid_t)ppid;
+    }
+#else
+    (void)fd;
+#endif
+
+    return 0;
+}
+
+/*
+    adopt {tty, term?}: bring the session to terminal `tty`, driven as
+    type `term`.  Validates and answers here; vwm_adopt_terminal() does
+    the move (or, under dtach, holds it for the next reattach).
+*/
+static void
+op_adopt(int fd, cJSON *req)
+{
+    const char  *tty = ctl_json_str(req, "tty");
+    const char  *term = ctl_json_str(req, "term");
+    const char  *err = NULL;
+    struct stat st;
+    char        tty_buf[PATH_MAX];
+    char        term_buf[64];
+
+    if(tty == NULL || strncmp(tty, "/dev/", 5) != 0
+        || strlen(tty) >= sizeof(tty_buf))
+    {
+        ctl_reply(fd, 0, NULL, "missing tty");
+        return;
+    }
+
+    if(stat(tty, &st) != 0 || !S_ISCHR(st.st_mode)
+        || access(tty, R_OK | W_OK) != 0)
+    {
+        ctl_reply(fd, 0, NULL, "bad tty");
+        return;
+    }
+
+    if(term != NULL)
+    {
+        /* a terminfo name; it also ends up in a tic command line */
+        if(term[0] == '\0' || strlen(term) >= sizeof(term_buf)
+            || term[strspn(term, "abcdefghijklmnopqrstuvwxyz"
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+._-")] != '\0')
+        {
+            ctl_reply(fd, 0, NULL, "bad term");
+            return;
+        }
+    }
+
+    if(ctl_peer_is_descendant(fd))
+    {
+        ctl_reply(fd, 0, NULL, "inside this session");
+        return;
+    }
+
+    /* req is freed by the caller, and a direct adopt takes the client's
+       terminal: copy the arguments and answer first, so the reply is
+       written before vwm starts painting there. */
+    snprintf(tty_buf, sizeof(tty_buf), "%s", tty);
+    snprintf(term_buf, sizeof(term_buf), "%s", (term != NULL) ? term : "");
+
+    ctl_reply(fd, 1, NULL, NULL);
+
+    vwm_adopt_terminal(tty_buf, (term_buf[0] != '\0') ? term_buf : NULL,
+        &err);
 }
 
 static void
@@ -2164,6 +2284,7 @@ ctl_dispatch(int fd, cJSON *req)
     else if(strcmp(op, "capture") == 0)       op_capture(fd, req);
     else if(strcmp(op, "screenshot") == 0)    op_screenshot(fd, req);
     else if(strcmp(op, "attention") == 0)     op_attention(fd, req);
+    else if(strcmp(op, "adopt") == 0)         op_adopt(fd, req);
     else
         ctl_reply(fd, 0, NULL, "unknown op");
 }

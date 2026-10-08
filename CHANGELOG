@@ -1,3 +1,52 @@
+Version 6.5.0
+
+*  [Bryan Christ] vwm-resume brings any running session to the terminal
+   it is run from, and tells vwm what that terminal is.  New control
+   operation "adopt" (vwm-msg adopt [--tty PATH] [--term TYPE]) carries
+   the tty and its terminal type.  A session started directly moves its
+   screen there at once, as Teleport does.  A dtach session keeps its
+   pty and holds the description until the client reattaches, then
+   rebuilds its screen in place for the new type.  In both cases TERM
+   and the GPM console number follow the terminal, the GPM connection
+   is reopened, and the console mouse pointer is switched on or off to
+   match.  Needs libviper 7.10.0 (vk_screen_adopt, vk_kmio_gpm_reset).
+
+*  [Bryan Christ] vwm-resume detaches the session from any other
+   terminal before attaching.  dtach mirrors a session to every
+   attached client, so resuming without detaching first left the old
+   terminal live alongside the new one.  The terminal that loses
+   the session is told it moved, instead of the "Could not attach"
+   error that dtach's exit status used to trigger.
+
+*  [Bryan Christ] vwm-msg ping reports whether the session runs under
+   dtach ("dtach": true/false).
+
+*  [Bryan Christ] adopt is refused from a terminal inside the session
+   ("inside this session"); vwm-resume says so instead of nesting.
+
+*  [Bryan Christ] The menu Teleport goes through the same path.  A
+   typed device path cannot say what kind of terminal it is, so
+   /dev/ttyN is taken as a Linux console, a terminal the session has
+   been on before keeps the type it had, and an unknown terminal
+   reached from a console borrows the type of the last non-console
+   one.
+
+*  [Bryan Christ] New menu entry "Teleport home" returns the session to
+   the terminal vwm was started on, as the type it had then.  That
+   terminal's shell is blocked behind vwm and cannot call the session
+   back with vwm-resume.  The existing entry is renamed "Teleport
+   to...".  Both stay hidden under dtach.  While the session is
+   already home, "Teleport home" is shown grayed out and cannot be
+   selected: the arrow keys step over it and a click does nothing
+   (libviper 7.10.0 inactive list items).
+
+*  [Bryan Christ] The "Teleport to:" prompt shows "Esc to cancel" in
+   gray while nothing has been typed.
+
+*  [Bryan Christ] Not done yet: choices made once from TERM at startup
+   (UTF-8 or ASCII glyphs, wallpaper style) are not re-made after a
+   move.
+
 Version 6.4.4
 
 *  [Bryan Christ] The VWM menu does not offer Teleport in a dtach
