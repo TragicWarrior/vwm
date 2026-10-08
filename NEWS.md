@@ -1,5 +1,13 @@
 2026-10-08
 
+Teleport is no longer on the VWM menu when vwm runs under dtach
+(vwm-start).  A teleported dtach session could not be brought back to
+where it started.  Detach and vwm-resume is the way to move a dtach
+session; Teleport is still there when you run vwm directly.
+
+
+2026-10-08
+
 The GPM mouse now works when you start vwm with vwm-start on a Linux
 text console.  Running under dtach hid the real console from gpm, which
 then refused the connection.  If you detach and vwm-resume from a

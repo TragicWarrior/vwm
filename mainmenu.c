@@ -472,8 +472,13 @@ create_file_dropdown(vwm_t *vwm)
         vwm_capture_screenshot, NULL);
     vk_listbox_add_item(listbox, "Print file",
         vwm_print_file, NULL);
-    vk_listbox_add_item(listbox, "Teleport",
-        vwm_teleport, NULL);
+    /* no Teleport under dtach: vwm can move its screen to another tty,
+       but the dtach client stays attached to the pty left behind, so
+       there is no way back "home".  VWM_SOCK is how vwm-start marks a
+       dtach session (same test as the panel indicator). */
+    if(getenv("VWM_SOCK") == NULL)
+        vk_listbox_add_item(listbox, "Teleport",
+            vwm_teleport, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Manage Apps Menu",
         vwm_manage_apps_open, NULL);
