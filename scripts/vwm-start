@@ -121,4 +121,18 @@ trap disable_mouse EXIT
 # (vwm reads getenv("VWM_SOCK")).  This is the supported entry point.
 export VWM_SOCK="$SOCK"
 
+# On a Linux virtual console, tell libviper which one.  Under dtach vwm
+# sits on a pty, so libgpm cannot work out the console from the tty name
+# and the gpm daemon refuses the connection.  Anywhere else (xterm, SSH)
+# leave it unset and libviper behaves as it always has.
+case "$(tty 2>/dev/null)" in
+    /dev/tty[0-9]*)
+        VK_GPM_VC=$(tty | sed 's|^/dev/tty||')
+        export VK_GPM_VC
+        ;;
+    *)
+        unset VK_GPM_VC
+        ;;
+esac
+
 dtach -c "$SOCK" -r winch -z "$VWM_BIN"

@@ -1,3 +1,19 @@
+2026-10-08
+
+The GPM mouse now works when you start vwm with vwm-start on a Linux
+text console.  Running under dtach hid the real console from gpm, which
+then refused the connection.  If you detach and vwm-resume from a
+different console, the mouse stays tied to the console the session was
+started on.
+
+vwm-start also no longer fails on a text console with only
+"[EOF - dtach terminating]" on the screen.  vwm was checking the
+terminal size before dtach had reported it.
+
+Needs libviper 7.9.0+ for the mouse fix; building still needs libvterm
+10.9+ and libviper 7.8.0+.
+
+
 2026-10-01
 
 The two black cells in the top panel on Ubuntu 26.04 are gone.  The

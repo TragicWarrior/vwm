@@ -1,3 +1,21 @@
+Version 6.4.3
+
+*  [Bryan Christ] vwm-start exports VK_GPM_VC on a Linux virtual
+   console.  Under dtach vwm sits on a pty, so libgpm asked gpm for
+   console 0 and the daemon refused the connection: no GPM mouse.
+   vwm-start now records the console it was started on and libviper
+   7.9.0 passes it to gpm.  Off the console the variable is left unset
+   and nothing changes.  vwm-resume from a different console is not
+   handled: the session keeps the console it was started on.
+
+*  [Bryan Christ] vwm-start no longer dies with "[EOF - dtach
+   terminating]" on a text console.  Under dtach the pty is 0x0 until
+   the client attaches, and the client clears the screen first, which is
+   slow on a framebuffer console; vwm's minimum-size check ran in that
+   gap, read 0x0, and exited before anything could show the message.
+   The check now waits up to two seconds for a size, and skips itself if
+   none arrives.
+
 Version 6.4.2
 
 *  [Bryan Christ] Removed the menu-glyph label from the left end of the
