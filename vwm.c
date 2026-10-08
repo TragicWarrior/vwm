@@ -156,8 +156,23 @@ int main(int argc,char **argv)
         if(!ignore_tty_size)
         {
             struct winsize ws;
+            int             tries;
 
-            if(ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == 0)
+            /* under dtach the pty has no size (0x0) until the client
+               attaches and reports one, and the client clears the
+               screen first -- slow on a framebuffer console.  Wait up
+               to 2s for a size rather than fail on a reading that
+               only means "not known yet". */
+            memset(&ws, 0, sizeof(ws));
+            for(tries = 0; tries < 200; tries++)
+            {
+                if(ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) != 0) break;
+                if(ws.ws_col != 0 || ws.ws_row != 0) break;
+                usleep(10000);
+            }
+
+            if(ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == 0
+                && (ws.ws_col != 0 || ws.ws_row != 0))
             {
                 if(ws.ws_col < 80 || ws.ws_row < 25)
                 {
