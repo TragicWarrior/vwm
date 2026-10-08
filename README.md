@@ -38,7 +38,7 @@ FEATURES
    -  Lock Screen - invokes the screensaver on demand; also fires
       automatically after the configured idle timeout.
    -  Teleport - migrate the active session to a different PTY without
-      restarting.
+      restarting.  Not offered under dtach (vwm-start); use vwm-resume.
 *  Permanent status bar with clock, hotkey hints, version, and a GPM-driven
    mouse cursor overlay.
 *  Optional host name in the desktop's bottom-left corner (off by default),

@@ -1,3 +1,11 @@
+Version 6.4.4
+
+*  [Bryan Christ] The VWM menu does not offer Teleport in a dtach
+   session (one started with vwm-start).  Teleport moves vwm's screen
+   to another tty, but the dtach client stays attached to the pty left
+   behind, so the session could not be brought back.  Started directly,
+   vwm still offers it.
+
 Version 6.4.3
 
 *  [Bryan Christ] vwm-start exports VK_GPM_VC on a Linux virtual
