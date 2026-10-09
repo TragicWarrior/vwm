@@ -1,5 +1,11 @@
 2026-10-09
 
+Fixes a crash: with the Windows menu open, choosing a window whose
+program had just exited could bring the whole session down.
+
+
+2026-10-09
+
 vwm 8 keeps your session alive by itself.  Start it with plain vwm and
 it runs in the background: close the terminal, lose the SSH connection
 or press Ctrl-\ to detach, and everything in it keeps running.

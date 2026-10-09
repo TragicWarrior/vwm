@@ -23,6 +23,7 @@
 
 #include "vwm.h"
 #include "winman.h"
+#include "poll_input_thd.h"
 #include "mainmenu.h"
 #include "bkgd.h"
 #include "private.h"
@@ -133,6 +134,14 @@ vwm_default_WINDOW_CLOSE(vk_widget_t *widget)
 
     if(widget == NULL) return;
 
+    /* a move or resize drag may be in flight on this very window: a
+       key pressed mid-drag reaches here (the close hotkey closes the
+       top window, and a drag raises its target to the top).  Drop the
+       drag first, or the next mouse event would move a window that no
+       longer exists.  Terminals also do this from their own ON_CLOSE;
+       doing it here covers every kind of window. */
+    vwm_cancel_drag_for_widget(widget);
+
     vwm = vwm_get_instance();
     vwm_attention_clear(widget);
     desk = vwm_widget_desktop(widget);
@@ -167,6 +176,10 @@ vwm_minimize_window(vk_widget_t *widget)
     int         desk;
 
     if(widget == NULL) return;
+
+    /* a hidden window must not go on being dragged: the drag would
+       keep moving or resizing something the user can no longer see */
+    vwm_cancel_drag_for_widget(widget);
 
     vwm = vwm_get_instance();
     vwm_attention_clear(widget);

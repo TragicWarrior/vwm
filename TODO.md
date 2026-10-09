@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.0.0.  Items are located by file and
+Last pruned 2026-10-09 against 8.0.1.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -54,27 +54,6 @@ item by reading the code; everything else was confirmed still present.
          "Yes".  The move popup and the dialog bars gate on rel_y; this
          one does not.
          Fix: gate Yes/No on rel_y >= ph - 3.
-
-[ ] D1.  "(N) Minimized" dropdown binds raw window pointers
-         (use-after-free)  (review 2026-07)
-         mainmenu.c create_windows_dropdown / vwm_restore_minimized
-         Rows carry the vk_deck_get_widget() pointer.  A minimized
-         terminal's program can exit while the dropdown is open; the
-         count label is refreshed but the open dropdown is not rebuilt,
-         so clicking the row passes freed memory to vwm_restore_window.
-         Fix: close or rebuild an open dropdown on window teardown, or
-         bind a window id and re-resolve it against the deck on click.
-
-[ ] D13. Closing a window does not cancel a drag that targets it
-         (use-after-free)  (review 2026-07)
-         winman.c vwm_default_WINDOW_CLOSE, vwm_minimize_window
-         A non-mouse key mid-drag falls through, and the close hotkey
-         closes the deck top, which is the drag target.  The static
-         drag_widget dangles and the next mouse event moves freed
-         memory.  Terminals are safe only because vwmterm's ON_CLOSE
-         calls vwm_cancel_drag_for_widget itself.
-         Fix: call vwm_cancel_drag_for_widget(widget) at the top of both
-         functions.
 
 [ ] D10. Manage Desktop acts on the wrong window after another window
          closes under it  (review 2026-07)
