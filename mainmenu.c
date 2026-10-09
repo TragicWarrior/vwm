@@ -17,6 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *----------------------------------------------------------------------*/
 
+#include <stdint.h>
 #include <dirent.h>
 #include <string.h>
 #include <sys/types.h>
@@ -591,17 +592,55 @@ create_apps_dropdown(vwm_t *vwm)
 }
 
 /*
+    The window with id `id` on any desktop, or NULL when there is none
+    any more.  Ids are never reused within a session, unlike the
+    addresses of the windows that carry them.
+*/
+static vk_widget_t *
+vwm_window_by_id(uint32_t id)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     i;
+    int     j;
+
+    if(vwm == NULL || id == 0) return NULL;
+
+    for(i = 0; i < vwm->surface_count; i++)
+    {
+        if(vwm->decks[i] == NULL) continue;
+
+        for(j = 0; j < vk_deck_count(vwm->decks[i]); j++)
+        {
+            vk_widget_t *w = vk_deck_get_widget(vwm->decks[i], j);
+
+            if(w != NULL && vk_widget_get_id(w) == id) return w;
+        }
+    }
+
+    return NULL;
+}
+
+/*
     Window-menu item callback: raise the chosen window to the top of its deck,
     unhiding it first if it was minimized.  vwm_restore_window() does both (a
     show on an already-visible window is a no-op), so this one handler serves
     visible and minimized rows alike.
+
+    `anything` is the window's id, not its address.  The dropdown can
+    stay open while a listed window goes away -- a terminal whose
+    program exits closes itself -- and a row holding the address would
+    then hand freed memory to vwm_restore_window.  The id is looked up
+    again here; a window that is gone is simply not found.
 */
 static int
 vwm_restore_minimized(vk_widget_t *widget, void *anything)
 {
+    vk_widget_t *target;
+
     (void)widget;
 
-    if(anything != NULL) vwm_restore_window(VK_WIDGET(anything));
+    target = vwm_window_by_id((uint32_t)(uintptr_t)anything);
+    if(target != NULL) vwm_restore_window(target);
 
     return 0;
 }
@@ -656,7 +695,10 @@ create_windows_dropdown(vwm_t *vwm)
         if(title == NULL || title[0] == '\0') title = "(untitled)";
 
         snprintf(buf, sizeof(buf), "%s %s", mark, title);
-        vk_listbox_add_item(listbox, buf, vwm_restore_minimized, w);
+        /* bind the window's id, not its address: see
+           vwm_restore_minimized */
+        vk_listbox_add_item(listbox, buf, vwm_restore_minimized,
+            (void *)(uintptr_t)vk_widget_get_id(w));
         shown++;
     }
 

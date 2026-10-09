@@ -1,3 +1,18 @@
+Version 8.0.1
+
+*  [Bryan Christ] Fix a crash from the Windows menu.  Its rows held
+   the address of each window, and the menu can stay open while a
+   listed window goes away -- a terminal closes itself when its
+   program exits.  Choosing that row then handed freed memory to
+   vwm_restore_window and took the session down.  Rows now carry the
+   window's id, which is looked up again when the row is chosen; a
+   window that is gone is not found.  (TODO D1)
+
+*  [Bryan Christ] Closing or minimizing a window cancels a move or
+   resize drag in flight on it.  Terminals already did this from their
+   own close handler; any other window closed mid-drag left the drag
+   pointing at freed memory for the next mouse event.  (TODO D13)
+
 Version 8.0.0
 
 *  [Bryan Christ] vwm is durable on its own; dtach is retired.
