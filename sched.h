@@ -110,6 +110,24 @@ void            vwm_sched_set_step_cb(vwm_sched_t *sched,
 void            vwm_sched_set_wake_fd(vwm_sched_t *sched, int fd);
 
 /*
+    descriptors that end the scheduler's idle sleep as soon as they are
+    readable.  a task that waits on a descriptor (a terminal on its pty)
+    registers it here instead of blocking on it during its own turn:
+    every task's turn then stays short, and the one ppoll() in the
+    scheduler does all the waiting.
+
+    a registered descriptor must be drained by its task.  one that stays
+    readable while its task ignores it keeps the scheduler awake, so a
+    task that stops reading (a frozen terminal) has to take its
+    descriptor out, and put it back when it reads again.
+
+    add returns 0, or -1 when the table is full.  del of a descriptor
+    that is not registered is a no-op.
+*/
+int             vwm_sched_wake_fd_add(vwm_sched_t *sched, int fd);
+void            vwm_sched_wake_fd_del(vwm_sched_t *sched, int fd);
+
+/*
     number of slots currently in use (active tasks).  cheap O(N) scan
     of the ring; safe to call from anywhere on the main thread.
 */
