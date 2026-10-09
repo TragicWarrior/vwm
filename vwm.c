@@ -86,7 +86,6 @@ int main(int argc,char **argv)
     extern int              vwm_argc;
 	int		      		    fd;
 	char		      		*locale = NULL;
-	int						flags;
 
     extern int              shutdown;
     extern vwm_sched_t      *sched;
@@ -249,10 +248,11 @@ int main(int argc,char **argv)
     vwm_sigset(SIGFPE, vwm_backtrace);
 #endif
 
-	vwm_sigset(SIGIO, vwm_SIGIO);
-	fcntl(STDIN_FILENO,F_SETOWN, getpid());
-	flags = fcntl(STDIN_FILENO, F_GETFL);
-	fcntl(STDIN_FILENO,F_SETFL, flags | FASYNC);
+    /* nothing asks for SIGIO any more -- the scheduler waits on the
+       keyboard, the mouse and every pty by descriptor -- but its
+       default action is to kill the process, so make sure a stray one
+       cannot. */
+    vwm_sigset(SIGIO, SIG_IGN);
 
 	// use the integrated window manager
 	vwm = vwm_init();
@@ -283,8 +283,11 @@ int main(int argc,char **argv)
     vk_screen_refresh(vwm->screen);
 
     /* control socket: inherit VWM_CONTROL_SOCK into every child */
+    /* a connection on it ends the scheduler's sleep; the step hook
+       below (vwm_ctl_poll) then serves it.  no task owns it, hence the
+       NULL. */
     if(vwm_ctl_init() == 0)
-        vwm_sched_set_wake_fd(sched, vwm_ctl_listen_fd());
+        vwm_sched_wake_fd_add(sched, vwm_ctl_listen_fd(), NULL);
 
     /* coalesce vterm composites: drain tasks mark the screen dirty and
        this hook issues one refresh per scheduler step (see item 5). */
@@ -908,9 +911,11 @@ vwm_on_teleport(vk_object_t *object, int event, void *anything)
        window buttons, menus) asks at draw time and follows by itself. */
     vwm_panel_refresh_glyphs();
 
-    /* queue a KEY_RESIZE so the poll loop runs the same cascade it does
-       for a real terminal resize (panel + status bar + dialogs) */
+    /* queue a KEY_RESIZE so the input task runs the same cascade it
+       does for a real terminal resize (panel + status bar + dialogs),
+       and wake it: the key is inside ncurses, not on a descriptor */
     ungetch(KEY_RESIZE);
+    vwm_input_wake();
 
     return 0;
 }

@@ -6,6 +6,7 @@
 
 #include "vwm.h"
 #include "clock.h"
+#include "poll_input_thd.h"
 #include "private.h"
 #include "panel.h"
 #include "screensaver.h"
@@ -60,12 +61,16 @@ check_destination_resize(vwm_t *vwm)
     if((int)ws.ws_row != cur_h || (int)ws.ws_col != cur_w)
     {
         ungetch(KEY_RESIZE);
+        vwm_input_wake();       /* the key is in ncurses, not on a fd */
         return;
     }
 
     /* case 2: same size, but a SIGWINCH (reattach) just landed */
     if(winch)
+    {
         ungetch(KEY_RESIZE);
+        vwm_input_wake();
+    }
 }
 
 pt_t
@@ -82,9 +87,12 @@ vwm_clock_driver(void * const env)
 
 	do
 	{
+        /* woken, but no tick: the heartbeat also fires when a signal
+           interrupts the scheduler's sleep.  only a real tick does the
+           per-tick work below. */
         if(clock_tick == 0)
 		{
-			pt_yield(ctx_timer);
+			vwm_sched_wait(ctx_timer);
             continue;
 		}
 
@@ -103,8 +111,9 @@ vwm_clock_driver(void * const env)
             }
         }
         vk_screen_refresh(vwm->screen);
-        ctx_timer->did_work = 1;
-        pt_yield(ctx_timer);
+
+        /* nothing more until the next tick */
+        vwm_sched_wait(ctx_timer);
 	}
 	while(!(*ctx_timer->shutdown));
 

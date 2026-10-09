@@ -12,6 +12,7 @@
 
 #include "vwmterm.h"
 #include "events.h"
+#include "pt_thread.h"
 
 #include "../../vwm.h"
 #include "../../private.h"
@@ -466,6 +467,7 @@ vwmterm_exit_selection(vwmterm_data_t *vwmterm_data)
     vwm = vwm_get_instance();
 
     vwmterm_data->frozen = 0;
+    vwmterm_wake(vwmterm_data);     /* reading again: catch up now */
 
     /* leaving selection: stay at the scroll position the user was viewing
        (scroll-aware) rather than jumping to the live screen */
@@ -728,6 +730,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             if(vwmterm_data->frozen == 3)
             {
                 vwmterm_data->frozen = 0;
+                vwmterm_wake(vwmterm_data); /* reading again */
 
                 MEVENT click = *me;
                 click.bstate = BUTTON1_CLICKED;

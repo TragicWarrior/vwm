@@ -8,7 +8,6 @@ extern volatile sig_atomic_t vwm_winch_pending;
 void vwm_sigset(int signum, sighandler_t handler);
 
 void 	vwm_backtrace(int signum);
-void 	vwm_SIGIO(int signum);
 void 	vwm_SIGTERM(int signum);
 void 	vwm_SIGWINCH(int signum);
 void 	vwm_sigwinch_install(void);

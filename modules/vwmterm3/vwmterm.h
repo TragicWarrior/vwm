@@ -22,6 +22,7 @@ struct _vwmterm_data_s
     int             scroll_offset;
     int             frozen;
     int             wake_fd;        /* pty registered with the scheduler, or -1 */
+    void            *sched_ctx;     /* this terminal's task (vwm_sched_ctx_t) */
     int             sel_anchor_row;
     int             sel_anchor_col;
     int             sel_end_row;

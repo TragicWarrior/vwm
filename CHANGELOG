@@ -1,3 +1,25 @@
+Version 7.2.0
+
+*  [Bryan Christ] The scheduler is an event loop.  Tasks wait
+   (vwm_sched_wait) instead of being polled in turn: a terminal with
+   nothing to read, the input task with no key, and the clock between
+   ticks are not run at all.  The scheduler sleeps in one ppoll() on
+   every wake descriptor -- the keyboard, the gpm socket, each pty,
+   the control socket -- and wakes the task a readable one belongs to.
+   A heartbeat wakes every task once per tick, and whenever a signal
+   interrupts the sleep, so anything without a descriptor (a child
+   that exited, a key pushed back inside ncurses) is noticed within
+   100ms; vwm_sched_wake() and vwm_input_wake() make the common cases
+   immediate.
+
+   Removed with the polling: the per-task did_work flags, the slot
+   reference bits, the sweep counter and the "bonus run", and the
+   SIGIO wake-ups on the keyboard, the mouse and every pty (the
+   terminal module's signals.c is gone).  The keyboard descriptor is
+   now the screen's own, so it follows a teleport or adopt.  Needs
+   libviper 8.1.0 (VK_KMIO_NOWAIT, vk_kmio_gpm_fd,
+   vk_screen_get_input_fd).
+
 Version 7.1.0
 
 *  [Bryan Christ] The scheduler waits on every terminal's pty itself.

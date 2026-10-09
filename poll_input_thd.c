@@ -301,6 +301,52 @@ begin_drag(int mode, vk_widget_t *widget, MEVENT *mouse_event)
     drag_orig_wh = wh;
 }
 
+/* the input task's context, for vwm_input_wake() */
+static vwm_sched_ctx_t  *input_ctx = NULL;
+
+/* see poll_input_thd.h */
+void
+vwm_input_wake(void)
+{
+    extern vwm_sched_t  *sched;
+
+    vwm_sched_wake(sched, input_ctx);
+}
+
+/*
+    Keep the scheduler's wake set pointed at wherever input comes from
+    right now: the descriptor the screen reads keys from, and the gpm
+    daemon socket when there is one.  Both move -- a teleport or adopt
+    puts the screen on another terminal, and the GPM connection is made
+    on the first fetch and remade when the console changes -- so this
+    runs every time the task is about to wait, and only acts when one of
+    them is different from last time.
+*/
+static void
+vwm_input_wake_sync(vwm_t *vwm, vwm_sched_ctx_t *ctx)
+{
+    extern vwm_sched_t  *sched;
+    static int          key_fd = -1;
+    static int          gpm_fd = -1;
+    int                 fd;
+
+    fd = vk_screen_get_input_fd(vwm->screen);
+    if(fd != key_fd)
+    {
+        if(key_fd >= 0) vwm_sched_wake_fd_del(sched, key_fd);
+        if(fd >= 0) vwm_sched_wake_fd_add(sched, fd, ctx);
+        key_fd = fd;
+    }
+
+    fd = vk_kmio_gpm_fd();
+    if(fd != gpm_fd)
+    {
+        if(gpm_fd >= 0) vwm_sched_wake_fd_del(sched, gpm_fd);
+        if(fd >= 0) vwm_sched_wake_fd_add(sched, fd, ctx);
+        gpm_fd = fd;
+    }
+}
+
 pt_t
 vwm_poll_input(void * const env)
 {
@@ -315,15 +361,24 @@ vwm_poll_input(void * const env)
     mouse_event = (MEVENT*)ctx_poll_input->anything;
     vwm = vwm_get_instance();
 
+    input_ctx = ctx_poll_input;
+
 	pt_resume(ctx_poll_input);
 
     do
     {
         keystroke = vk_kmio_fetch(mouse_event);
 
+        /* nothing pending: wait.  the scheduler wakes this task when
+           the keyboard or the mouse daemon has something, when someone
+           calls vwm_input_wake(), and on every heartbeat.  every other
+           path below yields instead -- it handled one event and comes
+           straight back for the next, so the queue is always emptied
+           before the task waits. */
         if(keystroke == -1)
         {
-            pt_yield(ctx_poll_input);
+            vwm_input_wake_sync(vwm, ctx_poll_input);
+            vwm_sched_wait(ctx_poll_input);
             continue;
         }
 
@@ -350,7 +405,6 @@ vwm_poll_input(void * const env)
                 vwm_screensaver_input(keystroke, mouse_event);
 
             vk_screen_refresh(vwm->screen);
-            ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
             continue;
         }
@@ -400,7 +454,6 @@ vwm_poll_input(void * const env)
             clamp_windows_onscreen(vwm);
 
             vk_screen_refresh(vwm->screen);
-            ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
             continue;
         }
@@ -411,7 +464,6 @@ vwm_poll_input(void * const env)
         {
             vk_object_push_keystroke(VK_OBJECT(vwm->tool_window), keystroke);
             vk_screen_refresh(vwm->screen);
-            ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
             continue;
         }
@@ -453,7 +505,6 @@ vwm_poll_input(void * const env)
                 }
 
                 vk_screen_refresh(vwm->screen);
-                ctx_poll_input->did_work = 1;
                 pt_yield(ctx_poll_input);
                 continue;
             }
@@ -734,7 +785,6 @@ vwm_poll_input(void * const env)
             }
 
             vk_screen_refresh(vwm->screen);
-            ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
             continue;
         }
@@ -745,7 +795,6 @@ vwm_poll_input(void * const env)
                 VK_OBJECT(vwm->manage_settings_popup), keystroke);
 
             vk_screen_refresh(vwm->screen);
-            ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
             continue;
         }
@@ -756,7 +805,6 @@ vwm_poll_input(void * const env)
                 VK_OBJECT(vwm->manage_hotkeys_popup), keystroke);
 
             vk_screen_refresh(vwm->screen);
-            ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
             continue;
         }
@@ -767,7 +815,6 @@ vwm_poll_input(void * const env)
                 VK_OBJECT(vwm->manage_apps_popup), keystroke);
 
             vk_screen_refresh(vwm->screen);
-            ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
             continue;
         }
@@ -781,7 +828,6 @@ vwm_poll_input(void * const env)
             if(retval == 0)
             {
                 vk_screen_refresh(vwm->screen);
-                ctx_poll_input->did_work = 1;
                 pt_yield(ctx_poll_input);
                 continue;
             }
@@ -790,7 +836,6 @@ vwm_poll_input(void * const env)
             {
                 vwm_calendar_close();
                 vk_screen_refresh(vwm->screen);
-                ctx_poll_input->did_work = 1;
                 pt_yield(ctx_poll_input);
                 continue;
             }
@@ -800,7 +845,6 @@ vwm_poll_input(void * const env)
         if(retval == KMIO_HANDLED)
         {
             vk_screen_refresh(vwm->screen);
-            ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
             continue;
         }
@@ -809,7 +853,6 @@ vwm_poll_input(void * const env)
         if(retval == KMIO_HANDLED)
         {
             vk_screen_refresh(vwm->screen);
-            ctx_poll_input->did_work = 1;
             pt_yield(ctx_poll_input);
             continue;
         }
@@ -838,7 +881,6 @@ vwm_poll_input(void * const env)
             }
         }
 
-        ctx_poll_input->did_work = 1;
         pt_yield(ctx_poll_input);
     }
     while(!(*ctx_poll_input->shutdown));
