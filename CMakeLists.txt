@@ -133,10 +133,12 @@ add_executable(vwm
     screenshot_png.c
     screenshot_ui.c
     ctl.c
+    attach.c
     )
 
 add_executable(vwm-msg
     vwm-msg.c
+    attach.c
     )
 
 # Modules dlopen()'d at runtime (libvwmterm.so etc.) resolve symbols like

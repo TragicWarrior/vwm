@@ -92,7 +92,8 @@ vwm_t*          vwm_init(void);
 void            vwm_input_rearm(vwm_t *vwm);
 
 /* Adopt terminal `tty`, driven as type `term` (NULL: keep the current
-   type).  A session started directly moves its screen there at once.  A
+   type).  The session moves its screen there at once; the caller sees
+   to it that a client is waiting on that terminal (attach.h).  A
    dtach session stays on its pty -- the dtach client is what moves -- so
    the request is held and applied on the next reattach (KEY_RESIZE),
    when there is a client to see the new screen's init strings.
@@ -102,17 +103,11 @@ int             vwm_adopt_terminal(const char *tty, const char *term,
                     const char **err);
 bool            vwm_adopt_apply_pending(void);
 
-/* Move the session back to the terminal vwm was started on, as the type
-   it had then.  A session started directly cannot be called home from
-   there -- vwm is still that shell's foreground job -- so this is the
-   way back.  Returns 0 (also when already home), -1 if there is no home
-   terminal or the move failed. */
-int             vwm_teleport_home(void);
-
 /* Let go of the terminal and keep running on none: every program in the
    session carries on, nothing is drawn anywhere, and the session waits
-   for vwm-resume (an adopt) to give it a terminal again.  Used when the
-   terminal goes away under us.  Does nothing if already headless.
+   for vwm-resume (an attach) to give it a terminal again.  The client
+   waiting on the terminal is let go.  Used when the terminal goes away
+   under us and to detach.  Does nothing if already headless.
    vwm_is_headless() says which state we are in. */
 void            vwm_go_headless(void);
 bool            vwm_is_headless(void);
@@ -129,10 +124,6 @@ bool            vwm_can_detach(void);
    scheduler wind down and vwm exit, restoring whatever terminal it is
    on.  Works with no terminal attached. */
 void            vwm_stop(void);
-
-/* is the session on the terminal it was started on?  (also true when
-   there is no home terminal to go back to) */
-bool            vwm_at_home(void);
 
 void            vwm_apply_surface_count(int new_count);
 

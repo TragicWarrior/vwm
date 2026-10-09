@@ -8,6 +8,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "attach.h"
+
 static void
 usage(FILE *fp)
 {
@@ -41,10 +43,13 @@ usage(FILE *fp)
         "      give the terminal back and keep the session running\n"
         "  stop\n"
         "      end the session (vwm-stop does this and waits for it)\n"
-        "  adopt [--tty PATH] [--term TYPE]\n"
+        "  attach [--tty PATH] [--term TYPE]\n"
         "      bring the session to a terminal (default: this one and its\n"
-        "      $TERM).  A session started directly moves there; a dtach\n"
-        "      session applies it at the next vwm-resume\n"
+        "      $TERM) and wait there until it leaves: detached, moved to\n"
+        "      another terminal, or ended.  This is what vwm-resume runs\n"
+        "  adopt [--tty PATH] [--term TYPE]\n"
+        "      dtach sessions only: say what terminal the next vwm-resume\n"
+        "      will attach from\n"
         "\n"
         "Talks to VWM_CONTROL_SOCK, else ~/.config/vwm/control.sock.\n");
 }
@@ -992,7 +997,10 @@ main(int argc, char **argv)
         return transact(req);
     }
 
-    if(strcmp(op, "adopt") == 0)
+    /* attach and adopt take the same arguments.  adopt is one request
+       and one answer; attach stays, as this terminal's foreground job,
+       for as long as the session is here (attach.c). */
+    if(strcmp(op, "adopt") == 0 || strcmp(op, "attach") == 0)
     {
         const char  *tty = NULL;
         const char  *term = getenv("TERM");
@@ -1026,9 +1034,17 @@ main(int argc, char **argv)
         }
         if(tty == NULL)
         {
-            fprintf(stderr, "vwm-msg: adopt: not on a terminal; "
-                "use --tty PATH\n");
+            fprintf(stderr, "vwm-msg: %s: not on a terminal; "
+                "use --tty PATH\n", op);
             return 1;
+        }
+
+        if(strcmp(op, "attach") == 0)
+        {
+            char    path[PATH_MAX];
+
+            sock_path(path, sizeof(path));
+            return vwm_attach_run(path, tty, term);
         }
 
         if(json_escape(esc_tty, sizeof(esc_tty), tty) != 0) return 1;

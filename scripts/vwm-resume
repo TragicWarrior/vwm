@@ -4,19 +4,23 @@
 #
 # Works for either kind of session:
 #
+#   started with plain `vwm`        -- the session comes to this
+#                                      terminal, and this command stays
+#                                      as its foreground job until the
+#                                      session leaves again (detached,
+#                                      moved elsewhere, or ended).  A
+#                                      terminal it was showing on gets
+#                                      its shell back.
 #   started with vwm-start (dtach)  -- reattaches the dtach client here
 #                                      and detaches it anywhere else
-#   started directly (plain `vwm`)  -- moves vwm's screen here; the
-#                                      terminal it was on gets its shell
-#                                      back
 #
 # Either way vwm is told what this terminal is (its tty and $TERM), so
 # it drives it as the right terminal type and, on a Linux console, picks
 # up the GPM mouse for this console.
 #
-# If no session is running, use vwm-start instead.
+# If no session is running, start one with vwm.
 #
-# Detach key while attached (dtach sessions):  Ctrl-\
+# Detach key while attached:  Ctrl-\
 #
 # Environment:
 #   VWM_SOCK  path to the dtach socket   (default: ~/.vwm.sock)
@@ -50,8 +54,8 @@ if [ -n "$VWM_MSG" ]; then
     ping=$("$VWM_MSG" ping 2>/dev/null) || ping=""
 fi
 
-# Tell vwm about this terminal.  Prints nothing on success; on failure
-# prints the reason and returns 1.
+# Tell a dtach session about this terminal.  Prints nothing on success;
+# on failure prints the reason and returns 1.
 adopt() {
     reply=$("$VWM_MSG" adopt --tty "$here" --term "${TERM:-}" 2>&1) || true
     case "$reply" in
@@ -72,15 +76,15 @@ adopt() {
 
 case "$ping" in
     *'"dtach":false'*)
-        # --- a session started directly: move it here ---------------
-        # No disable_mouse trap on this path: vwm owns this terminal
-        # from here on and has just armed the mouse on it.
+        # --- a session started with plain vwm: bring it here --------
+        # vwm-msg attach asks the session over and then waits, holding
+        # this terminal for it, until the session leaves; it says why
+        # and restores the terminal itself.
         if [ -z "$here" ]; then
             echo "vwm-resume: not on a terminal." >&2
             exit 1
         fi
-        adopt || exit 1
-        exit 0
+        exec "$VWM_MSG" attach --tty "$here" --term "${TERM:-}"
         ;;
     *'"dtach":true'*)
         # --- a dtach session: describe this terminal, then reattach -
@@ -104,8 +108,8 @@ fi
 
 # --- must have something to attach to -------------------------------
 if [ ! -e "$SOCK" ]; then
-    echo "No vwm session found at:  $SOCK"
-    echo "Start one with:  vwm-start"
+    echo "No vwm session is running."
+    echo "Start one with:  vwm"
     exit 1
 fi
 
