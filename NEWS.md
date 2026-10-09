@@ -1,3 +1,11 @@
+2026-10-09
+
+Building vwm no longer needs libgpm.  The mouse on a Linux console
+works as before whenever the gpm daemon is running.
+
+Building this release needs libvterm 10.9+ and libviper 8.0.0+.
+
+
 2026-10-08
 
 vwm 7.0.0.  This is the release where a session stopped belonging to

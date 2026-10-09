@@ -1,3 +1,10 @@
+Version 7.0.1
+
+*  [Bryan Christ] vwm no longer looks for or links libgpm.  libviper
+   8.0.0 talks to the gpm daemon itself, so the console mouse needs
+   nothing at build time; the gpm daemon is still what provides it at
+   run time.  cmake/FindGPM.cmake is removed.  Needs libviper 8.0.0.
+
 Version 7.0.0
 
 *  [Bryan Christ] Major version.  No code change from 6.5.0; the work

@@ -64,8 +64,7 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-libviper 7.10.0+ - https://github.com/TragicWarrior/libviper
-libgpm (optional)
+libviper 8.0.0+  - https://github.com/TragicWarrior/libviper
 libvterm 10.9+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for screen capture; DejaVu Sans Mono is bundled)
                  cmake -DVWM_SCREENSHOT_FONT= / -DVWM_SCREENSHOT_FONT_BOLD=
@@ -74,6 +73,8 @@ libcups2-dev     (for the print module; "make all")
 zlib             (for the big-font hostname module, vwmfont)
 xclip (optional) - for "xclip" / "Both" Copy-to-Clipboard modes under X
 dtach (optional) - for remote detach/reattach (vwm-start / vwm-resume)
+gpm (optional)   - the gpm daemon, at run time, for the mouse on a Linux
+                   console; nothing is needed to build
 
 CONTROL SOCKET
 ==============

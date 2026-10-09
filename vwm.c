@@ -564,10 +564,11 @@ vwm_adopt_held;
 
 /*
     Do the adopt.  pty == NULL rebuilds the screen where it is.  The
-    environment is the hand-off to libviper and libgpm: TERM picks the
-    terminfo entry and decides whether GPM is tried at all, VK_GPM_VC
-    names the console.  Returns 0, or -1 if the screen could not be
-    rebuilt (the old terminal type is restored).
+    environment is the hand-off to libviper: TERM picks the terminfo
+    entry and the UTF-8 or ASCII glyphs, VK_GPM_VC names the console
+    for the GPM mouse when the screen is not on it directly (dtach).
+    Returns 0, or -1 if the screen could not be rebuilt (the old
+    terminal type is restored).
 */
 static int
 vwm_adopt_apply(const char *pty, const char *term, int vc)

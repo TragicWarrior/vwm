@@ -59,11 +59,8 @@ include_directories(BEFORE
     ${PROTOTHREAD_SOURCE_DIR})
 set(VDK_LIBRARY "${LIBVIPER_SOURCE_DIR}/libvdk.so")
 
-find_package(GPM)
-
-if (!GPM_FOUND)
-add_definitions("-D_NO_GPM")
-endif()
+# No GPM library: libviper 8.0.0 speaks the gpm daemon's protocol itself,
+# so the console mouse needs nothing at build time.
 
 find_package(Freetype REQUIRED)
 
@@ -148,11 +145,7 @@ add_executable(vwm-msg
 # Pass -rdynamic so those globals make it in.
 set_target_properties(vwm PROPERTIES ENABLE_EXPORTS ON)
 
-if (GPM_FOUND)
-target_link_libraries(vwm -lutil -lm -lrt ${GPM_LIBRARIES} ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}" ${FREETYPE_LIBRARIES} )
-else()
 target_link_libraries(vwm -lutil -lm -lrt ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}" ${FREETYPE_LIBRARIES})
-endif()
 target_include_directories(vwm PRIVATE ${FREETYPE_INCLUDE_DIRS})
 target_compile_definitions(vwm PRIVATE
     "VWM_FONTDIR=\"${CMAKE_INSTALL_FULL_DATADIR}/vwm/fonts\""
