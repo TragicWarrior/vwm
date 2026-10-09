@@ -103,14 +103,18 @@ session.  See vwm-msg --help.  This is not the dtach socket (VWM_SOCK).
 INSTALLATION
 ============
 
-By default, build system tries to install plugins (shared libraries) in the
-/usr/local/lib/ directory.  
+By default the build installs vwm, vwm-msg and the launchers to
+/usr/local/bin and the plugins (shared libraries) to /usr/local/lib/vwm.
 
-For a simple installation run the following make commands as root:
+For a simple installation:
 
-cmake CMakeList.txt
+cmake CMakeLists.txt
 make
 sudo make install
+
+On Linux the install ends by running ldconfig, so vwm finds a libviper or
+libvterm that was installed just before it.  A staged install (DESTDIR)
+skips that step.
 
 CONFIGURATION
 =============

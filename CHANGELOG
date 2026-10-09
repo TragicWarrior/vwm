@@ -1,3 +1,12 @@
+Version 7.0.2
+
+*  [Bryan Christ] "make install" runs ldconfig on Linux.  vwm installs
+   no library the linker cache serves, but it needs libvdk.so.N and
+   libvterm.so, and one of those installed just before without ldconfig
+   left the new vwm unable to start.  Skipped when DESTDIR is set; a
+   failure to write the cache is a warning, not a failed install.
+   README: INSTALLATION corrected (install locations, the cmake command).
+
 Version 7.0.1
 
 *  [Bryan Christ] vwm no longer looks for or links libgpm.  libviper

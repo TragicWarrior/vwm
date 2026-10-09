@@ -189,3 +189,40 @@ install (FILES
     fonts/AUTHORS
     fonts/README
     DESTINATION ${CMAKE_INSTALL_DATADIR}/vwm/fonts)
+
+# Refresh the dynamic linker's cache after installing.  vwm installs no
+# library the cache serves -- its modules go to lib/vwm/ and are loaded
+# by full path -- but the vwm binary needs libvdk.so.N and libvterm.so,
+# and a library installed just before without ldconfig would leave the
+# freshly installed vwm unable to start ("cannot open shared object
+# file").  Running it here makes "make install" end with a vwm that
+# runs.
+#
+# Skipped for a staged install (DESTDIR set: a packager installs into a
+# scratch root, and the package's own scripts run ldconfig on the real
+# system).  Never fatal: an install as a non-root user cannot write the
+# cache, and that is reported, not treated as a failed install.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    install(CODE [[
+        if(NOT "$ENV{DESTDIR}" STREQUAL "")
+            message(STATUS "DESTDIR is set: not running ldconfig")
+        else()
+            find_program(VWM_LDCONFIG ldconfig PATHS /sbin /usr/sbin)
+            if(NOT VWM_LDCONFIG)
+                message(STATUS "ldconfig not found: linker cache not refreshed")
+            else()
+                execute_process(COMMAND "${VWM_LDCONFIG}"
+                    RESULT_VARIABLE vwm_ldconfig_rc
+                    OUTPUT_QUIET ERROR_QUIET)
+                if(vwm_ldconfig_rc EQUAL 0)
+                    message(STATUS "Ran ldconfig")
+                else()
+                    message(WARNING
+                        "ldconfig could not refresh the linker cache "
+                        "(not root?).  Run 'sudo ldconfig' if vwm cannot "
+                        "find libvdk or libvterm.")
+                endif()
+            endif()
+        endif()
+    ]])
+endif()
