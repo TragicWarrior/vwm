@@ -390,8 +390,28 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
     if(c1 < 0) c1 = 0;
     if(c2 >= cols) c2 = cols - 1;
 
-    buf_sz = (size_t)(r2 - r1 + 1) * (cols * MB_LEN_MAX + 1);
+    /* nothing selected once clamped to the grid (an empty grid, or a
+       selection wholly outside it).  Also keeps the size below from
+       being computed from a negative row count. */
+    if(r2 < r1 || cols < 1)
+    {
+        for(int r = 0; r < rows; r++) free(cells[r]);
+        free(cells);
+        return;
+    }
+
+    /* room for the worst case: every cell a full-length multibyte
+       character, plus a newline per row.  That is hundreds of KB for a
+       large selection, so the allocation can fail: give up the copy
+       rather than write through NULL. */
+    buf_sz = (size_t)(r2 - r1 + 1) * ((size_t)cols * MB_LEN_MAX + 1);
     buf = (char *)calloc(1, buf_sz);
+    if(buf == NULL)
+    {
+        for(int r = 0; r < rows; r++) free(cells[r]);
+        free(cells);
+        return;
+    }
     pos = 0;
 
     for(int r = r1; r <= r2; r++)

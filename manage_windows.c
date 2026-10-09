@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 #include <ncursesw/curses.h>
@@ -91,6 +92,12 @@ static int                  move_focus = MOVE_FOCUS_LIST;
 static int                  focus_zone = FOCUS_LIST;
 static int                  list_count = 0;
 
+/* the window each list row stands for, by id: list_ids[i] is row i.
+   Rows are not tied to deck positions -- a window can close on its own
+   while the dialog is open, which shifts every later position down --
+   and ids, unlike addresses, are never reused. */
+static uint32_t             *list_ids = NULL;
+
 
 /* ── forward decls ─────────────────────────────────────────── */
 
@@ -138,25 +145,47 @@ count_checked(void)
 }
 
 /*
-    snapshot the deck widgets for every checked row into out[].  the
-    selectbox row index matches the deck index, so row i maps to
-    vk_deck_get_widget(deck, i).  callers MUST snapshot before closing
-    or moving windows, since those mutate the deck and shift indices.
+    The window with id `id` on the current desktop, or NULL when it is
+    no longer there.
+*/
+static vk_widget_t *
+window_by_id(uint32_t id)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     i;
+
+    if(vwm == NULL || vwm->deck == NULL || id == 0) return NULL;
+
+    for(i = 0; i < vk_deck_count(vwm->deck); i++)
+    {
+        vk_widget_t *w = vk_deck_get_widget(vwm->deck, i);
+
+        if(w != NULL && vk_widget_get_id(w) == id) return w;
+    }
+
+    return NULL;
+}
+
+/*
+    snapshot the windows of every checked row into out[].  Each row is
+    resolved through the id it was listed with (list_ids), so a row
+    whose window has since closed is skipped, and the rows after it
+    still mean the windows they show.  callers MUST snapshot before
+    closing or moving windows, since those change the deck under the
+    list.
 */
 static int
 collect_checked(vk_widget_t **out, int max)
 {
-    vwm_t   *vwm;
     int     i, n = 0;
 
-    vwm = vwm_get_instance();
-    if(vwm == NULL || vwm->deck == NULL) return 0;
+    if(list_ids == NULL) return 0;
 
     for(i = 0; i < list_count && n < max; i++)
     {
         if(vk_selectbox_item_is_checked(windows_selectbox, i))
         {
-            vk_widget_t *w = vk_deck_get_widget(vwm->deck, i);
+            vk_widget_t *w = window_by_id(list_ids[i]);
             if(w != NULL) out[n++] = w;
         }
     }
@@ -186,10 +215,17 @@ rebuild_listbox(void)
 
     vk_listbox_reset(VK_LISTBOX(windows_selectbox));
 
-    if(count == 0)
+    /* a fresh row -> window table to go with the fresh rows */
+    free(list_ids);
+    list_ids = NULL;
+    list_count = 0;
+
+    if(count > 0)
+        list_ids = calloc((size_t)count, sizeof(uint32_t));
+
+    if(count == 0 || list_ids == NULL)
     {
         vk_selectbox_add_item(windows_selectbox, "None", NULL, NULL);
-        list_count = 0;
         return;
     }
 
@@ -199,6 +235,10 @@ rebuild_listbox(void)
 
         w = vk_deck_get_widget(vwm->deck, i);
         if(w == NULL) continue;
+
+        /* rows are numbered as they are added, which is not the deck
+           position if a member was skipped just above */
+        list_ids[list_count] = vk_widget_get_id(w);
 
         title = vk_window_get_title(VK_WINDOW(w));
         if(title == NULL || title[0] == '\0')
@@ -214,9 +254,8 @@ rebuild_listbox(void)
 
         snprintf(label, sizeof(label), "%s %s", mark, title);
         vk_selectbox_add_item(windows_selectbox, label, NULL, NULL);
+        list_count++;
     }
-
-    list_count = count;
 }
 
 
@@ -1232,6 +1271,11 @@ vwm_manage_windows_close(void)
     listbox_scroller = NULL;
     windows_selectbox = NULL;
     memset(buttons, 0, sizeof(buttons));
+
+    /* the row -> window table goes with the list */
+    free(list_ids);
+    list_ids = NULL;
+    list_count = 0;
 
     vwm->tool_window = NULL;
 
