@@ -185,6 +185,26 @@ create_category_menu(vwm_t *vwm, int type)
     return window;
 }
 
+/*
+    Free the scroll bar of a dropdown's list, if it has one.  A scroller
+    attached to a widget is not owned by it -- destroying the list
+    leaves the scroller behind -- so every path that tears a dropdown
+    down calls this first, while the list is still valid.
+*/
+static void
+vwm_menu_free_scroller(vk_listbox_t *listbox)
+{
+    vk_scroller_t   *scroller;
+
+    if(listbox == NULL) return;
+
+    scroller = vk_widget_get_vscroller(VK_WIDGET(listbox));
+    if(scroller == NULL) return;
+
+    vk_widget_detach_scroller(VK_WIDGET(listbox), scroller);
+    vk_scroller_destroy(scroller);
+}
+
 static void
 apps_submenu_close(void)
 {
@@ -198,6 +218,7 @@ apps_submenu_close(void)
         vk_screen_get_active_surface(vwm->screen), VK_WIDGET(g_sub));
 
     listbox = VK_LISTBOX(vk_window_get_child(g_sub));
+    vwm_menu_free_scroller(listbox);
     vk_window_set_child(g_sub, NULL, VK_INHERIT_NONE);
     vk_listbox_destroy(listbox);
     vk_window_destroy(g_sub);
@@ -1083,6 +1104,9 @@ vwm_menubar_close_dropdown(void)
         vk_screen_get_active_surface(vwm->screen), VK_WIDGET(menu));
 
     listbox = VK_LISTBOX(vk_window_get_child(menu));
+
+    /* the Apps dropdown has a scroll bar; the others do not */
+    vwm_menu_free_scroller(listbox);
 
     /* detach the child while both are still valid: otherwise the window
        dtor list_del()s a freed listbox node and corrupts the heap */
