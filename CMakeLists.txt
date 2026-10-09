@@ -133,10 +133,12 @@ add_executable(vwm
     screenshot_png.c
     screenshot_ui.c
     ctl.c
+    attach.c
     )
 
 add_executable(vwm-msg
     vwm-msg.c
+    attach.c
     )
 
 # Modules dlopen()'d at runtime (libvwmterm.so etc.) resolve symbols like
@@ -177,10 +179,10 @@ install (TARGETS vwmterm DESTINATION lib/vwm/)
 install (TARGETS vwmprint DESTINATION lib/vwm/)
 install (TARGETS vwmfont DESTINATION lib/vwm/)
 
-# dtach session launchers -- PROGRAMS installs them with the execute bit
+# session commands -- PROGRAMS installs them with the execute bit
 # set, alongside the vwm binary so they share its PATH (and tab-complete
 # together as vwm-*)
-install (PROGRAMS scripts/vwm-start scripts/vwm-resume DESTINATION bin)
+install (PROGRAMS scripts/vwm-start scripts/vwm-resume scripts/vwm-stop DESTINATION bin)
 install (FILES
     fonts/DejaVuSansMono.ttf
     fonts/DejaVuSansMono-Bold.ttf

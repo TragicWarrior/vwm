@@ -13,13 +13,12 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"7.2.0"
+#define VWM_VERSION					"8.0.0"
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
-   outer terminal may have changed under us -- teleport to a new PTY, a
-   terminal resize, or a dtach/abduco reattach (all of which arrive as
-   KEY_RESIZE).  Keep the three call sites in lockstep through this one
-   definition. */
+   terminal may have changed under us -- a move to another terminal or
+   a resize (both arrive as KEY_RESIZE).  Keep the call sites in
+   lockstep through this one definition. */
 #define VWM_KMIO_FLAGS \
     (VK_KMIO_MOUSE | VK_KMIO_MOUSE_HOVER | VK_KMIO_NOWAIT | \
      VK_KMIO_BRACKET_PASTE)
@@ -43,6 +42,10 @@
 
 /* VWM-specific event types */
 #define VWM_EVENT_ON_CLOSE          100
+/* the session is ending: a window that runs a program should tell it to
+   finish now (a terminal hangs up its shell).  The window's ON_CLOSE
+   follows; this only gives the program a head start. */
+#define VWM_EVENT_ON_HANGUP         101
 
 /* desktop wallpaper patterns (per-surface, picked in Settings) */
 #define VWM_WALLPAPER_NONE          0
@@ -83,31 +86,35 @@ vwm_t*          vwm_init(void);
 
 /* (re)arm the kmio/ncurses input state against the current tty.  Used
    at startup and re-run whenever the terminal may have changed under us
-   -- teleport (new fd) and dtach reattach (new outer tty, possibly
-   post-`reset`), both of which arrive as KEY_RESIZE. */
+   -- a move to another terminal (new fd), which arrives as
+   KEY_RESIZE. */
 void            vwm_input_rearm(vwm_t *vwm);
 
 /* Adopt terminal `tty`, driven as type `term` (NULL: keep the current
-   type).  A session started directly moves its screen there at once.  A
-   dtach session stays on its pty -- the dtach client is what moves -- so
-   the request is held and applied on the next reattach (KEY_RESIZE),
-   when there is a client to see the new screen's init strings.
-   Returns 0, or -1 with *err set.  vwm_adopt_apply_pending() applies a
-   held request and returns true if there was one. */
+   type; a Linux console is recognised by its path).  The session moves
+   its screen there at once; the caller sees to it that a client is
+   waiting on that terminal (attach.h).  Returns 0, or -1 with *err
+   set. */
 int             vwm_adopt_terminal(const char *tty, const char *term,
                     const char **err);
-bool            vwm_adopt_apply_pending(void);
 
-/* Move the session back to the terminal vwm was started on, as the type
-   it had then.  A session started directly cannot be called home from
-   there -- vwm is still that shell's foreground job -- so this is the
-   way back.  Returns 0 (also when already home), -1 if there is no home
-   terminal or the move failed. */
-int             vwm_teleport_home(void);
+/* Let go of the terminal and keep running on none: every program in the
+   session carries on, nothing is drawn anywhere, and the session waits
+   for vwm-resume (an attach) to give it a terminal again.  The client
+   waiting on the terminal is let go.  Used when the terminal goes away
+   under us and to detach.  Does nothing if already headless.
+   vwm_is_headless() says which state we are in. */
+void            vwm_go_headless(void);
+bool            vwm_is_headless(void);
 
-/* is the session on the terminal it was started on?  (also true when
-   there is no home terminal to go back to) */
-bool            vwm_at_home(void);
+/* Detach on request: give the terminal back to its shell and go
+   headless.  Harmless when already headless. */
+void            vwm_detach(void);
+
+/* End the session: hang up every terminal's program, then let the
+   scheduler wind down and vwm exit, restoring whatever terminal it is
+   on.  Works with no terminal attached. */
+void            vwm_stop(void);
 
 void            vwm_apply_surface_count(int new_count);
 

@@ -386,6 +386,8 @@ vwmterm_main(vwm_module_t *mod)
 
     vk_object_register_event(VK_OBJECT(window), VWM_EVENT_ON_CLOSE,
         vwmterm_ON_CLOSE, (void *)vwmterm_data);
+    vk_object_register_event(VK_OBJECT(window), VWM_EVENT_ON_HANGUP,
+        vwmterm_ON_HANGUP, (void *)vwmterm_data);
     /*
         Register ON_RESIZE with vwmterm_data, not the raw vterm pointer.
         Capturing vterm here makes the handler's payload dangle as soon

@@ -1,3 +1,47 @@
+Version 8.0.0
+
+*  [Bryan Christ] vwm is durable on its own; dtach is retired.
+
+   The session runs as a background process -- its own session, no
+   controlling terminal -- apart from whatever terminal it is shown
+   on.  `vwm` starts it and then attaches the terminal it was run
+   from; what stays in the shell's foreground is a small client
+   (attach.c) that waits until the session leaves that terminal.
+   vwm-resume runs the same client through the new `vwm-msg attach`.
+
+   -  A terminal that goes away (hang-up, closed window, dropped SSH)
+      no longer takes the session with it, the starting terminal
+      included: vwm lets go of it and runs headless until resumed.
+      This also fixes 7.2.0 spinning at 100% CPU when a moved
+      session's terminal hung up.
+   -  Detach on demand: Ctrl-\ (hotkey "detach", rebindable), VWM >
+      Detach, `vwm-msg detach`.
+   -  vwm-stop ends a session from any terminal, attached or not
+      (control op `stop`): every program is hung up, then vwm exits.
+   -  Closing a terminal window ends its program with SIGHUP, then
+      SIGKILL after 300ms if it is still there, instead of SIGKILL at
+      once -- shells get to save their history.
+   -  Startup problems are reported on the launching terminal: too
+      small, a session already running, or a start that failed in the
+      background.  Run from no terminal, vwm starts the session 80x25
+      with nothing attached.
+   -  Control socket: new ops attach (keeps its connection; a line on
+      it releases the client, its closing releases the terminal),
+      detach and stop.  ping reports pid and headless.  The adopt op
+      and ping's dtach field are gone.
+
+   Removed: running under dtach (vwm-start is now another name for
+   vwm; VWM_SOCK, the held adopt, the same-size reattach SIGWINCH
+   handler, the wait for a 0x0 pty to get a size and the status bar's
+   dtach indicator all went with it), the home terminal, "Teleport
+   home", "Teleport to..." and its prompt, the table of known
+   terminals, and suspending the shell of a terminal vwm moves onto.
+   A session shows on one terminal at a time; dtach's mirroring is
+   not replaced.
+
+   Needs libviper 9.0.0 (vk_screen_detach, vk_screen_create_detached,
+   adopt without eviction).
+
 Version 7.2.0
 
 *  [Bryan Christ] The scheduler is an event loop.  Tasks wait

@@ -57,11 +57,11 @@ vwm_panel_get_data(void)
 }
 
 /*
-    Give the panel's two glyph-bearing widgets the form the current
-    terminal can show: braille activity dots and a round dtach dot where
-    UTF-8 works, a spinner and an "o" where it does not.  Run at init and
-    again whenever the terminal type changes -- these widgets live for
-    the whole session, so nothing else would ever re-pick them.
+    Give the panel's glyph-bearing widget the form the current
+    terminal can show: braille activity dots where UTF-8 works, a
+    spinner where it does not.  Run at init and
+    again whenever the terminal type changes -- the widget lives for
+    the whole session, so nothing else would ever re-pick it.
 */
 static void
 vwm_panel_apply_glyphs(VWM_PANEL *vwm_panel)
@@ -84,13 +84,6 @@ vwm_panel_apply_glyphs(VWM_PANEL *vwm_panel)
             vk_widget_set_attrs(VK_WIDGET(vwm_panel->activity), A_NORMAL);
             vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_SPINNER);
         }
-    }
-
-    if(vwm_panel->dtach_dot != NULL)
-    {
-        vk_label_set_text(vwm_panel->dtach_dot,
-            has_utf8 ? " \xe2\x97\x8f " : " o ");
-        vk_label_update(vwm_panel->dtach_dot);
     }
 }
 
@@ -185,7 +178,7 @@ vwm_panel_init(vwm_t *vwm)
         version_len = strlen(version_str);
 
         vwm_panel->status_box = vk_box_create(max_x, 1,
-            VK_BOX_HORIZONTAL, 5);
+            VK_BOX_HORIZONTAL, 3);
         vk_box_set_homogeneous(vwm_panel->status_box, false);
         vk_widget_set_colors(VK_WIDGET(vwm_panel->status_box),
             COLOR_BLACK, COLOR_WHITE);
@@ -215,47 +208,9 @@ vwm_panel_init(vwm_t *vwm)
         vk_label_set_text(vwm_panel->version_label, version_str);
         vk_label_update(vwm_panel->version_label);
 
-        /*
-            dtach status indicator -- bottom-right, just left of the VWM
-            version label.  Circle: bright green = running under the
-            bundled dtach launcher, plain red = not.  Bright-white text on
-            a dark-gray field.  Static for the process lifetime, so it's a
-            box-owned local (no struct field / updater).  Dark gray wants
-            a 16-colour terminal; falls back to the base palette.
-        */
-        {
-            int         under_dtach = (getenv("VWM_SOCK") != NULL);
-            int         gray  = (COLORS >= 16) ? 8  : COLOR_BLACK;
-            int         white = (COLORS >= 16) ? 15 : COLOR_WHITE;
-            int         dot   = under_dtach ? COLOR_GREEN : COLOR_RED;
-            const char  *txt  = under_dtach
-                                    ? "dtach active " : "dtach inactive ";
-            vk_label_t  *dtach_dot = vk_label_create(3);
-            vk_label_t  *dtach_txt = vk_label_create((int)strlen(txt));
-
-            /* bold (bright) green for active; a plain, true red for
-               inactive -- the bright red read wrong. */
-            vk_widget_set_colors(VK_WIDGET(dtach_dot), dot, gray);
-            vk_widget_set_attrs(VK_WIDGET(dtach_dot),
-                under_dtach ? A_BOLD : A_NORMAL);
-            /* the glyph itself comes from vwm_panel_apply_glyphs() */
-            vwm_panel->dtach_dot = dtach_dot;
-            vwm_panel_apply_glyphs(vwm_panel);
-
-            vk_widget_set_colors(VK_WIDGET(dtach_txt), white, gray);
-            vk_widget_set_attrs(VK_WIDGET(dtach_txt), A_BOLD);
-            vk_label_set_text(dtach_txt, txt);
-            vk_label_update(dtach_txt);
-
-            vk_box_set_widget(vwm_panel->status_box, 2,
-                VK_WIDGET(dtach_dot), VK_INHERIT_NONE);
-            vk_box_set_widget(vwm_panel->status_box, 3,
-                VK_WIDGET(dtach_txt), VK_INHERIT_NONE);
-        }
-
         vk_box_set_widget(vwm_panel->status_box, 1,
             VK_WIDGET(vwm_panel->status_marquee), VK_INHERIT_NONE);
-        vk_box_set_widget(vwm_panel->status_box, 4,
+        vk_box_set_widget(vwm_panel->status_box, 2,
             VK_WIDGET(vwm_panel->version_label), VK_INHERIT_NONE);
 
         vk_widget_move(VK_WIDGET(vwm_panel->status_box), 0, max_y - 1);
@@ -338,150 +293,6 @@ vwm_desktop_prompt_close(void)
     vk_box_update(vwm_panel->box);
 }
 
-#define VWM_TELEPORT_PROMPT  " Teleport to: "
-#define VWM_TELEPORT_HINT    "Esc to cancel"
-
-/*
-    Show the gray "Esc to cancel" hint in the empty input area, and take
-    it away as soon as there is typed text (it comes back if the text is
-    erased).  The hint is its own label laid over the prompt row: a label
-    has one color, and the hint has to be dimmer than the prompt.
-*/
-static void
-vwm_teleport_hint_sync(void)
-{
-    vwm_t       *vwm = vwm_get_instance();
-    VWM_PANEL   *vwm_panel = vwm_panel_get_data();
-    bool        want;
-    int         surface;
-
-    if(vwm_panel->teleport_hint == NULL) return;
-
-    want = (vwm_panel->teleport_pos == 0);
-    if(want == vwm_panel->teleport_hint_shown) return;
-
-    surface = vk_screen_get_active_surface(vwm->screen);
-
-    if(want)
-        vk_screen_attach_widget(vwm->screen, surface,
-            VK_WIDGET(vwm_panel->teleport_hint));
-    else
-        vk_screen_detach_widget(vwm->screen, surface,
-            VK_WIDGET(vwm_panel->teleport_hint));
-
-    vwm_panel->teleport_hint_shown = want;
-}
-
-static void
-vwm_teleport_prompt_redraw(void)
-{
-    VWM_PANEL   *vwm_panel;
-    char        text[160];
-
-    vwm_panel = vwm_panel_get_data();
-    if(vwm_panel->teleport_prompt == NULL) return;
-
-    snprintf(text, sizeof(text), VWM_TELEPORT_PROMPT "%s",
-        vwm_panel->teleport_text);
-    vk_label_set_text(vwm_panel->teleport_prompt, text);
-    vk_label_update(vwm_panel->teleport_prompt);
-
-    vwm_teleport_hint_sync();
-}
-
-void
-vwm_teleport_prompt_show(void)
-{
-    vwm_t       *vwm;
-    VWM_PANEL   *vwm_panel;
-    vk_label_t  *prompt;
-    int          max_y, max_x;
-    int          surface;
-
-    vwm = vwm_get_instance();
-    vwm_panel = vwm_panel_get_data();
-
-    if(vwm_panel->teleport_prompt != NULL) return;
-
-    vwm_menubar_close_dropdown();
-    vk_menubar_set_focused(vwm->menubar, false);
-    vk_menubar_update(vwm->menubar);
-    vwm_calendar_close();
-
-    getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
-    (void)max_y;
-
-    vwm_panel->teleport_text[0] = '\0';
-    vwm_panel->teleport_pos = 0;
-
-    prompt = vk_label_create(max_x);
-    vk_widget_set_colors(VK_WIDGET(prompt), COLOR_WHITE, COLOR_BLUE);
-    vk_widget_set_attrs(VK_WIDGET(prompt), A_BOLD);
-    vk_label_set_text(prompt, VWM_TELEPORT_PROMPT);
-    vk_label_update(prompt);
-
-    surface = vk_screen_get_active_surface(vwm->screen);
-    vk_screen_detach_widget(vwm->screen, surface,
-        VK_WIDGET(vwm_panel->box));
-    vk_screen_attach_widget(vwm->screen, surface, VK_WIDGET(prompt));
-
-    vwm_panel->teleport_prompt = prompt;
-
-    /* the hint sits where the typed text will go.  Plain white on the
-       prompt's bold white reads as light gray.  Attached after the
-       prompt so it paints on top of it. */
-    {
-        vk_label_t  *hint = vk_label_create((int)strlen(VWM_TELEPORT_HINT));
-
-        vk_widget_set_colors(VK_WIDGET(hint), COLOR_WHITE, COLOR_BLUE);
-        vk_widget_set_attrs(VK_WIDGET(hint), A_NORMAL);
-        vk_label_set_text(hint, VWM_TELEPORT_HINT);
-        vk_label_update(hint);
-        vk_widget_move(VK_WIDGET(hint), (int)strlen(VWM_TELEPORT_PROMPT), 0);
-
-        vwm_panel->teleport_hint = hint;
-        vwm_panel->teleport_hint_shown = false;
-        vwm_teleport_hint_sync();
-    }
-}
-
-static void
-vwm_teleport_prompt_close(void)
-{
-    vwm_t       *vwm;
-    VWM_PANEL   *vwm_panel;
-    int          surface;
-
-    vwm = vwm_get_instance();
-    vwm_panel = vwm_panel_get_data();
-
-    if(vwm_panel->teleport_prompt == NULL) return;
-
-    surface = vk_screen_get_active_surface(vwm->screen);
-
-    /* the hint goes with the prompt, shown or not */
-    if(vwm_panel->teleport_hint != NULL)
-    {
-        if(vwm_panel->teleport_hint_shown)
-            vk_screen_detach_widget(vwm->screen, surface,
-                VK_WIDGET(vwm_panel->teleport_hint));
-        vk_label_destroy(vwm_panel->teleport_hint);
-        vwm_panel->teleport_hint = NULL;
-        vwm_panel->teleport_hint_shown = false;
-    }
-
-    vk_screen_detach_widget(vwm->screen, surface,
-        VK_WIDGET(vwm_panel->teleport_prompt));
-    vk_label_destroy(vwm_panel->teleport_prompt);
-    vwm_panel->teleport_prompt = NULL;
-    vwm_panel->teleport_text[0] = '\0';
-    vwm_panel->teleport_pos = 0;
-
-    vk_screen_attach_widget(vwm->screen, surface,
-        VK_WIDGET(vwm_panel->box));
-    vk_box_update(vwm_panel->box);
-}
-
 int
 vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
 {
@@ -513,139 +324,6 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
         return KMIO_HANDLED;
     }
 
-    if(panel_data->teleport_prompt != NULL)
-    {
-        if(keystroke == 27)
-        {
-            vwm_teleport_prompt_close();
-            vk_screen_refresh(vwm->screen);
-            return KMIO_HANDLED;
-        }
-
-        if(keystroke == '\n' || keystroke == '\r' || keystroke == KEY_ENTER)
-        {
-            char path[128];
-
-            if(panel_data->teleport_pos == 0)
-            {
-                vwm_teleport_prompt_close();
-                vk_screen_refresh(vwm->screen);
-                return KMIO_HANDLED;
-            }
-
-            snprintf(path, sizeof(path), "%s", panel_data->teleport_text);
-            vwm_teleport_prompt_close();
-            /* same path as `vwm-msg adopt`, minus the terminal type:
-               a typed device path cannot say what it is, so only a
-               console (/dev/ttyN -> linux) is recognised */
-            vwm_adopt_terminal(path, NULL, NULL);
-            vk_screen_refresh(vwm->screen);
-            return KMIO_HANDLED;
-        }
-
-        if(keystroke == KEY_BACKSPACE || keystroke == 127 || keystroke == 8)
-        {
-            if(panel_data->teleport_pos > 0)
-            {
-                panel_data->teleport_pos--;
-                panel_data->teleport_text[panel_data->teleport_pos] = '\0';
-                vwm_teleport_prompt_redraw();
-                vk_screen_refresh(vwm->screen);
-            }
-            return KMIO_HANDLED;
-        }
-
-        if(keystroke >= 32 && keystroke < 127
-            && panel_data->teleport_pos
-                < (int)sizeof(panel_data->teleport_text) - 1)
-        {
-            panel_data->teleport_text[panel_data->teleport_pos++] =
-                (char)keystroke;
-            panel_data->teleport_text[panel_data->teleport_pos] = '\0';
-            vwm_teleport_prompt_redraw();
-            vk_screen_refresh(vwm->screen);
-            return KMIO_HANDLED;
-        }
-
-        return KMIO_HANDLED;
-    }
-
-    if(keystroke == vwm->hotkey_wm)
-    {
-        vwm->state ^= VWM_STATE_ACTIVE;
-
-        if(vwm->state & VWM_STATE_ACTIVE)
-            vwm_default_VWM_START();
-        else
-            vwm_default_VWM_STOP();
-
-        return KMIO_HANDLED;
-    }
-
-    if(vwm->state & VWM_STATE_ACTIVE)
-    {
-        vk_widget_t *top = vk_deck_get_top(vwm->deck);
-
-        if(keystroke == vwm->hotkey_close)
-        {
-            vwm_default_WINDOW_CLOSE(top);
-            return KMIO_HANDLED;
-        }
-        else if(keystroke == vwm->hotkey_cycle)
-        {
-            vwm_default_WINDOW_CYCLE();
-            return KMIO_HANDLED;
-        }
-        else if(keystroke == vwm->hotkey_move_up)
-        {
-            vwm_default_WINDOW_MOVE_UP(top);
-            return KMIO_HANDLED;
-        }
-        else if(keystroke == vwm->hotkey_move_down)
-        {
-            vwm_default_WINDOW_MOVE_DOWN(top);
-            return KMIO_HANDLED;
-        }
-        else if(keystroke == vwm->hotkey_move_left)
-        {
-            vwm_default_WINDOW_MOVE_LEFT(top);
-            return KMIO_HANDLED;
-        }
-        else if(keystroke == vwm->hotkey_move_right)
-        {
-            vwm_default_WINDOW_MOVE_RIGHT(top);
-            return KMIO_HANDLED;
-        }
-        else if(keystroke == vwm->hotkey_grow_h
-            || keystroke == KEY_CTRL_DOWN)
-        {
-            vwm_default_WINDOW_INCREASE_HEIGHT(top);
-            return KMIO_HANDLED;
-        }
-        else if(keystroke == vwm->hotkey_shrink_h
-            || keystroke == KEY_CTRL_UP)
-        {
-            vwm_default_WINDOW_DECREASE_HEIGHT(top);
-            return KMIO_HANDLED;
-        }
-        else if(keystroke == vwm->hotkey_grow_w
-            || keystroke == KEY_CTRL_RIGHT)
-        {
-            vwm_default_WINDOW_INCREASE_WIDTH(top);
-            return KMIO_HANDLED;
-        }
-        else if(keystroke == vwm->hotkey_shrink_w
-            || keystroke == KEY_CTRL_LEFT)
-        {
-            vwm_default_WINDOW_DECREASE_WIDTH(top);
-            return KMIO_HANDLED;
-        }
-        else
-        {
-            return keystroke;
-        }
-    }
-
     if(keystroke == vwm->hotkey_menu)
     {
         vwm_menubar_hotkey();
@@ -656,6 +334,14 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
     {
         vwm_desktop_prompt_show();
         vk_screen_refresh(vwm->screen);
+        return KMIO_HANDLED;
+    }
+
+    /* detach: give the terminal back and keep the session running */
+    if(keystroke == vwm->hotkey_detach)
+    {
+        vwm_detach();
+
         return KMIO_HANDLED;
     }
 
@@ -672,9 +358,6 @@ vwm_panel_ON_TERM_RESIZED(VWM_PANEL *vwm_panel)
 
     if(vwm_panel->desktop_prompt != NULL)
         vwm_desktop_prompt_close();
-
-    if(vwm_panel->teleport_prompt != NULL)
-        vwm_teleport_prompt_close();
 
     vwm = vwm_get_instance();
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);

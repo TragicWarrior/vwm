@@ -26,12 +26,22 @@
 #include "strings.h"
 #include "screenshot.h"
 #include "ctl.h"
+#include "sched.h"
 #include "modules/vwmterm3/vwmterm.h"
 
 #define VWM_CTL_MAX_REQ     (256 * 1024)
 #define VWM_CTL_IO_TIMEO    2           /* seconds; bound a stalled peer */
 
 static int      listen_fd = -1;
+
+/* the client waiting on the terminal the session is showing on (see
+   attach.h), or -1.  Its connection is kept open for as long as the
+   session stays there: a line written to it says the session has left,
+   and its closing says the client -- and so the terminal -- is gone. */
+static int      attach_fd = -1;
+
+/* set by an op that keeps its connection: ctl_serve must not close it */
+static int      ctl_keep_fd = 0;
 static char     sock_path[PATH_MAX];
 static int      have_bound_st = 0;
 static struct stat  bound_st;    /* on-disk entry we minted at bind() */
@@ -391,9 +401,70 @@ ctl_serve(int cfd)
         return;
     }
 
+    ctl_keep_fd = 0;
     ctl_dispatch(cfd, req);
     cJSON_Delete(req);
-    close(cfd);
+
+    /* an attach keeps its connection (it is attach_fd now) */
+    if(!ctl_keep_fd) close(cfd);
+}
+
+/*
+    Stop watching the waiting client and forget it.  The caller says
+    whatever is to be said on the connection first.
+*/
+static void
+ctl_attach_drop(void)
+{
+    extern vwm_sched_t  *sched;
+
+    if(attach_fd < 0) return;
+
+    vwm_sched_wake_fd_del(sched, attach_fd);
+    close(attach_fd);
+    attach_fd = -1;
+}
+
+/* see ctl.h */
+void
+vwm_ctl_release_client(const char *reason)
+{
+    char    line[96];
+
+    if(attach_fd < 0) return;
+
+    snprintf(line, sizeof(line),
+        "{\"event\":\"released\",\"reason\":\"%s\"}\n", reason);
+    ctl_write_all(attach_fd, line, strlen(line));
+
+    ctl_attach_drop();
+}
+
+/*
+    Has the waiting client gone?  It never sends anything after its
+    request, so its connection turning readable means it closed: the
+    program was killed, or hung up along with its terminal.  Either way
+    nobody is holding that terminal for the session any more, so let go
+    of it.
+*/
+static void
+ctl_attach_check(void)
+{
+    char    junk[64];
+    ssize_t n;
+
+    if(attach_fd < 0) return;
+
+    n = recv(attach_fd, junk, sizeof(junk), MSG_DONTWAIT);
+
+    /* still there and silent, or it sent something we do not expect
+       (read above, so the descriptor does not stay readable) */
+    if(n > 0) return;
+    if(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR))
+        return;
+
+    ctl_attach_drop();
+    vwm_go_headless();
 }
 
 void
@@ -402,6 +473,8 @@ vwm_ctl_poll(void)
     int cfd;
 
     if(listen_fd < 0) return;
+
+    ctl_attach_check();
 
     for(;;)
     {
@@ -584,8 +657,10 @@ op_ping(int fd)
     if(data != NULL)
     {
         cJSON_AddStringToObject(data, "version", VWM_VERSION);
-        /* lets vwm-resume choose: reattach (dtach) or adopt (direct) */
-        cJSON_AddBoolToObject(data, "dtach", getenv("VWM_SOCK") != NULL);
+        /* for vwm-stop: who to wait for, and whether a terminal is
+           attached at all */
+        cJSON_AddNumberToObject(data, "pid", (double)getpid());
+        cJSON_AddBoolToObject(data, "headless", vwm_is_headless());
     }
 
     ctl_reply(fd, 1, data, NULL);
@@ -649,62 +724,127 @@ ctl_peer_is_descendant(int fd)
 }
 
 /*
-    adopt {tty, term?}: bring the session to terminal `tty`, driven as
-    type `term`.  Validates and answers here; vwm_adopt_terminal() does
-    the move (or, under dtach, holds it for the next reattach).
+    detach: give the terminal back and keep the session running.  The
+    answer is sent first: the client may be on the very terminal being
+    released.
 */
 static void
-op_adopt(int fd, cJSON *req)
+op_detach(int fd)
+{
+    ctl_reply(fd, 1, NULL, NULL);
+    vwm_detach();
+}
+
+/*
+    stop: end the session.  Answered first, because vwm is on its way
+    out once vwm_stop() returns; vwm-stop then waits for the process.
+*/
+static void
+op_stop(int fd)
+{
+    ctl_reply(fd, 1, NULL, NULL);
+    vwm_stop();
+}
+
+/*
+    Read and check the terminal named by an attach request.
+    Copies the arguments out (the request is freed by the caller) and
+    returns 0; on a bad request answers the client and returns -1.
+    `term_buf` comes back empty when no type was given.
+*/
+static int
+ctl_terminal_args(int fd, cJSON *req, char *tty_buf, size_t tty_sz,
+    char *term_buf, size_t term_sz)
 {
     const char  *tty = ctl_json_str(req, "tty");
     const char  *term = ctl_json_str(req, "term");
-    const char  *err = NULL;
     struct stat st;
-    char        tty_buf[PATH_MAX];
-    char        term_buf[64];
 
     if(tty == NULL || strncmp(tty, "/dev/", 5) != 0
-        || strlen(tty) >= sizeof(tty_buf))
+        || strlen(tty) >= tty_sz)
     {
         ctl_reply(fd, 0, NULL, "missing tty");
-        return;
+        return -1;
     }
 
     if(stat(tty, &st) != 0 || !S_ISCHR(st.st_mode)
         || access(tty, R_OK | W_OK) != 0)
     {
         ctl_reply(fd, 0, NULL, "bad tty");
-        return;
+        return -1;
     }
 
     if(term != NULL)
     {
         /* a terminfo name; it also ends up in a tic command line */
-        if(term[0] == '\0' || strlen(term) >= sizeof(term_buf)
+        if(term[0] == '\0' || strlen(term) >= term_sz
             || term[strspn(term, "abcdefghijklmnopqrstuvwxyz"
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+._-")] != '\0')
         {
             ctl_reply(fd, 0, NULL, "bad term");
-            return;
+            return -1;
         }
     }
 
+    /* a terminal inside the session would point vwm's screen at one of
+       its own windows */
     if(ctl_peer_is_descendant(fd))
     {
         ctl_reply(fd, 0, NULL, "inside this session");
+        return -1;
+    }
+
+    snprintf(tty_buf, tty_sz, "%s", tty);
+    snprintf(term_buf, term_sz, "%s", (term != NULL) ? term : "");
+
+    return 0;
+}
+
+/*
+    attach {tty, term?}: bring the session to terminal `tty`, driven as
+    type `term`, and keep this connection for as long as it stays there.
+    The client (attach.c) waits on it as the foreground job of that
+    terminal's shell.  Two lines go back: the answer now, and one more
+    when the session leaves -- see vwm_ctl_release_client.
+*/
+static void
+op_attach(int fd, cJSON *req)
+{
+    extern vwm_sched_t  *sched;
+    const char          *err = NULL;
+    char                tty_buf[PATH_MAX];
+    char                term_buf[64];
+
+    if(ctl_terminal_args(fd, req, tty_buf, sizeof(tty_buf),
+        term_buf, sizeof(term_buf)) != 0)
+        return;
+
+    /* answered first, so the reply is written before vwm starts
+       painting on the client's terminal */
+    ctl_reply(fd, 1, NULL, NULL);
+
+    if(vwm_adopt_terminal(tty_buf,
+        (term_buf[0] != '\0') ? term_buf : NULL, &err) != 0)
+    {
+        /* the session is where it was; this client has nothing to
+           wait for */
+        static const char   failed[] =
+            "{\"event\":\"released\",\"reason\":\"failed\"}\n";
+
+        ctl_write_all(fd, failed, sizeof(failed) - 1);
         return;
     }
 
-    /* req is freed by the caller, and a direct adopt takes the client's
-       terminal: copy the arguments and answer first, so the reply is
-       written before vwm starts painting there. */
-    snprintf(tty_buf, sizeof(tty_buf), "%s", tty);
-    snprintf(term_buf, sizeof(term_buf), "%s", (term != NULL) ? term : "");
+    /* the screen has left the terminal it was on, and that terminal is
+       back in order: now let the client waiting there go */
+    vwm_ctl_release_client("moved");
 
-    ctl_reply(fd, 1, NULL, NULL);
-
-    vwm_adopt_terminal(tty_buf, (term_buf[0] != '\0') ? term_buf : NULL,
-        &err);
+    /* this client holds the new terminal.  Its connection only ends
+       the scheduler's sleep (no task owns it); ctl_attach_check looks
+       at it from the step hook. */
+    attach_fd = fd;
+    ctl_keep_fd = 1;
+    vwm_sched_wake_fd_add(sched, attach_fd, NULL);
 }
 
 static void
@@ -2284,7 +2424,9 @@ ctl_dispatch(int fd, cJSON *req)
     else if(strcmp(op, "capture") == 0)       op_capture(fd, req);
     else if(strcmp(op, "screenshot") == 0)    op_screenshot(fd, req);
     else if(strcmp(op, "attention") == 0)     op_attention(fd, req);
-    else if(strcmp(op, "adopt") == 0)         op_adopt(fd, req);
+    else if(strcmp(op, "attach") == 0)        op_attach(fd, req);
+    else if(strcmp(op, "detach") == 0)        op_detach(fd);
+    else if(strcmp(op, "stop") == 0)          op_stop(fd);
     else
         ctl_reply(fd, 0, NULL, "unknown op");
 }

@@ -28,7 +28,7 @@
 #define INTERIOR_WIDTH      (DIALOG_WIDTH - 2)
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
-#define NUM_HOTKEYS         13
+#define NUM_HOTKEYS         14
 #define ITEM_WIDTH          (INTERIOR_WIDTH - 4)
 
 enum
@@ -60,6 +60,7 @@ hotkey_defs[NUM_HOTKEYS] =
     { "Increase Width",   '>',                CAT_WM,    "grow_w" },
     { "Decrease Width",   '<',                CAT_WM,    "shrink_w" },
     { "Switch Desktop",   (27 | (100 << 8)),  CAT_NAV,   "desktop" },
+    { "Detach",           28,                 CAT_NAV,   "detach" },
 };
 
 enum
@@ -244,6 +245,7 @@ model_load_from_vwm(vwm_t *vwm)
     model->values[10] = vwm->hotkey_grow_w;
     model->values[11] = vwm->hotkey_shrink_w;
     model->values[12] = vwm->hotkey_desktop;
+    model->values[13] = vwm->hotkey_detach;
 }
 
 static void
@@ -262,6 +264,7 @@ model_apply_to_vwm(vwm_t *vwm)
     vwm->hotkey_grow_w     = model->values[10];
     vwm->hotkey_shrink_w   = model->values[11];
     vwm->hotkey_desktop    = model->values[12];
+    vwm->hotkey_detach     = model->values[13];
 }
 
 static void
@@ -549,6 +552,7 @@ has_changes(void)
     if(model->values[10] != vwm->hotkey_grow_w)      return true;
     if(model->values[11] != vwm->hotkey_shrink_w)    return true;
     if(model->values[12] != vwm->hotkey_desktop)     return true;
+    if(model->values[13] != vwm->hotkey_detach)      return true;
 
     return false;
 }

@@ -340,24 +340,14 @@ vwm_switch_desktop(vk_widget_t *widget, void *anything)
     return 0;
 }
 
+/* VWM > Detach */
 static int
-vwm_teleport_home_item(vk_widget_t *widget, void *anything)
+vwm_detach_item(vk_widget_t *widget, void *anything)
 {
     (void)widget;
     (void)anything;
 
-    vwm_teleport_home();
-
-    return 0;
-}
-
-static int
-vwm_teleport(vk_widget_t *widget, void *anything)
-{
-    (void)widget;
-    (void)anything;
-
-    vwm_teleport_prompt_show();
+    vwm_detach();
 
     return 0;
 }
@@ -483,29 +473,10 @@ create_file_dropdown(vwm_t *vwm)
         vwm_capture_screenshot, NULL);
     vk_listbox_add_item(listbox, "Print file",
         vwm_print_file, NULL);
-    /* no Teleport under dtach: vwm can move its screen to another tty,
-       but the dtach client stays attached to the pty left behind, so
-       there is no way back "home".  VWM_SOCK is how vwm-start marks a
-       dtach session (same test as the panel indicator). */
-    if(getenv("VWM_SOCK") == NULL)
-    {
-        /* home: back to the terminal vwm was started on.  Its shell is
-           blocked behind vwm, so it cannot call the session back with
-           vwm-resume; this entry is the way home. */
-        vk_listbox_add_item(listbox, "Teleport home",
-            vwm_teleport_home_item, NULL);
-
-        /* nowhere to go when already home: show the entry grayed out
-           (plain white on the menu's bold white reads as light gray)
-           and out of reach of the arrow keys and the mouse.  The
-           dropdown is rebuilt on every open, so this tracks moves. */
-        vk_listbox_set_inactive_colors(listbox, COLOR_WHITE, -1, A_NORMAL);
-        vk_listbox_set_item_active(listbox,
-            vk_listbox_get_item_count(listbox) - 1, !vwm_at_home());
-
-        vk_listbox_add_item(listbox, "Teleport to...",
-            vwm_teleport, NULL);
-    }
+    /* detach: hand this terminal back and keep the session running
+       (vwm-resume brings it back) */
+    vk_listbox_add_item(listbox, "Detach",
+        vwm_detach_item, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Manage Apps Menu",
         vwm_manage_apps_open, NULL);

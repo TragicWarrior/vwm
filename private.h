@@ -36,6 +36,7 @@ struct _vwm_s
     int32_t                 hotkey_grow_w;
     int32_t                 hotkey_shrink_w;
     int32_t                 hotkey_desktop;
+    int32_t                 hotkey_detach;
 
     struct list_head        module_list;
 

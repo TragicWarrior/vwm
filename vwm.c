@@ -23,6 +23,7 @@
 #include <string.h>
 #include <time.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <signal.h>
 #include <dirent.h>
 #include <locale.h>
@@ -30,6 +31,7 @@
 
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/select.h>
 #include <sys/time.h>
 
@@ -56,6 +58,7 @@
 #include "poll_input_thd.h"
 #include "programs.h"
 #include "ctl.h"
+#include "attach.h"
 
 static void
 vwm_cursor_overlay(vk_screen_t *screen, int surface_id, WINDOW *canvas);
@@ -67,13 +70,25 @@ static int
 vwm_on_teleport(vk_object_t *object, int event, void *anything);
 
 static void
-vwm_home_note(vwm_t *vwm);
+vwm_launch(const char *ctl_path);
+
+static void
+vwm_launch_report(const char *msg);
 
 static void
 vwm_sched_render(void *arg);
 
 vwm_sched_t             *sched = NULL;
 int                     shutdown = 0;
+
+/* the size the session's screen starts at: that of the terminal it was
+   launched from (see vwm_launch) */
+static int              vwm_start_w = 0;
+static int              vwm_start_h = 0;
+
+/* in the background session while it starts: where to tell the command
+   that launched it how that went (see vwm_launch_report).  -1 otherwise. */
+static int              vwm_report_fd = -1;
 
 // store argv and argc for use elsewhere (with modules)
 char    **vwm_argv;
@@ -84,7 +99,6 @@ int main(int argc,char **argv)
     vwm_t                   *vwm = NULL;
     extern char             **vwm_argv;
     extern int              vwm_argc;
-	int		      		    fd;
 	char		      		*locale = NULL;
 
     extern int              shutdown;
@@ -114,6 +128,10 @@ int main(int argc,char **argv)
             {
                 printf(
                     "Usage: vwm [options]\n"
+                    "Start a session in the background and show it on "
+                    "this terminal.\n"
+                    "vwm-resume brings a running session to a terminal; "
+                    "vwm-stop ends it.\n\n"
                     "  -h, --help             show this help and exit\n"
                     "  -V, --version          show version and exit\n"
                     "      --ignore-tty-size  skip the 80x25 minimum "
@@ -121,6 +139,69 @@ int main(int argc,char **argv)
                 return 0;
             }
         }
+    }
+
+    /* everything that can be refused is refused here, on the terminal,
+       before anything is started */
+    {
+        bool            ignore_tty_size = false;
+        struct winsize  ws;
+        int             i;
+
+        for(i = 1; i < argc; i++)
+        {
+            if(strcmp(argv[i], "--ignore-tty-size") == 0)
+            {
+                ignore_tty_size = true;
+                break;
+            }
+        }
+
+        memset(&ws, 0, sizeof(ws));
+
+        if(ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == 0
+            && (ws.ws_col != 0 || ws.ws_row != 0))
+        {
+            if(!ignore_tty_size && (ws.ws_col < 80 || ws.ws_row < 25))
+            {
+                fprintf(stderr,
+                    "vwm: terminal too small (%dx%d). "
+                    "Minimum size is 80x25.\n"
+                    "Use --ignore-tty-size to bypass "
+                    "this check.\n",
+                    ws.ws_col, ws.ws_row);
+                return 1;
+            }
+
+            /* the session's screen starts out the size of this terminal */
+            vwm_start_w = ws.ws_col;
+            vwm_start_h = ws.ws_row;
+        }
+    }
+
+    /* refuse to start if another vwm is already serving the control
+       socket.  a second full session would unlink the live one's path
+       (ctl_init) and, worse, delete it again on exit -- leaving the
+       original listener bound to an unnamed inode and vwm-msg dead for
+       the rest of the session.  do this before ncurses so the message
+       is visible and the terminal is untouched. */
+    {
+        char    ctl_path[4096];
+
+        if(vwm_ctl_preflight(ctl_path, sizeof(ctl_path)) != 0)
+        {
+            fprintf(stderr,
+                "vwm: a session is already running (%s).\n"
+                "     vwm-resume brings it to this terminal; "
+                "vwm-stop ends it.\n",
+                ctl_path);
+            return 1;
+        }
+
+        /* the session runs in the background, on no terminal; this
+           command starts it and then attaches this terminal to it.
+           Only the background session returns from here. */
+        vwm_launch(ctl_path);
     }
 
     sched = vwm_sched_init();
@@ -142,73 +223,6 @@ int main(int argc,char **argv)
     vwm_argc = argc;
     vwm_argv = argv;
 
-    {
-        bool ignore_tty_size = false;
-        int i;
-
-        for(i = 1; i < argc; i++)
-        {
-            if(strcmp(argv[i], "--ignore-tty-size") == 0)
-            {
-                ignore_tty_size = true;
-                break;
-            }
-        }
-
-        if(!ignore_tty_size)
-        {
-            struct winsize ws;
-            int             tries;
-
-            /* under dtach the pty has no size (0x0) until the client
-               attaches and reports one, and the client clears the
-               screen first -- slow on a framebuffer console.  Wait up
-               to 2s for a size rather than fail on a reading that
-               only means "not known yet". */
-            memset(&ws, 0, sizeof(ws));
-            for(tries = 0; tries < 200; tries++)
-            {
-                if(ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) != 0) break;
-                if(ws.ws_col != 0 || ws.ws_row != 0) break;
-                usleep(10000);
-            }
-
-            if(ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == 0
-                && (ws.ws_col != 0 || ws.ws_row != 0))
-            {
-                if(ws.ws_col < 80 || ws.ws_row < 25)
-                {
-                    fprintf(stderr,
-                        "vwm: terminal too small (%dx%d). "
-                        "Minimum size is 80x25.\n"
-                        "Use --ignore-tty-size to bypass "
-                        "this check.\n",
-                        ws.ws_col, ws.ws_row);
-                    return 1;
-                }
-            }
-        }
-    }
-
-    /* refuse to start if another vwm is already serving the control
-       socket.  a second full session would unlink the live one's path
-       (ctl_init) and, worse, delete it again on exit -- leaving the
-       original listener bound to an unnamed inode and vwm-msg dead for
-       the rest of the session.  do this before ncurses so the message
-       is visible and the terminal is untouched. */
-    {
-        char    ctl_path[4096];
-
-        if(vwm_ctl_preflight(ctl_path, sizeof(ctl_path)) != 0)
-        {
-            fprintf(stderr,
-                "vwm: another session is already listening on %s;\n"
-                "     refusing to start.  (use vwm-msg to talk to it.)\n",
-                ctl_path);
-            return 1;
-        }
-    }
-
 	/*
         set the locale to the default settings (as configured by env).
 		this is required for ncurses to work properly.
@@ -218,22 +232,10 @@ int main(int argc,char **argv)
 
     setlocale(LC_ALL, locale);
 
-	// print some debug information
-	printf("%s\n\r", locale);
-	printf("ncurses = %d.%d (%d)\n\r", NCURSES_VERSION_MAJOR,
-		NCURSES_VERSION_MINOR,NCURSES_VERSION_PATCH);
-	fflush(NULL);
-
 #ifdef __linux
     // suppress printk messages.  klogctl() is linux specific.
 	klogctl(6, NULL, 0);
-    printf("VWM running on Linux\n\r");
 #endif
-
-    // supress STDERR
-	fd = open("/dev/null", O_WRONLY);
-	if(fd == -1) exit(0);
-	dup2(fd, STDERR_FILENO);
 
 	// ignore terminal interrupt signal
     vwm_sigset(SIGINT, SIG_IGN);
@@ -257,10 +259,12 @@ int main(int argc,char **argv)
 	// use the integrated window manager
 	vwm = vwm_init();
 
-    /* now that newterm() has run (inside vwm_init), claim SIGWINCH so a
-       same-size dtach reattach still drives the resync cascade -- chains
-       ncurses' own handler, so ordinary resizes are unaffected. */
-    vwm_sigwinch_install();
+    /* no screen, no session */
+    if(vwm->screen == NULL)
+    {
+        vwm_launch_report("could not set up the screen (is TERM usable?)");
+        return 1;
+    }
 
     vwm_panel_init(vwm);
 
@@ -288,6 +292,16 @@ int main(int argc,char **argv)
        NULL. */
     if(vwm_ctl_init() == 0)
         vwm_sched_wake_fd_add(sched, vwm_ctl_listen_fd(), NULL);
+    else
+    {
+        /* a background session nobody can reach is no use to anyone */
+        vwm_launch_report("could not create the control socket");
+        vk_screen_destroy(vwm->screen);
+        return 1;
+    }
+
+    /* up and listening: the command that started us can attach now */
+    vwm_launch_report("ok");
 
     /* coalesce vterm composites: drain tasks mark the screen dirty and
        this hook issues one refresh per scheduler step (see item 5). */
@@ -295,15 +309,169 @@ int main(int argc,char **argv)
 
     vwm_sched_run(sched, &shutdown);
 
+    vk_kmio_shutdown(vk_screen_get_fd(vwm->screen));
+    vk_screen_destroy(vwm->screen);
+
+    /* the terminal is back in order: let the client waiting on it go.
+       Before the scheduler is torn down, which is where the client's
+       connection is registered. */
+    vwm_ctl_release_client("stopped");
+
     vwm_ctl_shutdown();
     vwm_sched_deinit(sched);
 
-    vk_kmio_shutdown(vk_screen_get_fd(vwm->screen));
-    vk_screen_destroy(vwm->screen);
-    fsync(fd);
-	close(fd);
-
 	return 0;
+}
+
+/*
+    Start the session in the background and attach this terminal to it.
+
+    Called once at startup with nothing started yet.  It returns only in
+    the new background process, which goes on to become the session.
+    The command the user ran never returns from here: it waits to hear
+    how the start went, then (when it is on a terminal) attaches that
+    terminal and stays as its foreground job until the session leaves --
+    see attach.h.
+
+    The session is a process of its own, in a session of its own, with
+    no controlling terminal: closing the terminal it was started from,
+    or logging out, does not touch it.
+*/
+static void
+vwm_launch(const char *ctl_path)
+{
+    const char  *tty = NULL;
+    const char  *term = getenv("TERM");
+    char        tty_buf[64];
+    char        line[256];
+    size_t      used = 0;
+    int         report[2];
+    int         devnull;
+    pid_t       pid;
+    int         i;
+
+    /* the terminal this command is on, if any */
+    for(i = 0; i < 3 && tty == NULL; i++)
+        if(isatty(i)) tty = ttyname(i);
+
+    if(tty != NULL)
+    {
+        snprintf(tty_buf, sizeof(tty_buf), "%s", tty);
+        tty = tty_buf;
+    }
+
+    /* started from no terminal (a script, a service): a default size */
+    if(vwm_start_w < 1 || vwm_start_h < 1)
+    {
+        vwm_start_w = 80;
+        vwm_start_h = 25;
+    }
+
+    if(pipe(report) != 0)
+    {
+        fprintf(stderr, "vwm: pipe: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    pid = fork();
+    if(pid < 0)
+    {
+        fprintf(stderr, "vwm: fork: %s\n", strerror(errno));
+        exit(1);
+    }
+
+    if(pid == 0)
+    {
+        /* --- the session-to-be --- */
+        close(report[0]);
+
+        /* leave the launching terminal's session, then fork once more
+           so that this process is not a session leader: a session
+           leader that opens a terminal can end up owning it, and the
+           session opens whichever terminal it is attached to */
+        setsid();
+        if(fork() != 0) _exit(0);
+
+        /* no handle on the launching terminal may survive here */
+        devnull = open("/dev/null", O_RDWR);
+        if(devnull >= 0)
+        {
+            dup2(devnull, STDIN_FILENO);
+            dup2(devnull, STDOUT_FILENO);
+            dup2(devnull, STDERR_FILENO);
+            if(devnull > STDERR_FILENO) close(devnull);
+        }
+
+        /* the programs it runs must not inherit the report pipe */
+        fcntl(report[1], F_SETFD, FD_CLOEXEC);
+        vwm_report_fd = report[1];
+
+        /* nothing hangs up on a process with no terminal, but a stray
+           SIGHUP should not end a session meant to outlive them */
+        vwm_sigset(SIGHUP, SIG_IGN);
+
+        return;
+    }
+
+    /* --- the command the user ran --- */
+    close(report[1]);
+
+    /* the middle process exits at once; collect it */
+    waitpid(pid, NULL, 0);
+
+    /* one line from the session: "ok", or what went wrong.  End of file
+       with no line means it died before it could say. */
+    while(used < sizeof(line) - 1)
+    {
+        ssize_t n = read(report[0], line + used, sizeof(line) - 1 - used);
+
+        if(n < 0 && errno == EINTR) continue;
+        if(n <= 0) break;
+
+        used += (size_t)n;
+        if(memchr(line, '\n', used) != NULL) break;
+    }
+    line[used] = '\0';
+    line[strcspn(line, "\n")] = '\0';
+    close(report[0]);
+
+    if(strcmp(line, "ok") != 0)
+    {
+        fprintf(stderr, "vwm: the session did not start%s%s\n",
+            (line[0] != '\0') ? ": " : ".", line);
+        exit(1);
+    }
+
+    /* not on a terminal: the session is up, and that is all there is
+       to do from here */
+    if(tty == NULL)
+    {
+        printf("vwm: session started.  vwm-resume brings it to a "
+            "terminal; vwm-stop ends it.\n");
+        exit(0);
+    }
+
+    exit(vwm_attach_run(ctl_path, tty, term));
+}
+
+/*
+    In the background session: tell the command that launched it how the
+    start went -- "ok", or the reason it failed -- and close the line.
+    Does nothing once it has been said.
+*/
+static void
+vwm_launch_report(const char *msg)
+{
+    if(vwm_report_fd < 0) return;
+
+    if(write(vwm_report_fd, msg, strlen(msg)) < 0
+        || write(vwm_report_fd, "\n", 1) < 0)
+    {
+        /* the launching command is gone; carry on regardless */
+    }
+
+    close(vwm_report_fd);
+    vwm_report_fd = -1;
 }
 
 /*
@@ -336,10 +504,15 @@ vwm_init(void)
 	{
  		vwm = (vwm_t*)calloc(1, sizeof(vwm_t));
 
-        vwm->screen = vk_screen_create();
+        /* the session starts on no terminal, at the size of the one it
+           was launched from, and is attached afterwards */
+        vwm->screen = vk_screen_create_detached(vwm_start_w, vwm_start_h);
+
+        /* main() reports this and gives up */
+        if(vwm->screen == NULL) return vwm;
+
         vdk_color_init();
         vwm_input_rearm(vwm);
-        vwm_home_note(vwm);
 
         vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
 
@@ -415,14 +588,10 @@ vwm_init(void)
         vwm->hotkey_grow_w = '>';
         vwm->hotkey_shrink_w = '<';
         vwm->hotkey_desktop = (27 | (100 << 8));
-        {
-            const char *term = getenv("TERM");
-            if(term != NULL && strcmp(term, "linux") == 0)
-            {
-                vwm->show_cursor = true;
-                vk_screen_set_overlay(vwm->screen, vwm_cursor_overlay);
-            }
-        }
+        vwm->hotkey_detach = 28;        /* Ctrl-\ */
+        /* the console pointer (drawn by vwm, see vwm_cursor_overlay) is
+           switched on when the session is attached to a console:
+           vwm_adopt_apply */
 
         // load user profile
         vwm_profile_init(vwm);
@@ -439,172 +608,57 @@ vwm_input_rearm(vwm_t *vwm)
     /* re-emit the mouse enable escapes and restore non-blocking input
        against the current tty.  kmio writes the escapes straight to the
        fd, so they have to be resent whenever that fd's terminal may have
-       changed: at startup, after teleport (a new fd), and on a dtach
-       reattach (a new outer terminal, possibly after `reset`).  On an
+       changed: after a move to another terminal (a new fd).  On an
        ordinary resize it is a harmless no-op. */
     vk_kmio_init(vk_screen_get_fd(vwm->screen), VWM_KMIO_FLAGS);
     nodelay(stdscr, TRUE);
 }
 
 /*
-    the console number of /dev/ttyN (1-63), or 0 for any other terminal.
+    is `tty` a Linux virtual console, /dev/ttyN?
 */
-static int
-vwm_tty_vc(const char *tty)
+static bool
+vwm_tty_is_console(const char *tty)
 {
     char    *end;
     long    vc;
 
-    if(tty == NULL || strncmp(tty, "/dev/tty", 8) != 0) return 0;
-    if(tty[8] < '0' || tty[8] > '9') return 0;
+    if(tty == NULL || strncmp(tty, "/dev/tty", 8) != 0) return false;
+    if(tty[8] < '0' || tty[8] > '9') return false;
 
     vc = strtol(tty + 8, &end, 10);
-    if(*end != '\0' || vc < 1 || vc > 63) return 0;
 
-    return (int)vc;
+    return *end == '\0' && vc >= 1 && vc <= 63;
 }
-
-/*
-    Terminals this session has been on, and the type each was driven as.
-    `vwm-msg adopt` is told the type; the menu Teleport only gets a path,
-    so it looks the path up here -- that is what makes "back to where I
-    started" come out as the right type.  Small and fixed: the oldest
-    entry is overwritten.
-*/
-#define VWM_KNOWN_TTYS  8
-
-static struct
-{
-    char    tty[64];
-    char    term[64];
-}
-vwm_known_tty[VWM_KNOWN_TTYS];
-static int  vwm_known_next = 0;
-
-static void
-vwm_known_tty_note(const char *tty, const char *term)
-{
-    int     i;
-
-    if(tty == NULL || term == NULL || tty[0] == '\0' || term[0] == '\0')
-        return;
-
-    for(i = 0; i < VWM_KNOWN_TTYS; i++)
-        if(strcmp(vwm_known_tty[i].tty, tty) == 0) break;
-
-    if(i == VWM_KNOWN_TTYS)
-    {
-        i = vwm_known_next;
-        vwm_known_next = (vwm_known_next + 1) % VWM_KNOWN_TTYS;
-    }
-
-    snprintf(vwm_known_tty[i].tty, sizeof(vwm_known_tty[i].tty), "%s", tty);
-    snprintf(vwm_known_tty[i].term, sizeof(vwm_known_tty[i].term), "%s",
-        term);
-}
-
-/*
-    The type to drive `tty` as when the caller could not say.  A terminal
-    we have been on keeps the type it had.  An unknown one keeps the
-    current type -- unless that is "linux", which is only ever right for
-    a console: then borrow the type of the last non-console terminal.
-    Returns NULL for "leave the type alone".
-*/
-static const char *
-vwm_known_tty_guess(const char *tty)
-{
-    const char  *cur = getenv("TERM");
-    int         i;
-
-    for(i = 0; i < VWM_KNOWN_TTYS; i++)
-        if(strcmp(vwm_known_tty[i].tty, tty) == 0)
-            return vwm_known_tty[i].term;
-
-    if(cur == NULL || strcmp(cur, "linux") != 0) return NULL;
-
-    for(i = 1; i <= VWM_KNOWN_TTYS; i++)
-    {
-        int j = (vwm_known_next - i + 2 * VWM_KNOWN_TTYS) % VWM_KNOWN_TTYS;
-
-        if(vwm_known_tty[j].term[0] != '\0'
-            && strcmp(vwm_known_tty[j].term, "linux") != 0)
-            return vwm_known_tty[j].term;
-    }
-
-    return NULL;
-}
-
-/* where vwm was started, and as what: the target of "Teleport home" */
-static char vwm_home_tty[64];
-static char vwm_home_term[64];
-
-/*
-    Record the starting terminal.  Called once from vwm_init, while the
-    screen is still on it.
-*/
-static void
-vwm_home_note(vwm_t *vwm)
-{
-    const char  *tty = ttyname(vk_screen_get_fd(vwm->screen));
-    const char  *term = getenv("TERM");
-
-    snprintf(vwm_home_tty, sizeof(vwm_home_tty), "%s",
-        (tty != NULL) ? tty : "");
-    snprintf(vwm_home_term, sizeof(vwm_home_term), "%s",
-        (term != NULL) ? term : "");
-
-    vwm_known_tty_note(tty, term);
-}
-
-static struct
-{
-    bool    pending;
-    bool    has_term;
-    char    term[64];
-    int     vc;
-}
-vwm_adopt_held;
 
 /*
     Do the adopt.  pty == NULL rebuilds the screen where it is.  The
     environment is the hand-off to libviper: TERM picks the terminfo
-    entry and the UTF-8 or ASCII glyphs, VK_GPM_VC names the console
-    for the GPM mouse when the screen is not on it directly (dtach).
+    entry and the UTF-8 or ASCII glyphs.  The GPM mouse needs nothing
+    said: on a console the screen is on /dev/ttyN itself, and libviper
+    reads the console number off that.
     Returns 0, or -1 if the screen could not be rebuilt (the old
     terminal type is restored).
 */
 static int
-vwm_adopt_apply(const char *pty, const char *term, int vc)
+vwm_adopt_apply(const char *pty, const char *term)
 {
     vwm_t       *vwm = vwm_get_instance();
     const char  *cur = getenv("TERM");
     char        old_term[64];
-    char        buf[16];
     bool        had_term = (cur != NULL);
     bool        term_changed;
     bool        console;
     int         retval = 0;
 
-    const char  *old_vc_env = getenv("VK_GPM_VC");
-    char        old_vc[16];
-    bool        had_vc = (old_vc_env != NULL);
-
-    snprintf(old_vc, sizeof(old_vc), "%s", had_vc ? old_vc_env : "");
     snprintf(old_term, sizeof(old_term), "%s", had_term ? cur : "");
     term_changed = (term != NULL && term[0] != '\0'
         && strcmp(old_term, term) != 0);
 
     if(term_changed) setenv("TERM", term, 1);
 
-    if(vc > 0)
-    {
-        snprintf(buf, sizeof(buf), "%d", vc);
-        setenv("VK_GPM_VC", buf, 1);
-    }
-    else
-        unsetenv("VK_GPM_VC");
-
-    /* forget the old GPM verdict; the next fetch re-reads both */
+    /* forget the old GPM verdict; the next fetch asks again, about the
+       terminal the screen is on by then */
     vk_kmio_gpm_reset();
 
     if(pty != NULL || term_changed)
@@ -618,8 +672,6 @@ vwm_adopt_apply(const char *pty, const char *term, int vc)
                 if(had_term) setenv("TERM", old_term, 1);
                 else unsetenv("TERM");
             }
-            if(had_vc) setenv("VK_GPM_VC", old_vc, 1);
-            else unsetenv("VK_GPM_VC");
             vk_kmio_gpm_reset();
             retval = -1;
         }
@@ -639,14 +691,13 @@ vwm_adopt_apply(const char *pty, const char *term, int vc)
     return retval;
 }
 
-/* see vwm.h.  The entry point for `vwm-msg adopt` and the menu Teleport. */
+/* see vwm.h.  The entry point for the control socket's attach. */
 int
 vwm_adopt_terminal(const char *tty, const char *term, const char **err)
 {
     vwm_t       *vwm = vwm_get_instance();
     const char  *here;
     const char  *dummy;
-    int         vc;
 
     if(err == NULL) err = &dummy;
     *err = NULL;
@@ -657,84 +708,102 @@ vwm_adopt_terminal(const char *tty, const char *term, const char **err)
         return -1;
     }
 
-    vc = vwm_tty_vc(tty);
-
-    /* remember where we are before leaving it */
     here = ttyname(vk_screen_get_fd(vwm->screen));
-    vwm_known_tty_note(here, getenv("TERM"));
 
-    /* no type given (Teleport by path): a Linux console is the one
-       terminal whose type the path gives away; otherwise go by what we
-       know of that terminal */
-    if(term == NULL || term[0] == '\0')
-        term = (vc > 0) ? "linux" : vwm_known_tty_guess(tty);
+    /* no type given: a Linux console is the one terminal whose type
+       the path gives away; anything else keeps the current type */
+    if((term == NULL || term[0] == '\0') && vwm_tty_is_console(tty))
+        term = "linux";
 
-    if(getenv("VWM_SOCK") != NULL)
-    {
-        /* dtach: nothing to move, and nobody attached to show it to yet */
-        vwm_adopt_held.pending = true;
-        vwm_adopt_held.vc = vc;
-        vwm_adopt_held.has_term = (term != NULL && term[0] != '\0');
-        snprintf(vwm_adopt_held.term, sizeof(vwm_adopt_held.term), "%s",
-            vwm_adopt_held.has_term ? term : "");
-        return 0;
-    }
-
-    /* already there: rebuild in place rather than evict ourselves */
+    /* already there: rebuild in place rather than open it again */
     if(here != NULL && strcmp(here, tty) == 0) tty = NULL;
 
-    if(vwm_adopt_apply(tty, term, vc) != 0)
+    if(vwm_adopt_apply(tty, term) != 0)
     {
         *err = "adopt failed";
         return -1;
     }
 
-    here = ttyname(vk_screen_get_fd(vwm->screen));
-    vwm_known_tty_note(here, getenv("TERM"));
-
     return 0;
 }
 
-/* see vwm.h.  Decides whether "Teleport home" is offered as active. */
+/* see vwm.h */
 bool
-vwm_at_home(void)
+vwm_is_headless(void)
 {
-    vwm_t       *vwm = vwm_get_instance();
-    const char  *here;
+    vwm_t   *vwm = vwm_get_instance();
 
-    if(vwm == NULL || vwm_home_tty[0] == '\0') return true;
-
-    here = ttyname(vk_screen_get_fd(vwm->screen));
-
-    return here != NULL && strcmp(here, vwm_home_tty) == 0;
+    return vwm != NULL && vk_screen_is_detached(vwm->screen);
 }
 
-/* see vwm.h.  The "Teleport home" menu entry. */
-int
-vwm_teleport_home(void)
+/* see vwm.h */
+void
+vwm_go_headless(void)
 {
-    vwm_t       *vwm = vwm_get_instance();
+    vwm_t   *vwm = vwm_get_instance();
 
-    if(vwm == NULL || vwm_home_tty[0] == '\0') return -1;
+    if(vwm == NULL || vk_screen_is_detached(vwm->screen)) return;
 
-    if(vwm_at_home()) return 0;
+    /* no terminal, so no console and no console mouse: drop the GPM
+       connection */
+    vk_kmio_gpm_reset();
 
-    return vwm_adopt_terminal(vwm_home_tty,
-        (vwm_home_term[0] != '\0') ? vwm_home_term : NULL, NULL);
+    /* libviper moves the screen off the terminal, keeping its size and
+       contents, and emits VK_EVENT_ON_TELEPORT -- vwm_on_teleport then
+       re-arms input against the new (null) screen exactly as it does
+       after any move */
+    if(vk_screen_detach(vwm->screen) != 0) return;
+
+    /* the console pointer is drawn by vwm; nobody is looking */
+    vwm->show_cursor = false;
+    vk_screen_set_overlay(vwm->screen, NULL);
+
+    vwm->screen_dirty = 1;
+
+    /* the terminal is back the way it was found.  The client that was
+       holding it for us can go now, and its shell takes over. */
+    vwm_ctl_release_client("detached");
 }
 
-/* see vwm.h.  Called on KEY_RESIZE: a dtach client has just attached. */
-bool
-vwm_adopt_apply_pending(void)
+/* see vwm.h */
+void
+vwm_detach(void)
 {
-    if(!vwm_adopt_held.pending) return false;
+    /* leaving the terminal hands it back: libviper restores its modes,
+       and the client waiting there is let go (vwm_go_headless) */
+    vwm_go_headless();
+}
 
-    vwm_adopt_held.pending = false;
-    vwm_adopt_apply(NULL,
-        vwm_adopt_held.has_term ? vwm_adopt_held.term : NULL,
-        vwm_adopt_held.vc);
+/* see vwm.h */
+void
+vwm_stop(void)
+{
+    extern int  shutdown;
+    vwm_t       *vwm = vwm_get_instance();
+    int         i;
+    int         j;
 
-    return true;
+    if(vwm == NULL) return;
+
+    /* hang up every terminal's program first, all at once, so they
+       exit side by side while the scheduler winds down.  Each window's
+       own close then finds its program already gone instead of waiting
+       for it in turn. */
+    for(i = 0; i < vwm->surface_count; i++)
+    {
+        if(vwm->decks[i] == NULL) continue;
+
+        for(j = 0; j < vk_deck_count(vwm->decks[i]); j++)
+        {
+            vk_widget_t *w = vk_deck_get_widget(vwm->decks[i], j);
+
+            if(w != NULL) vk_object_emit(VK_OBJECT(w), VWM_EVENT_ON_HANGUP);
+        }
+    }
+
+    /* every task sees this on its next turn (the scheduler wakes them
+       all while it is set) and returns */
+    shutdown = 1;
 }
 
 void

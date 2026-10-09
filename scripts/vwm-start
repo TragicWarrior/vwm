@@ -1,33 +1,25 @@
 #!/bin/sh
 #
-# vwm-start -- launch a NEW vwm session under dtach.
+# vwm-start -- start a vwm session.  The same as running `vwm`.
 #
-# vwm runs detached from your login shell, so you can disconnect (an SSH
-# drop, a closed laptop, or the Ctrl-\ detach key) and later run
-# vwm-resume to pick up exactly where you left off.
+# Kept so that the three session commands read alike:
 #
-#   vwm-start   -- START a session (use this once)
-#   vwm-resume  -- BRING a session that is already running to this
-#                  terminal (reconnect, or move it from another one)
+#   vwm-start    start a session and show it on this terminal
+#   vwm-resume   bring the running session to this terminal
+#   vwm-stop     end the session
 #
-# Detach key while attached:  Ctrl-\
+# The session runs in the background, apart from this terminal: detach
+# with Ctrl-\ (or just close the terminal) and it keeps running.
+#
+# (Before vwm 8 this script ran vwm under dtach to get that.  vwm does
+# it by itself now, and dtach is no longer used.)
 #
 # Environment:
-#   VWM_SOCK  path to the dtach socket   (default: ~/.vwm.sock)
-#   VWM_BIN   path to the vwm binary     (default: vwm, from PATH)
+#   VWM_BIN   path to the vwm binary   (default: vwm, from PATH)
 
 set -u
 
-SOCK="${VWM_SOCK:-$HOME/.vwm.sock}"
-
-# --- locate dtach ---------------------------------------------------
-if ! command -v dtach >/dev/null 2>&1; then
-    echo "vwm-start: dtach is not installed." >&2
-    echo "  Debian/Ubuntu:  sudo apt install dtach" >&2
-    exit 1
-fi
-
-# --- locate the vwm binary ------------------------------------------
+# --- locate vwm -----------------------------------------------------
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 if [ -n "${VWM_BIN:-}" ]; then
     :                                   # caller specified one
@@ -36,104 +28,8 @@ elif command -v vwm >/dev/null 2>&1; then
 elif [ -x "$script_dir/../vwm" ]; then
     VWM_BIN="$script_dir/../vwm"        # running from a build tree
 else
-    VWM_BIN=vwm                         # last resort; let dtach report it
+    echo "vwm-start: vwm not found." >&2
+    exit 1
 fi
 
-# --- find the PID holding the socket, if any (i.e. a live session) --
-socket_holder() {
-    [ -S "$1" ] || return 0
-
-    if command -v ss >/dev/null 2>&1; then
-        ss -xlp 2>/dev/null | grep -F "$1" \
-            | grep -o 'pid=[0-9]*' | head -n1 | cut -d= -f2
-    elif command -v lsof >/dev/null 2>&1; then
-        lsof -t -- "$1" 2>/dev/null | head -n1
-    elif command -v fuser >/dev/null 2>&1; then
-        fuser "$1" 2>/dev/null | tr -s ' ' '\n' \
-            | grep -E '^[0-9]+$' | head -n1
-    fi
-}
-
-# --- disable mouse reporting on the OUTER terminal at detach --------
-# vwm enabled it by writing escapes straight to the tty, and dtach gives
-# the inner process no detach hook, so vwm never hears the detach and
-# cannot turn it off.  Without this the shell we return to receives
-# every mouse movement as escape-sequence garbage.
-disable_mouse() {
-    printf '\033[?1003l\033[?1002l\033[?1000l\033[?1006l\033[?1015l' \
-        > /dev/tty 2>/dev/null || true
-}
-
-# --- sanity check: is a session already present? --------------------
-if [ -e "$SOCK" ]; then
-    holder=$(socket_holder "$SOCK")
-
-    if [ -n "$holder" ]; then
-        echo "A vwm session is already running (pid $holder)."
-        echo "To reconnect to it, use:  vwm-resume"
-        echo
-        echo "Starting a new session means terminating that one and"
-        echo "every program inside it."
-        printf "Terminate it and start fresh? [y/N] "
-        read -r reply
-        case "$reply" in
-            y|Y|yes|YES)
-                kill "$holder" 2>/dev/null
-                i=0
-                while kill -0 "$holder" 2>/dev/null; do
-                    i=$((i + 1))
-                    if [ "$i" -ge 10 ]; then
-                        kill -9 "$holder" 2>/dev/null
-                        break
-                    fi
-                    sleep 0.2
-                done
-                rm -f "$SOCK"
-                ;;
-            *)
-                echo "Left the running session alone.  Use vwm-resume."
-                exit 0
-                ;;
-        esac
-    else
-        echo "Found a leftover socket from a session that is no longer"
-        echo "running:  $SOCK"
-        printf "Clean it up and start fresh? [Y/n] "
-        read -r reply
-        case "$reply" in
-            n|N|no|NO)
-                echo "Aborted."
-                exit 0
-                ;;
-            *)
-                rm -f "$SOCK"
-                ;;
-        esac
-    fi
-fi
-
-# --- launch ---------------------------------------------------------
-# No `exec`: the disable_mouse trap must outlive dtach so it can run
-# when the client detaches.  -r winch makes vwm repaint and re-arm the
-# mouse on every (re)attach; -z keeps Ctrl-Z from orphaning dtach.
-trap disable_mouse EXIT
-
-# Mark the environment so vwm can show a "dtach active" panel indicator
-# (vwm reads getenv("VWM_SOCK")).  This is the supported entry point.
-export VWM_SOCK="$SOCK"
-
-# On a Linux virtual console, tell libviper which one.  Under dtach vwm
-# sits on a pty, so libgpm cannot work out the console from the tty name
-# and the gpm daemon refuses the connection.  Anywhere else (xterm, SSH)
-# leave it unset and libviper behaves as it always has.
-case "$(tty 2>/dev/null)" in
-    /dev/tty[0-9]*)
-        VK_GPM_VC=$(tty | sed 's|^/dev/tty||')
-        export VK_GPM_VC
-        ;;
-    *)
-        unset VK_GPM_VC
-        ;;
-esac
-
-dtach -c "$SOCK" -r winch -z "$VWM_BIN"
+exec "$VWM_BIN" "$@"

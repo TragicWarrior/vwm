@@ -21,5 +21,6 @@ int     vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything);
 int     vwmterm_ON_RECREATE(vk_object_t *object, int event, void *anything);
 int     vwmterm_ON_SCREEN_RESIZED(vk_object_t *object, int event, void *anything);
 int	    vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything);
+int	    vwmterm_ON_HANGUP(vk_object_t *object, int event, void *anything);
 
 #endif

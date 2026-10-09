@@ -86,7 +86,7 @@ screensaver_on_close(vk_object_t *object, int event, void *anything)
        overlay (vwm_screensaver_resize) so the fullscreen lock tracks the new
        geometry; the desktop beneath stays hidden and is NOT repainted.  So once
        the saver is gone, queue one KEY_RESIZE to run the full resync cascade on
-       the now-revealed desktop: re-arm mouse/cursor/keypad (a dtach reattach
+       the now-revealed desktop: re-arm mouse/cursor/keypad (a resume
        may have happened during the lock) and repaint + clamp the windows to the
        current geometry.  Idempotent -- and a welcome repaint -- even when no
        reattach occurred (a local unlock). */
@@ -209,7 +209,7 @@ vwm_screensaver_input(int32_t keystroke, MEVENT *mouse_event)
 
 /*
     Resize the fullscreen saver overlay to the current screen size after a
-    geometry change (e.g. a dtach reattach onto a larger/smaller terminal).
+    geometry change (e.g. a resume onto a larger/smaller terminal).
     The saver window is created VK_STATE_NORESIZE so the user can't resize it,
     so clear that just for this programmatic resize.  The content child is
     resized first so the window's VK_EVENT_ON_RESIZE handler (vwmterm) reads the
