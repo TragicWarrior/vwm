@@ -47,9 +47,6 @@ usage(FILE *fp)
         "      bring the session to a terminal (default: this one and its\n"
         "      $TERM) and wait there until it leaves: detached, moved to\n"
         "      another terminal, or ended.  This is what vwm-resume runs\n"
-        "  adopt [--tty PATH] [--term TYPE]\n"
-        "      dtach sessions only: say what terminal the next vwm-resume\n"
-        "      will attach from\n"
         "\n"
         "Talks to VWM_CONTROL_SOCK, else ~/.config/vwm/control.sock.\n");
 }
@@ -997,16 +994,13 @@ main(int argc, char **argv)
         return transact(req);
     }
 
-    /* attach and adopt take the same arguments.  adopt is one request
-       and one answer; attach stays, as this terminal's foreground job,
-       for as long as the session is here (attach.c). */
-    if(strcmp(op, "adopt") == 0 || strcmp(op, "attach") == 0)
+    /* attach stays, as this terminal's foreground job, for as long as
+       the session is here (attach.c) */
+    if(strcmp(op, "attach") == 0)
     {
         const char  *tty = NULL;
         const char  *term = getenv("TERM");
-        char        esc_tty[PATH_MAX + 8];
-        char        esc_term[160];
-        char        extra[224];
+        char        path[PATH_MAX];
         int         i;
 
         for(i = 2; i < argc; i++)
@@ -1034,31 +1028,13 @@ main(int argc, char **argv)
         }
         if(tty == NULL)
         {
-            fprintf(stderr, "vwm-msg: %s: not on a terminal; "
-                "use --tty PATH\n", op);
+            fprintf(stderr, "vwm-msg: attach: not on a terminal; "
+                "use --tty PATH\n");
             return 1;
         }
 
-        if(strcmp(op, "attach") == 0)
-        {
-            char    path[PATH_MAX];
-
-            sock_path(path, sizeof(path));
-            return vwm_attach_run(path, tty, term);
-        }
-
-        if(json_escape(esc_tty, sizeof(esc_tty), tty) != 0) return 1;
-
-        extra[0] = '\0';
-        if(term != NULL && term[0] != '\0')
-        {
-            if(json_escape(esc_term, sizeof(esc_term), term) != 0) return 1;
-            snprintf(extra, sizeof(extra), ",\"term\":%s", esc_term);
-        }
-
-        snprintf(req, sizeof(req), "{\"op\":\"adopt\",\"tty\":%s%s}",
-            esc_tty, extra);
-        return transact(req);
+        sock_path(path, sizeof(path));
+        return vwm_attach_run(path, tty, term);
     }
 
     fprintf(stderr, "vwm-msg: unknown op '%s'\n", op);

@@ -657,8 +657,6 @@ op_ping(int fd)
     if(data != NULL)
     {
         cJSON_AddStringToObject(data, "version", VWM_VERSION);
-        /* lets vwm-resume choose: reattach (dtach) or adopt (direct) */
-        cJSON_AddBoolToObject(data, "dtach", getenv("VWM_SOCK") != NULL);
         /* for vwm-stop: who to wait for, and whether a terminal is
            attached at all */
         cJSON_AddNumberToObject(data, "pid", (double)getpid());
@@ -733,17 +731,8 @@ ctl_peer_is_descendant(int fd)
 static void
 op_detach(int fd)
 {
-    const char  *why = NULL;
-
-    if(!vwm_can_detach())
-    {
-        vwm_detach(&why);       /* does nothing; fetches the reason */
-        ctl_reply(fd, 0, NULL, (why != NULL) ? why : "cannot detach");
-        return;
-    }
-
     ctl_reply(fd, 1, NULL, NULL);
-    vwm_detach(NULL);
+    vwm_detach();
 }
 
 /*
@@ -758,7 +747,7 @@ op_stop(int fd)
 }
 
 /*
-    Read and check the terminal named by an adopt or attach request.
+    Read and check the terminal named by an attach request.
     Copies the arguments out (the request is freed by the caller) and
     returns 0; on a bad request answers the client and returns -1.
     `term_buf` comes back empty when no type was given.
@@ -812,34 +801,6 @@ ctl_terminal_args(int fd, cJSON *req, char *tty_buf, size_t tty_sz,
 }
 
 /*
-    adopt {tty, term?}: under dtach only.  The dtach client carries the
-    session to the terminal; this tells vwm what kind of terminal that
-    is, and vwm_adopt_terminal() holds it for the next reattach.
-*/
-static void
-op_adopt(int fd, cJSON *req)
-{
-    const char  *err = NULL;
-    char        tty_buf[PATH_MAX];
-    char        term_buf[64];
-
-    if(getenv("VWM_SOCK") == NULL)
-    {
-        ctl_reply(fd, 0, NULL, "use attach");
-        return;
-    }
-
-    if(ctl_terminal_args(fd, req, tty_buf, sizeof(tty_buf),
-        term_buf, sizeof(term_buf)) != 0)
-        return;
-
-    ctl_reply(fd, 1, NULL, NULL);
-
-    vwm_adopt_terminal(tty_buf, (term_buf[0] != '\0') ? term_buf : NULL,
-        &err);
-}
-
-/*
     attach {tty, term?}: bring the session to terminal `tty`, driven as
     type `term`, and keep this connection for as long as it stays there.
     The client (attach.c) waits on it as the foreground job of that
@@ -853,12 +814,6 @@ op_attach(int fd, cJSON *req)
     const char          *err = NULL;
     char                tty_buf[PATH_MAX];
     char                term_buf[64];
-
-    if(getenv("VWM_SOCK") != NULL)
-    {
-        ctl_reply(fd, 0, NULL, "session runs under dtach");
-        return;
-    }
 
     if(ctl_terminal_args(fd, req, tty_buf, sizeof(tty_buf),
         term_buf, sizeof(term_buf)) != 0)
@@ -2469,7 +2424,6 @@ ctl_dispatch(int fd, cJSON *req)
     else if(strcmp(op, "capture") == 0)       op_capture(fd, req);
     else if(strcmp(op, "screenshot") == 0)    op_screenshot(fd, req);
     else if(strcmp(op, "attention") == 0)     op_attention(fd, req);
-    else if(strcmp(op, "adopt") == 0)         op_adopt(fd, req);
     else if(strcmp(op, "attach") == 0)        op_attach(fd, req);
     else if(strcmp(op, "detach") == 0)        op_detach(fd);
     else if(strcmp(op, "stop") == 0)          op_stop(fd);

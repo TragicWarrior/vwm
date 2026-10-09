@@ -2,33 +2,23 @@
 #
 # vwm-resume -- bring the running vwm session to this terminal.
 #
-# Works for either kind of session:
+# The session comes here, and this command stays as the terminal's
+# foreground job until the session leaves again -- it was detached, it
+# moved to another terminal, or it ended -- and then says which.  A
+# terminal the session was showing on gets its shell back.
 #
-#   started with plain `vwm`        -- the session comes to this
-#                                      terminal, and this command stays
-#                                      as its foreground job until the
-#                                      session leaves again (detached,
-#                                      moved elsewhere, or ended).  A
-#                                      terminal it was showing on gets
-#                                      its shell back.
-#   started with vwm-start (dtach)  -- reattaches the dtach client here
-#                                      and detaches it anywhere else
-#
-# Either way vwm is told what this terminal is (its tty and $TERM), so
-# it drives it as the right terminal type and, on a Linux console, picks
-# up the GPM mouse for this console.
+# vwm is told what this terminal is (its tty and $TERM), so it drives it
+# as the right terminal type and, on a Linux console, picks up the GPM
+# mouse for this console.
 #
 # If no session is running, start one with vwm.
 #
 # Detach key while attached:  Ctrl-\
 #
 # Environment:
-#   VWM_SOCK  path to the dtach socket   (default: ~/.vwm.sock)
-#   VWM_MSG   path to vwm-msg            (default: vwm-msg, from PATH)
+#   VWM_MSG   path to vwm-msg   (default: vwm-msg, from PATH)
 
 set -u
-
-SOCK="${VWM_SOCK:-$HOME/.vwm.sock}"
 
 # --- locate vwm-msg -------------------------------------------------
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -39,133 +29,29 @@ elif command -v vwm-msg >/dev/null 2>&1; then
 elif [ -x "$script_dir/../vwm-msg" ]; then
     VWM_MSG="$script_dir/../vwm-msg"    # running from a build tree
 else
-    VWM_MSG=""                          # none: plain dtach reattach only
-fi
-
-# --- what is this terminal, and what kind of session is running? ----
-here=$(tty 2>/dev/null) || here=""
-case "$here" in
-    /dev/*) ;;
-    *)      here="" ;;
-esac
-
-ping=""
-if [ -n "$VWM_MSG" ]; then
-    ping=$("$VWM_MSG" ping 2>/dev/null) || ping=""
-fi
-
-# Tell a dtach session about this terminal.  Prints nothing on success;
-# on failure prints the reason and returns 1.
-adopt() {
-    reply=$("$VWM_MSG" adopt --tty "$here" --term "${TERM:-}" 2>&1) || true
-    case "$reply" in
-        *'"ok":true'*)
-            return 0
-            ;;
-        *'inside this session'*)
-            echo "vwm-resume: this terminal is inside the vwm session." >&2
-            echo "  Run it from a terminal outside vwm." >&2
-            return 1
-            ;;
-        *)
-            echo "vwm-resume: vwm did not accept this terminal: $reply" >&2
-            return 1
-            ;;
-    esac
-}
-
-case "$ping" in
-    *'"dtach":false'*)
-        # --- a session started with plain vwm: bring it here --------
-        # vwm-msg attach asks the session over and then waits, holding
-        # this terminal for it, until the session leaves; it says why
-        # and restores the terminal itself.
-        if [ -z "$here" ]; then
-            echo "vwm-resume: not on a terminal." >&2
-            exit 1
-        fi
-        exec "$VWM_MSG" attach --tty "$here" --term "${TERM:-}"
-        ;;
-    *'"dtach":true'*)
-        # --- a dtach session: describe this terminal, then reattach -
-        # vwm holds the description and applies it when the client
-        # attaches below.
-        if [ -n "$here" ]; then
-            adopt || exit 1
-        fi
-        ;;
-    *)
-        # no answer, or a vwm too old to say: reattach the old way
-        ;;
-esac
-
-# --- locate dtach ---------------------------------------------------
-if ! command -v dtach >/dev/null 2>&1; then
-    echo "vwm-resume: dtach is not installed." >&2
-    echo "  Debian/Ubuntu:  sudo apt install dtach" >&2
+    echo "vwm-resume: vwm-msg not found." >&2
     exit 1
 fi
 
-# --- must have something to attach to -------------------------------
-if [ ! -e "$SOCK" ]; then
+# --- what is this terminal? -----------------------------------------
+here=$(tty 2>/dev/null) || here=""
+case "$here" in
+    /dev/*) ;;
+    *)
+        echo "vwm-resume: not on a terminal." >&2
+        exit 1
+        ;;
+esac
+
+# --- is there a session? --------------------------------------------
+if ! "$VWM_MSG" ping >/dev/null 2>&1; then
     echo "No vwm session is running."
     echo "Start one with:  vwm"
     exit 1
 fi
 
-# --- disable mouse reporting on the OUTER terminal at detach --------
-# See vwm-start for why this lives in the launcher rather than in vwm.
-disable_mouse() {
-    printf '\033[?1003l\033[?1002l\033[?1000l\033[?1006l\033[?1015l' \
-        > /dev/tty 2>/dev/null || true
-}
-
-# --- take the session away from wherever else it is showing ---------
-# dtach lets any number of clients attach at once and mirrors the
-# session to all of them, with no option to detach the others.  Resume
-# means "bring it here", so hang up the other clients first: SIGHUP
-# makes a dtach client restore its terminal and exit with "[detached]".
-# The master (no controlling terminal) is left alone.
-detach_others() {
-    ps -u "$(id -u)" -o pid= -o tty= -o args= 2>/dev/null \
-        | awk -v sock="$SOCK" '
-            $2 !~ /^\?+$/ && $3 ~ /(^|\/)dtach$/ {
-                for(i = 4; i <= NF; i++)
-                    if($i == sock) { print $1; break }
-            }' \
-        | while read -r pid; do
-            kill -HUP "$pid" 2>/dev/null || true
-        done
-}
-
-detach_others
-
-# --- attach ---------------------------------------------------------
-# No `exec`: the disable_mouse trap must outlive dtach so it can run
-# when the client detaches.  -r winch makes vwm repaint and re-arm the
-# mouse on attach; -z keeps Ctrl-Z from orphaning dtach.  dtach exits
-# non-zero if the socket is stale (no live session) -- point the user
-# back at vwm-start in that case.
-trap disable_mouse EXIT
-
-dtach -a "$SOCK" -r winch -z
-status=$?
-
-# dtach exits non-zero both when it could not attach and when this
-# client was hung up -- which is what another vwm-resume does to take
-# the session (see detach_others).  Tell them apart by asking whether
-# the session is still there: if vwm answers, nothing went wrong.
-if [ "$status" -ne 0 ]; then
-    if [ -n "$VWM_MSG" ] && "$VWM_MSG" ping >/dev/null 2>&1; then
-        echo
-        echo "The vwm session moved to another terminal."
-        echo "Run vwm-resume to bring it back here."
-        status=0
-    else
-        echo
-        echo "Could not attach -- the session may have ended."
-        echo "If the problem persists, remove $SOCK and run vwm-start."
-    fi
-fi
-
-exit "$status"
+# --- bring it here --------------------------------------------------
+# vwm-msg attach asks the session over and then waits, holding this
+# terminal for it, until the session leaves; it says why and sees that
+# the terminal is left in order.
+exec "$VWM_MSG" attach --tty "$here" --term "${TERM:-}"

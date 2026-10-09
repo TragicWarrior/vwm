@@ -1,5 +1,21 @@
 2026-10-09
 
+vwm 8 keeps your session alive by itself.  Start it with plain vwm and
+it runs in the background: close the terminal, lose the SSH connection
+or press Ctrl-\ to detach, and everything in it keeps running.
+vwm-resume brings it to whatever terminal you are on -- an X terminal,
+an SSH login, a Linux console -- and the new vwm-stop ends it.
+
+dtach is no longer needed or used.  vwm-start still works; it is now
+just another name for vwm.  The Teleport entries are gone from the VWM
+menu (vwm-resume does that job) and Detach has taken their place.  One
+difference from dtach: a session shows on one terminal at a time.
+
+Building this release needs libvterm 10.9+ and libviper 9.0.0+.
+
+
+2026-10-09
+
 No visible change in this one: vwm's scheduler was rebuilt so that tasks
 sleep until there is something for them to do, instead of each being
 checked in turn.  It behaves the same and is simpler inside.

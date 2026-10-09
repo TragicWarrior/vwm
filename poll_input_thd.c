@@ -251,7 +251,7 @@ raise_to_top(vwm_t *vwm, vk_widget_t *widget)
 }
 
 /*
-    Fit every window back into the usable area after a shrink -- e.g. a dtach
+    Fit every window back into the usable area after a shrink -- e.g. a
     reattach or teleport onto a smaller terminal, which leaves windows at their
     old coordinates and possibly larger than the new screen.  Each window's
     top-left is pulled on-screen and, if it is still larger than the usable
@@ -414,14 +414,8 @@ vwm_poll_input(void * const env)
             continue;
         }
 
-        /* a reattach is when a held `vwm-msg adopt` takes effect: the
-           dtach client is on the line now, so the rebuilt screen's init
-           strings reach a terminal instead of being dropped. */
-        if(keystroke == KEY_RESIZE)
-            vwm_adopt_apply_pending();
-
         /* while the screensaver is up, all input is locked to it -- EXCEPT a
-           terminal resize (e.g. a dtach reattach onto a different-size tty),
+           terminal resize (e.g. a resume onto a different-size terminal),
            which we let through so the fullscreen saver overlay and the locked
            program's vterm follow the new geometry.  Only the overlay is
            resized; the desktop beneath stays hidden (no clamp/repaint of the
@@ -447,12 +441,9 @@ vwm_poll_input(void * const env)
         {
             vk_screen_resize(vwm->screen);
 
-            /* a dtach / abduco reattach also arrives as KEY_RESIZE (the
-               client sends SIGWINCH via -r winch).  Re-arm input against
-               the current tty so the mouse survives a detach/reattach
-               cycle -- in particular when the user ran `reset` on the
-               detached terminal, which clears the modes vwm set at
-               startup.  Same re-arm the teleport handler performs. */
+            /* re-arm input against the current terminal: a resize is
+               also how a move to another terminal arrives here, and
+               the mouse modes have to be set on the new one */
             vwm_input_rearm(vwm);
 
             /* drop every cached wallpaper -- the surface canvases were
@@ -480,7 +471,7 @@ vwm_poll_input(void * const env)
             if(vwm_manage_windows_is_open())
                 vwm_manage_windows_handle_resize();
 
-            /* the terminal may have shrunk (e.g. dtach reattach onto a
+            /* the terminal may have shrunk (e.g. a resume onto a
                smaller tty) -- pull any now-off-screen window back so its
                frame stays grabbable */
             clamp_windows_onscreen(vwm);

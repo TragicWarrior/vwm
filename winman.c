@@ -189,7 +189,7 @@ vwm_minimize_window(vk_widget_t *widget)
 
 /*
     Fit a window into the usable area (row 0 is the panel, row scr_h-1 the
-    status bar; windows live in between).  Two steps, for a dtach reattach,
+    status bar; windows live in between).  Two steps, for a resume,
     teleport, or restore onto a terminal smaller than the window was sized for:
       1. pull the top-left back on-screen -- a window larger than the screen
          clamps to the home corner (x = 0, y = 1);

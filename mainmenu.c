@@ -347,7 +347,7 @@ vwm_detach_item(vk_widget_t *widget, void *anything)
     (void)widget;
     (void)anything;
 
-    vwm_detach(NULL);
+    vwm_detach();
 
     return 0;
 }
@@ -474,14 +474,9 @@ create_file_dropdown(vwm_t *vwm)
     vk_listbox_add_item(listbox, "Print file",
         vwm_print_file, NULL);
     /* detach: hand this terminal back and keep the session running
-       (vwm-resume brings it back).  Not offered under dtach, where the
-       dtach client owns the terminal and has its own detach key;
-       VWM_SOCK is how vwm-start marks such a session. */
-    if(getenv("VWM_SOCK") == NULL)
-    {
-        vk_listbox_add_item(listbox, "Detach",
-            vwm_detach_item, NULL);
-    }
+       (vwm-resume brings it back) */
+    vk_listbox_add_item(listbox, "Detach",
+        vwm_detach_item, NULL);
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Manage Apps Menu",
         vwm_manage_apps_open, NULL);

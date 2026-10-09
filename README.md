@@ -62,7 +62,7 @@ REQUIREMENTS
 
 CMake
 ncursesw 5.4+
-libviper 8.1.0+  - https://github.com/TragicWarrior/libviper
+libviper 9.0.0+  - https://github.com/TragicWarrior/libviper
 libvterm 10.9+ - https://github.com/TragicWarrior/libvterm
 FreeType         (for screen capture; DejaVu Sans Mono is bundled)
                  cmake -DVWM_SCREENSHOT_FONT= / -DVWM_SCREENSHOT_FONT_BOLD=
@@ -70,7 +70,6 @@ FreeType         (for screen capture; DejaVu Sans Mono is bundled)
 libcups2-dev     (for the print module; "make all")
 zlib             (for the big-font hostname module, vwmfont)
 xclip (optional) - for "xclip" / "Both" Copy-to-Clipboard modes under X
-dtach (optional) - only for vwm-start; see RUNNING UNDER DTACH
 gpm (optional)   - the gpm daemon, at run time, for the mouse on a Linux
                    console; nothing is needed to build
 
@@ -95,12 +94,12 @@ shell -- including one inside a vwmterm -- run vwm-msg:
     vwm-msg stop
     vwm-msg attach
 
-ping also reports the session's process id, whether a terminal is
-attached, and whether it runs under dtach.  attach brings the session to
+ping also reports the session's process id and whether a terminal is
+attached.  attach brings the session to
 the terminal it is run from (or --tty PATH --term TYPE) and then waits
 there, as the shell's foreground job, until the session leaves; it is
 what vwm-resume runs, and it is refused from a terminal inside the
-session.  See vwm-msg --help.  This is not the dtach socket (VWM_SOCK).
+session.  See vwm-msg --help.
 
 INSTALLATION
 ============
@@ -138,6 +137,7 @@ STARTING, LEAVING AND COMING BACK
 =================================
 
     vwm          start a session and show it on this terminal
+                 (vwm-start is the same thing)
     vwm-resume   bring the running session to this terminal
     vwm-stop     end the session, from any terminal
 
@@ -190,12 +190,15 @@ console, xterm mouse reporting when it is an X terminal, the glyphs that
 terminal can show, and its size.  A session started in an X terminal can
 be resumed on a console or over SSH and back again.
 
-RUNNING UNDER DTACH
-===================
+COMING FROM DTACH
+=================
 
-vwm-start still runs a session under dtach, for setups built around it;
-vwm-resume and vwm-stop work for those sessions as well.  dtach has its
-own detach key (also Ctrl-\) and its socket defaults to ~/.vwm.sock
-(VWM_SOCK).  Nothing above needs it.
+Before version 8, surviving a disconnect meant running vwm under dtach
+with vwm-start.  vwm does that itself now and dtach is not used: plain
+vwm is durable, vwm-start is kept as another name for it, and the
+status bar no longer carries a dtach indicator.  Two things differ from
+a dtach session: a session shows on one terminal at a time (resuming it
+elsewhere moves it, it is not mirrored), and the leftover ~/.vwm.sock
+and the VWM_SOCK variable mean nothing any more.
 
 Enjoy!

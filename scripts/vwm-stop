@@ -4,21 +4,18 @@
 #
 # Asks vwm to shut down and waits for it: every program in the session
 # is hung up (as if its terminal had been closed), the terminal vwm is
-# on -- if any -- is put back the way it was, and the session's sockets
-# are cleaned up.  Works whether or not a terminal is attached, so it is
-# also how to end a session you have detached from.
+# on -- if any -- is put back the way it was.  Works whether or not a
+# terminal is attached, so it is also how to end a session you have
+# detached from.
 #
 # If vwm does not answer, or does not go, it is told more firmly:
 # SIGTERM, then SIGKILL.  The exit status is 0 when no session is left
 # running.
 #
 # Environment:
-#   VWM_MSG   path to vwm-msg            (default: vwm-msg, from PATH)
-#   VWM_SOCK  path to the dtach socket   (default: ~/.vwm.sock)
+#   VWM_MSG   path to vwm-msg   (default: vwm-msg, from PATH)
 
 set -u
-
-SOCK="${VWM_SOCK:-$HOME/.vwm.sock}"
 
 # how long to wait at each stage, in tenths of a second
 POLITE_TENTHS=50        # after asking nicely
@@ -50,25 +47,12 @@ wait_gone() {
     return 0
 }
 
-# a dtach socket left behind by a session that is gone would make the
-# next vwm-start stop and ask about it; remove it when nobody holds it
-clean_dtach_socket() {
-    [ -S "$SOCK" ] || return 0
-
-    if command -v ss >/dev/null 2>&1; then
-        ss -xl 2>/dev/null | grep -qF "$SOCK" && return 0
-    fi
-
-    rm -f "$SOCK"
-}
-
 # --- is there a session? --------------------------------------------
 ping=$("$VWM_MSG" ping 2>/dev/null) || ping=""
 
 case "$ping" in
     *'"ok":true'*) ;;
     *)
-        clean_dtach_socket
         echo "No vwm session is running."
         exit 0
         ;;
@@ -89,7 +73,6 @@ if [ -z "$pid" ]; then
 fi
 
 if wait_gone "$pid" "$POLITE_TENTHS"; then
-    clean_dtach_socket
     echo "vwm stopped."
     exit 0
 fi
@@ -99,7 +82,6 @@ echo "vwm (pid $pid) is still running; sending SIGTERM."
 kill -TERM "$pid" 2>/dev/null || true
 
 if wait_gone "$pid" "$TERM_TENTHS"; then
-    clean_dtach_socket
     echo "vwm stopped."
     exit 0
 fi
@@ -108,7 +90,6 @@ echo "vwm (pid $pid) did not respond; sending SIGKILL."
 kill -KILL "$pid" 2>/dev/null || true
 
 if wait_gone "$pid" 20; then
-    clean_dtach_socket
     echo "vwm killed.  Programs it was running may need a moment to exit."
     exit 0
 fi

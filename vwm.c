@@ -81,8 +81,8 @@ vwm_sched_render(void *arg);
 vwm_sched_t             *sched = NULL;
 int                     shutdown = 0;
 
-/* the size the session's screen starts at when it starts on no
-   terminal (see vwm_launch); 0 x 0 when it starts on one, under dtach */
+/* the size the session's screen starts at: that of the terminal it was
+   launched from (see vwm_launch) */
 static int              vwm_start_w = 0;
 static int              vwm_start_h = 0;
 
@@ -99,7 +99,6 @@ int main(int argc,char **argv)
     vwm_t                   *vwm = NULL;
     extern char             **vwm_argv;
     extern int              vwm_argc;
-	int		      		    fd;
 	char		      		*locale = NULL;
 
     extern int              shutdown;
@@ -147,7 +146,6 @@ int main(int argc,char **argv)
     {
         bool            ignore_tty_size = false;
         struct winsize  ws;
-        int             tries;
         int             i;
 
         for(i = 1; i < argc; i++)
@@ -159,19 +157,7 @@ int main(int argc,char **argv)
             }
         }
 
-        /* under dtach the pty has no size (0x0) until the client
-           attaches and reports one, and the client clears the screen
-           first -- slow on a framebuffer console.  Wait up to 2s for a
-           size rather than fail on a reading that only means "not
-           known yet". */
         memset(&ws, 0, sizeof(ws));
-        for(tries = 0; tries < 200; tries++)
-        {
-            if(ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) != 0) break;
-            if(ws.ws_col != 0 || ws.ws_row != 0) break;
-            if(getenv("VWM_SOCK") == NULL) break;
-            usleep(10000);
-        }
 
         if(ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) == 0
             && (ws.ws_col != 0 || ws.ws_row != 0))
@@ -214,16 +200,8 @@ int main(int argc,char **argv)
 
         /* the session runs in the background, on no terminal; this
            command starts it and then attaches this terminal to it.
-           Only the background session returns from here.  (Under
-           dtach -- vwm-start sets VWM_SOCK -- vwm still runs on the
-           terminal dtach gives it.) */
-        if(getenv("VWM_SOCK") == NULL)
-            vwm_launch(ctl_path);
-        else
-        {
-            vwm_start_w = 0;
-            vwm_start_h = 0;
-        }
+           Only the background session returns from here. */
+        vwm_launch(ctl_path);
     }
 
     sched = vwm_sched_init();
@@ -254,22 +232,10 @@ int main(int argc,char **argv)
 
     setlocale(LC_ALL, locale);
 
-	// print some debug information
-	printf("%s\n\r", locale);
-	printf("ncurses = %d.%d (%d)\n\r", NCURSES_VERSION_MAJOR,
-		NCURSES_VERSION_MINOR,NCURSES_VERSION_PATCH);
-	fflush(NULL);
-
 #ifdef __linux
     // suppress printk messages.  klogctl() is linux specific.
 	klogctl(6, NULL, 0);
-    printf("VWM running on Linux\n\r");
 #endif
-
-    // supress STDERR
-	fd = open("/dev/null", O_WRONLY);
-	if(fd == -1) exit(0);
-	dup2(fd, STDERR_FILENO);
 
 	// ignore terminal interrupt signal
     vwm_sigset(SIGINT, SIG_IGN);
@@ -300,11 +266,6 @@ int main(int argc,char **argv)
         return 1;
     }
 
-    /* now that newterm() has run (inside vwm_init), claim SIGWINCH so a
-       same-size dtach reattach still drives the resync cascade -- chains
-       ncurses' own handler, so ordinary resizes are unaffected. */
-    vwm_sigwinch_install();
-
     vwm_panel_init(vwm);
 
     vk_screen_refresh(vwm->screen);
@@ -331,7 +292,7 @@ int main(int argc,char **argv)
        NULL. */
     if(vwm_ctl_init() == 0)
         vwm_sched_wake_fd_add(sched, vwm_ctl_listen_fd(), NULL);
-    else if(vwm_report_fd >= 0)
+    else
     {
         /* a background session nobody can reach is no use to anyone */
         vwm_launch_report("could not create the control socket");
@@ -358,8 +319,6 @@ int main(int argc,char **argv)
 
     vwm_ctl_shutdown();
     vwm_sched_deinit(sched);
-    fsync(fd);
-	close(fd);
 
 	return 0;
 }
@@ -498,8 +457,7 @@ vwm_launch(const char *ctl_path)
 /*
     In the background session: tell the command that launched it how the
     start went -- "ok", or the reason it failed -- and close the line.
-    Does nothing when nobody is listening (under dtach, or once it has
-    been said).
+    Does nothing once it has been said.
 */
 static void
 vwm_launch_report(const char *msg)
@@ -547,12 +505,8 @@ vwm_init(void)
  		vwm = (vwm_t*)calloc(1, sizeof(vwm_t));
 
         /* the session starts on no terminal, at the size of the one it
-           was launched from, and is attached afterwards.  Under dtach
-           (no start size) it starts on the terminal dtach gives it. */
-        if(vwm_start_w > 0 && vwm_start_h > 0)
-            vwm->screen = vk_screen_create_detached(vwm_start_w, vwm_start_h);
-        else
-            vwm->screen = vk_screen_create();
+           was launched from, and is attached afterwards */
+        vwm->screen = vk_screen_create_detached(vwm_start_w, vwm_start_h);
 
         /* main() reports this and gives up */
         if(vwm->screen == NULL) return vwm;
@@ -634,19 +588,10 @@ vwm_init(void)
         vwm->hotkey_grow_w = '>';
         vwm->hotkey_shrink_w = '<';
         vwm->hotkey_desktop = (27 | (100 << 8));
-        vwm->hotkey_detach = 28;        /* Ctrl-\, the key dtach uses */
-        {
-            /* the console pointer is drawn by vwm.  A session that
-               starts on no terminal gets it when it is attached to a
-               console (vwm_adopt_apply). */
-            const char *term = getenv("TERM");
-            if(term != NULL && strcmp(term, "linux") == 0
-                && !vk_screen_is_detached(vwm->screen))
-            {
-                vwm->show_cursor = true;
-                vk_screen_set_overlay(vwm->screen, vwm_cursor_overlay);
-            }
-        }
+        vwm->hotkey_detach = 28;        /* Ctrl-\ */
+        /* the console pointer (drawn by vwm, see vwm_cursor_overlay) is
+           switched on when the session is attached to a console:
+           vwm_adopt_apply */
 
         // load user profile
         vwm_profile_init(vwm);
@@ -663,80 +608,57 @@ vwm_input_rearm(vwm_t *vwm)
     /* re-emit the mouse enable escapes and restore non-blocking input
        against the current tty.  kmio writes the escapes straight to the
        fd, so they have to be resent whenever that fd's terminal may have
-       changed: at startup, after teleport (a new fd), and on a dtach
-       reattach (a new outer terminal, possibly after `reset`).  On an
+       changed: after a move to another terminal (a new fd).  On an
        ordinary resize it is a harmless no-op. */
     vk_kmio_init(vk_screen_get_fd(vwm->screen), VWM_KMIO_FLAGS);
     nodelay(stdscr, TRUE);
 }
 
 /*
-    the console number of /dev/ttyN (1-63), or 0 for any other terminal.
+    is `tty` a Linux virtual console, /dev/ttyN?
 */
-static int
-vwm_tty_vc(const char *tty)
+static bool
+vwm_tty_is_console(const char *tty)
 {
     char    *end;
     long    vc;
 
-    if(tty == NULL || strncmp(tty, "/dev/tty", 8) != 0) return 0;
-    if(tty[8] < '0' || tty[8] > '9') return 0;
+    if(tty == NULL || strncmp(tty, "/dev/tty", 8) != 0) return false;
+    if(tty[8] < '0' || tty[8] > '9') return false;
 
     vc = strtol(tty + 8, &end, 10);
-    if(*end != '\0' || vc < 1 || vc > 63) return 0;
 
-    return (int)vc;
+    return *end == '\0' && vc >= 1 && vc <= 63;
 }
-
-static struct
-{
-    bool    pending;
-    bool    has_term;
-    char    term[64];
-    int     vc;
-}
-vwm_adopt_held;
 
 /*
     Do the adopt.  pty == NULL rebuilds the screen where it is.  The
     environment is the hand-off to libviper: TERM picks the terminfo
-    entry and the UTF-8 or ASCII glyphs, VK_GPM_VC names the console
-    for the GPM mouse when the screen is not on it directly (dtach).
+    entry and the UTF-8 or ASCII glyphs.  The GPM mouse needs nothing
+    said: on a console the screen is on /dev/ttyN itself, and libviper
+    reads the console number off that.
     Returns 0, or -1 if the screen could not be rebuilt (the old
     terminal type is restored).
 */
 static int
-vwm_adopt_apply(const char *pty, const char *term, int vc)
+vwm_adopt_apply(const char *pty, const char *term)
 {
     vwm_t       *vwm = vwm_get_instance();
     const char  *cur = getenv("TERM");
     char        old_term[64];
-    char        buf[16];
     bool        had_term = (cur != NULL);
     bool        term_changed;
     bool        console;
     int         retval = 0;
 
-    const char  *old_vc_env = getenv("VK_GPM_VC");
-    char        old_vc[16];
-    bool        had_vc = (old_vc_env != NULL);
-
-    snprintf(old_vc, sizeof(old_vc), "%s", had_vc ? old_vc_env : "");
     snprintf(old_term, sizeof(old_term), "%s", had_term ? cur : "");
     term_changed = (term != NULL && term[0] != '\0'
         && strcmp(old_term, term) != 0);
 
     if(term_changed) setenv("TERM", term, 1);
 
-    if(vc > 0)
-    {
-        snprintf(buf, sizeof(buf), "%d", vc);
-        setenv("VK_GPM_VC", buf, 1);
-    }
-    else
-        unsetenv("VK_GPM_VC");
-
-    /* forget the old GPM verdict; the next fetch re-reads both */
+    /* forget the old GPM verdict; the next fetch asks again, about the
+       terminal the screen is on by then */
     vk_kmio_gpm_reset();
 
     if(pty != NULL || term_changed)
@@ -750,8 +672,6 @@ vwm_adopt_apply(const char *pty, const char *term, int vc)
                 if(had_term) setenv("TERM", old_term, 1);
                 else unsetenv("TERM");
             }
-            if(had_vc) setenv("VK_GPM_VC", old_vc, 1);
-            else unsetenv("VK_GPM_VC");
             vk_kmio_gpm_reset();
             retval = -1;
         }
@@ -771,14 +691,13 @@ vwm_adopt_apply(const char *pty, const char *term, int vc)
     return retval;
 }
 
-/* see vwm.h.  The entry point for the control socket's attach and adopt. */
+/* see vwm.h.  The entry point for the control socket's attach. */
 int
 vwm_adopt_terminal(const char *tty, const char *term, const char **err)
 {
     vwm_t       *vwm = vwm_get_instance();
     const char  *here;
     const char  *dummy;
-    int         vc;
 
     if(err == NULL) err = &dummy;
     *err = NULL;
@@ -789,28 +708,17 @@ vwm_adopt_terminal(const char *tty, const char *term, const char **err)
         return -1;
     }
 
-    vc = vwm_tty_vc(tty);
     here = ttyname(vk_screen_get_fd(vwm->screen));
 
     /* no type given: a Linux console is the one terminal whose type
        the path gives away; anything else keeps the current type */
-    if((term == NULL || term[0] == '\0') && vc > 0) term = "linux";
-
-    if(getenv("VWM_SOCK") != NULL)
-    {
-        /* dtach: nothing to move, and nobody attached to show it to yet */
-        vwm_adopt_held.pending = true;
-        vwm_adopt_held.vc = vc;
-        vwm_adopt_held.has_term = (term != NULL && term[0] != '\0');
-        snprintf(vwm_adopt_held.term, sizeof(vwm_adopt_held.term), "%s",
-            vwm_adopt_held.has_term ? term : "");
-        return 0;
-    }
+    if((term == NULL || term[0] == '\0') && vwm_tty_is_console(tty))
+        term = "linux";
 
     /* already there: rebuild in place rather than open it again */
     if(here != NULL && strcmp(here, tty) == 0) tty = NULL;
 
-    if(vwm_adopt_apply(tty, term, vc) != 0)
+    if(vwm_adopt_apply(tty, term) != 0)
     {
         *err = "adopt failed";
         return -1;
@@ -837,8 +745,7 @@ vwm_go_headless(void)
     if(vwm == NULL || vk_screen_is_detached(vwm->screen)) return;
 
     /* no terminal, so no console and no console mouse: drop the GPM
-       connection and forget which console it was for */
-    unsetenv("VK_GPM_VC");
+       connection */
     vk_kmio_gpm_reset();
 
     /* libviper moves the screen off the terminal, keeping its size and
@@ -858,41 +765,13 @@ vwm_go_headless(void)
     vwm_ctl_release_client("detached");
 }
 
-/*
-    Why the session cannot be detached from where it is, or NULL when it
-    can.  One case is left: under dtach the dtach client owns the
-    terminal, and its own detach key does the job.
-*/
-static const char *
-vwm_detach_blocker(void)
-{
-    if(getenv("VWM_SOCK") != NULL)
-        return "Running under dtach: detach with its own key";
-
-    return NULL;
-}
-
 /* see vwm.h */
-bool
-vwm_can_detach(void)
+void
+vwm_detach(void)
 {
-    return vwm_detach_blocker() == NULL;
-}
-
-/* see vwm.h */
-int
-vwm_detach(const char **why)
-{
-    const char  *blocker = vwm_detach_blocker();
-
-    if(why != NULL) *why = blocker;
-    if(blocker != NULL) return -1;
-
     /* leaving the terminal hands it back: libviper restores its modes,
        and the client waiting there is let go (vwm_go_headless) */
     vwm_go_headless();
-
-    return 0;
 }
 
 /* see vwm.h */
@@ -925,20 +804,6 @@ vwm_stop(void)
     /* every task sees this on its next turn (the scheduler wakes them
        all while it is set) and returns */
     shutdown = 1;
-}
-
-/* see vwm.h.  Called on KEY_RESIZE: a dtach client has just attached. */
-bool
-vwm_adopt_apply_pending(void)
-{
-    if(!vwm_adopt_held.pending) return false;
-
-    vwm_adopt_held.pending = false;
-    vwm_adopt_apply(NULL,
-        vwm_adopt_held.has_term ? vwm_adopt_held.term : NULL,
-        vwm_adopt_held.vc);
-
-    return true;
 }
 
 void

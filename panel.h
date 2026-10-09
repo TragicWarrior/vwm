@@ -16,7 +16,6 @@ typedef struct
     vk_label_t          *task_label;
     vk_label_t          *clock_label;
     vk_activity_t       *activity;
-    vk_label_t          *dtach_dot;         /* status-bar dtach indicator */
 
     vk_label_t          *desktop_prompt;
 

@@ -24,7 +24,7 @@ bool    vwm_screensaver_is_active(void);
 void    vwm_screensaver_input(int32_t keystroke, MEVENT *mouse_event);
 
 /* resize the fullscreen saver overlay -- and the locked program's vterm -- to
-   the current screen size (e.g. after a dtach reattach onto a different-size
+   the current screen size (e.g. after a resume onto a different-size
    terminal).  Touches only the overlay, never the hidden desktop beneath it. */
 void    vwm_screensaver_resize(void);
 

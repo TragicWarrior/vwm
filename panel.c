@@ -57,11 +57,11 @@ vwm_panel_get_data(void)
 }
 
 /*
-    Give the panel's two glyph-bearing widgets the form the current
-    terminal can show: braille activity dots and a round dtach dot where
-    UTF-8 works, a spinner and an "o" where it does not.  Run at init and
-    again whenever the terminal type changes -- these widgets live for
-    the whole session, so nothing else would ever re-pick them.
+    Give the panel's glyph-bearing widget the form the current
+    terminal can show: braille activity dots where UTF-8 works, a
+    spinner where it does not.  Run at init and
+    again whenever the terminal type changes -- the widget lives for
+    the whole session, so nothing else would ever re-pick it.
 */
 static void
 vwm_panel_apply_glyphs(VWM_PANEL *vwm_panel)
@@ -84,13 +84,6 @@ vwm_panel_apply_glyphs(VWM_PANEL *vwm_panel)
             vk_widget_set_attrs(VK_WIDGET(vwm_panel->activity), A_NORMAL);
             vk_activity_set_style(vwm_panel->activity, VK_ACTIVITY_SPINNER);
         }
-    }
-
-    if(vwm_panel->dtach_dot != NULL)
-    {
-        vk_label_set_text(vwm_panel->dtach_dot,
-            has_utf8 ? " \xe2\x97\x8f " : " o ");
-        vk_label_update(vwm_panel->dtach_dot);
     }
 }
 
@@ -185,7 +178,7 @@ vwm_panel_init(vwm_t *vwm)
         version_len = strlen(version_str);
 
         vwm_panel->status_box = vk_box_create(max_x, 1,
-            VK_BOX_HORIZONTAL, 5);
+            VK_BOX_HORIZONTAL, 3);
         vk_box_set_homogeneous(vwm_panel->status_box, false);
         vk_widget_set_colors(VK_WIDGET(vwm_panel->status_box),
             COLOR_BLACK, COLOR_WHITE);
@@ -215,47 +208,9 @@ vwm_panel_init(vwm_t *vwm)
         vk_label_set_text(vwm_panel->version_label, version_str);
         vk_label_update(vwm_panel->version_label);
 
-        /*
-            dtach status indicator -- bottom-right, just left of the VWM
-            version label.  Circle: bright green = running under the
-            bundled dtach launcher, plain red = not.  Bright-white text on
-            a dark-gray field.  Static for the process lifetime, so it's a
-            box-owned local (no struct field / updater).  Dark gray wants
-            a 16-colour terminal; falls back to the base palette.
-        */
-        {
-            int         under_dtach = (getenv("VWM_SOCK") != NULL);
-            int         gray  = (COLORS >= 16) ? 8  : COLOR_BLACK;
-            int         white = (COLORS >= 16) ? 15 : COLOR_WHITE;
-            int         dot   = under_dtach ? COLOR_GREEN : COLOR_RED;
-            const char  *txt  = under_dtach
-                                    ? "dtach active " : "dtach inactive ";
-            vk_label_t  *dtach_dot = vk_label_create(3);
-            vk_label_t  *dtach_txt = vk_label_create((int)strlen(txt));
-
-            /* bold (bright) green for active; a plain, true red for
-               inactive -- the bright red read wrong. */
-            vk_widget_set_colors(VK_WIDGET(dtach_dot), dot, gray);
-            vk_widget_set_attrs(VK_WIDGET(dtach_dot),
-                under_dtach ? A_BOLD : A_NORMAL);
-            /* the glyph itself comes from vwm_panel_apply_glyphs() */
-            vwm_panel->dtach_dot = dtach_dot;
-            vwm_panel_apply_glyphs(vwm_panel);
-
-            vk_widget_set_colors(VK_WIDGET(dtach_txt), white, gray);
-            vk_widget_set_attrs(VK_WIDGET(dtach_txt), A_BOLD);
-            vk_label_set_text(dtach_txt, txt);
-            vk_label_update(dtach_txt);
-
-            vk_box_set_widget(vwm_panel->status_box, 2,
-                VK_WIDGET(dtach_dot), VK_INHERIT_NONE);
-            vk_box_set_widget(vwm_panel->status_box, 3,
-                VK_WIDGET(dtach_txt), VK_INHERIT_NONE);
-        }
-
         vk_box_set_widget(vwm_panel->status_box, 1,
             VK_WIDGET(vwm_panel->status_marquee), VK_INHERIT_NONE);
-        vk_box_set_widget(vwm_panel->status_box, 4,
+        vk_box_set_widget(vwm_panel->status_box, 2,
             VK_WIDGET(vwm_panel->version_label), VK_INHERIT_NONE);
 
         vk_widget_move(VK_WIDGET(vwm_panel->status_box), 0, max_y - 1);
@@ -382,15 +337,10 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
         return KMIO_HANDLED;
     }
 
-    /* detach: give the terminal back and keep the session running.
-       when it cannot be done from here, say why on the status bar
-       rather than swallow the key silently. */
+    /* detach: give the terminal back and keep the session running */
     if(keystroke == vwm->hotkey_detach)
     {
-        const char  *why = NULL;
-
-        if(vwm_detach(&why) != 0 && why != NULL)
-            vwm_panel_set_status(why);
+        vwm_detach();
 
         return KMIO_HANDLED;
     }

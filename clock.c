@@ -14,22 +14,11 @@
 #include "winman.h"
 
 /*
-    Two reattach/resize cases the poll loop can't see on its own, both
-    resolved by queueing a synthetic KEY_RESIZE so the existing cascade in
-    poll_input_thd reflows everything and resyncs terminal state:
-
-    1. Geometry changed without a KEY_RESIZE.  SIGWINCH only fires for vwm's
-       controlling TTY, which is the launch terminal -- after teleport the
-       destination PTY can resize without vwm ever hearing about it.  Poll
-       TIOCGWINSZ against the canvas and reflow on a mismatch.
-
-    2. dtach reattach onto a same-size terminal.  dtach's `-r winch` sends
-       SIGWINCH on attach, but ncurses only synthesizes KEY_RESIZE when the
-       dimensions changed, so an unchanged-size reattach would never run the
-       cascade -- the mouse stays dead, the cursor visible and keypad mode
-       cleared until the user manually resizes.  vwm_SIGWINCH records the
-       signal in vwm_winch_pending; force a KEY_RESIZE here even though the
-       geometry matches.
+    Follow the terminal's size.  The session is not in the terminal's
+    own session, so no SIGWINCH reaches it when the terminal is resized:
+    compare TIOCGWINSZ against the canvas once per tick, and on a
+    mismatch queue a synthetic KEY_RESIZE so the existing cascade in
+    poll_input_thd reflows everything.
 */
 static void
 check_destination_resize(vwm_t *vwm)
@@ -39,12 +28,6 @@ check_destination_resize(vwm_t *vwm)
     WINDOW         *canvas;
     int             cur_h;
     int             cur_w;
-    int             winch;
-
-    /* consume the reattach flag every tick so it can't accumulate and
-       fire a stray reflow on a later idle tick */
-    winch = vwm_winch_pending;
-    vwm_winch_pending = 0;
 
     fd = vk_screen_get_fd(vwm->screen);
     if(fd < 0) return;
@@ -57,19 +40,11 @@ check_destination_resize(vwm_t *vwm)
 
     getmaxyx(canvas, cur_h, cur_w);
 
-    /* case 1: geometry drifted from the canvas */
+    /* geometry drifted from the canvas */
     if((int)ws.ws_row != cur_h || (int)ws.ws_col != cur_w)
     {
         ungetch(KEY_RESIZE);
         vwm_input_wake();       /* the key is in ncurses, not on a fd */
-        return;
-    }
-
-    /* case 2: same size, but a SIGWINCH (reattach) just landed */
-    if(winch)
-    {
-        ungetch(KEY_RESIZE);
-        vwm_input_wake();
     }
 }
 
