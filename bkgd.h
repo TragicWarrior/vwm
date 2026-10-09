@@ -14,6 +14,9 @@ void    vwm_apply_desktop_bkgd_all(void);
 void    vwm_invalidate_wallpaper_cache(int surface_id);
 void    vwm_invalidate_wallpaper_cache_all(void);
 void    vwm_invalidate_wallpaper_cache_all_orphan(void);
+/* forget the cached big-font host name without freeing it; for when the
+   screen has been rebuilt on another terminal (see bkgd.c) */
+void    vwm_hostname_cache_orphan(void);
 
 bool    vwm_has_utf8(void);
 

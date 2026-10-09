@@ -4,9 +4,9 @@ Build a self-contained C module — `vwmfont.h` + `vwmfont.c` — that renders a
 
 This is the "big fonts" module feature for the **vwm** project: the user picks one of Terminus's fixed grid sizes, and that single choice sets both the resolution and the on-screen size of the hostname text (superseding basic text). `vwmfont` does all of the heavy lifting (font discovery, PSF parsing, glyph lookup, cell painting, window sizing).
 
-## Aspect ratio — by design
+## Aspect ratio
 
-Terminal cells are roughly twice as tall as they are wide, so mapping one font pixel to one cell makes text look proportionally tall. **This is intentional.** The module performs no aspect-ratio correction; the user controls proportions by choosing the grid (e.g. an 8×16 grid renders shorter than 16×32). Do **not** add half-block vertical packing in this module — see *Out of scope*.
+Terminal cells are roughly twice as tall as they are wide, so one font pixel per cell draws text at twice its proper height. The module corrects for this: **each font pixel is two cells wide and one cell tall**, which makes a pixel roughly square and keeps the font's own proportions. A glyph from an 8×16 grid therefore occupies 16 columns by 16 rows. (The first version mapped one pixel to one cell on purpose and left proportions to the choice of grid; the result looked stretched and was changed in vwm 8.0.2.) Half-block vertical packing remains out of scope — see *Out of scope*.
 
 ## Public API
 
@@ -70,7 +70,7 @@ Per glyph: `bytes_per_row = (width + 7) / 8`, each row stored MSB-first. The pix
 
 ## Rendering
 
-One font pixel → one terminal cell. Paint *every* cell of the vk_widget_t window canvas (both on and off) so the result is a clean filled rectangle.
+One font pixel → two terminal cells side by side (see *Aspect ratio*). Paint *every* cell of the vk_widget_t window canvas (both on and off) so the result is a clean filled rectangle.
 
 Assuming that the module is installed, loaded, and running, the user should be able to select the fill character from a menu.  for now the default will be a full block.  other options for the fill character can be "O" or "X".
 

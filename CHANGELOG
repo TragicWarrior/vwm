@@ -1,3 +1,24 @@
+Version 8.0.2
+
+*  [Bryan Christ] Big-font text is drawn with square pixels.  The
+   vwmfont module mapped one font pixel to one terminal cell, and a
+   cell is about twice as tall as it is wide, so every glyph came out
+   stretched to twice its height.  Each pixel is now two cells wide
+   and one tall, which keeps the font's own proportions.  Big text is
+   therefore twice as wide as before: a 9-letter host name at 8x16
+   takes 144 columns, and what does not fit is clipped on the right as
+   it always was.
+
+*  [Bryan Christ] The cached big-font host name is forgotten when the
+   screen is rebuilt on another terminal.  It was kept across the
+   move, so its ncurses window belonged to the screen left behind, and
+   the next change of font, fill or host name freed a window of a
+   dead screen -- the corruption the wallpaper cache's orphan path
+   already avoids.  Since 8.0.0 the screen is rebuilt on every attach,
+   detach and resume, so the cache was stale from the first attach.
+   New vwm_hostname_cache_orphan(), called from vwm_on_teleport.
+   (TODO D14)
+
 Version 8.0.1
 
 *  [Bryan Christ] Fix a crash from the Windows menu.  Its rows held

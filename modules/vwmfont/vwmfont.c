@@ -490,6 +490,12 @@ vwmfont_size_token(vwmfont_size_t size)
 
 #define MAX_DIM 4096
 
+/* terminal cells per font pixel, across.  A cell is about twice as tall
+   as it is wide, so one cell per pixel draws every glyph at twice its
+   height.  Two cells side by side make a pixel that is roughly square,
+   and the text keeps the proportions the font was drawn with. */
+#define VWMFONT_PIXEL_COLS  2
+
 /* per-widget render metadata, stored in the widget's userptr so colors
    can be (re)applied after render.  Owned; freed by vwmfont_free_widget. */
 typedef struct
@@ -525,7 +531,7 @@ vwmfont_render(const char *utf8_text, vwmfont_size_t size,
     WINDOW          *canvas;
     const uint8_t   *p, *end;
     int             gw, gh, cols, rows, line, nonblank;
-    int             W, H, revspace, li, gi;
+    int             W, H, revspace, li, gi, k;
     cchar_t         cc_block;
     wchar_t         wblock[2] = { 0x2588, 0 };
 
@@ -556,7 +562,8 @@ vwmfont_render(const char *utf8_text, vwmfont_size_t size,
     }
     if(cols == 0 || nonblank == 0) return NULL;     /* empty / whitespace */
 
-    W = cols * gw;
+    /* each pixel is VWMFONT_PIXEL_COLS cells wide and one cell tall */
+    W = cols * gw * VWMFONT_PIXEL_COLS;
     H = rows * gh;
     if(W <= 0 || H <= 0 || W > MAX_DIM || H > MAX_DIM) return NULL;
 
@@ -598,20 +605,25 @@ vwmfont_render(const char *utf8_text, vwmfont_size_t size,
             int cy = li * gh + gy;
             for(gx = 0; gx < gw; gx++)
             {
-                int cx = gi * gw + gx;
                 int on = (g >= 0) && glyph_pixel(font, g, gx, gy);
 
-                info->onoff[(size_t)cy * W + cx] = (uint8_t)on;
-                if(!on) continue;
+                /* the pixel's cells, left to right */
+                for(k = 0; k < VWMFONT_PIXEL_COLS; k++)
+                {
+                    int cx = (gi * gw + gx) * VWMFONT_PIXEL_COLS + k;
 
-                if(fill == VWMFONT_FILL_FULLBLOCK && !revspace)
-                    mvwadd_wch(canvas, cy, cx, &cc_block);
-                else if(fill == VWMFONT_FILL_O)
-                    mvwaddch(canvas, cy, cx, 'O');
-                else if(fill == VWMFONT_FILL_X)
-                    mvwaddch(canvas, cy, cx, 'X');
-                /* revspace on-pixels stay blank; the fill is supplied by
-                   A_REVERSE in vwmfont_apply_colors */
+                    info->onoff[(size_t)cy * W + cx] = (uint8_t)on;
+                    if(!on) continue;
+
+                    if(fill == VWMFONT_FILL_FULLBLOCK && !revspace)
+                        mvwadd_wch(canvas, cy, cx, &cc_block);
+                    else if(fill == VWMFONT_FILL_O)
+                        mvwaddch(canvas, cy, cx, 'O');
+                    else if(fill == VWMFONT_FILL_X)
+                        mvwaddch(canvas, cy, cx, 'X');
+                    /* revspace on-pixels stay blank; the fill is supplied
+                       by A_REVERSE in vwmfont_apply_colors */
+                }
             }
         }
         gi++;
