@@ -47,6 +47,42 @@
 */
 #define VWMTERM_DRAIN_CHUNKS    4
 
+/*
+    Keep the scheduler's wake set in step with whether this terminal is
+    reading its pty.
+
+    While it reads, the pty is registered: the task never waits on the
+    pty itself (see the zero timeout below), and the scheduler's idle
+    sleep ends the moment the child writes.  While it does not read --
+    frozen for SELECT mode -- the pty has to come out: unread output
+    would leave it readable for good and the scheduler would never
+    sleep.  `want` false also serves as the final unregister at exit.
+*/
+static void
+vwmterm_wake_sync(vwmterm_data_t *vwmterm_data, int want)
+{
+    extern vwm_sched_t  *sched;
+    int                 fd;
+
+    if(want)
+    {
+        if(vwmterm_data->wake_fd >= 0) return;
+
+        fd = vterm_get_pty_fd(vwmterm_data->vterm);
+        if(fd < 0) return;
+
+        if(vwm_sched_wake_fd_add(sched, fd) == 0)
+            vwmterm_data->wake_fd = fd;
+    }
+    else
+    {
+        if(vwmterm_data->wake_fd < 0) return;
+
+        vwm_sched_wake_fd_del(sched, vwmterm_data->wake_fd);
+        vwmterm_data->wake_fd = -1;
+    }
+}
+
 pt_t vwmterm_thd(void * const env)
 {
     vwm_t               *vwm;
@@ -71,6 +107,9 @@ pt_t vwmterm_thd(void * const env)
     {
         if(vwmterm_data->state == VWMTERM_STATE_EXITING) break;
 
+        /* registered while reading, not while frozen */
+        vwmterm_wake_sync(vwmterm_data, !vwmterm_data->frozen);
+
         if(vwmterm_data->frozen)
         {
             pt_yield(ctx_vwmterm);
@@ -81,7 +120,13 @@ pt_t vwmterm_thd(void * const env)
         got_data = 0;
         for(i = 0; i < VWMTERM_DRAIN_CHUNKS; i++)
         {
-            bytes_read = vterm_read_pipe(vterm, 10);
+            /* timeout 0: take what is there and return.  This used to
+               wait up to 10ms for data, on every turn of every idle
+               terminal -- time the keyboard and the busy terminals
+               spent queued behind it.  The waiting is the scheduler's
+               job now: its ppoll() watches this pty (registered just
+               above) along with everything else. */
+            bytes_read = vterm_read_pipe(vterm, 0);
             if(bytes_read <= 0) break;
 
             got_data = 1;
@@ -138,6 +183,9 @@ pt_t vwmterm_thd(void * const env)
         pt_yield(ctx_vwmterm);
     }
     while(!(*ctx_vwmterm->shutdown));
+
+    /* the pty is about to be closed: take it out of the wake set */
+    vwmterm_wake_sync(vwmterm_data, 0);
 
     if(*ctx_vwmterm->shutdown || bytes_read == -1)
     {

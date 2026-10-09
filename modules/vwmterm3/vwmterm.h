@@ -21,6 +21,7 @@ struct _vwmterm_data_s
     int             redraw_pending;
     int             scroll_offset;
     int             frozen;
+    int             wake_fd;        /* pty registered with the scheduler, or -1 */
     int             sel_anchor_row;
     int             sel_anchor_col;
     int             sel_end_row;

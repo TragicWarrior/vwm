@@ -1,5 +1,14 @@
 2026-10-09
 
+vwm is much more responsive when several terminals are open.  Typing
+echoes in about a millisecond instead of 10 to 40, animations such as
+aaplay no longer drop frames because other terminals are open, and a
+program printing a lot of output is no longer slowed by idle windows
+beside it.
+
+
+2026-10-09
+
 Building vwm no longer needs libgpm.  The mouse on a Linux console
 works as before whenever the gpm daemon is running.
 

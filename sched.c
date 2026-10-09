@@ -52,13 +52,17 @@ typedef struct
 }
 vwm_sched_slot_t;
 
+/* room for one wake descriptor per task, plus the control socket */
+#define VWM_SCHED_MAX_WAKE_FDS      (VWM_SCHED_MAX_TASKS + 4)
+
 struct _vwm_sched_s
 {
     protothread_t           pt_normal;
     protothread_t           pt_high;
     vwm_sched_step_cb_t     step_cb;
     void                    *step_cb_arg;
-    int                     wake_fd;
+    int                     wake_fds[VWM_SCHED_MAX_WAKE_FDS];
+    int                     n_wake_fds;
     vwm_sched_slot_t        slots[VWM_SCHED_MAX_TASKS];
 };
 
@@ -75,7 +79,7 @@ vwm_sched_init(void)
 
     sched->pt_normal = protothread_create();
     sched->pt_high = protothread_create();
-    sched->wake_fd = -1;
+    sched->n_wake_fds = 0;
 
     return sched;
 }
@@ -100,12 +104,48 @@ vwm_sched_set_step_cb(vwm_sched_t *sched, vwm_sched_step_cb_t cb, void *arg)
     sched->step_cb_arg = arg;
 }
 
+/* the original single-descriptor call (the control socket); kept so its
+   caller does not change */
 void
 vwm_sched_set_wake_fd(vwm_sched_t *sched, int fd)
 {
+    vwm_sched_wake_fd_add(sched, fd);
+}
+
+/* see sched.h */
+int
+vwm_sched_wake_fd_add(vwm_sched_t *sched, int fd)
+{
+    int     i;
+
+    if(sched == NULL || fd < 0) return -1;
+
+    for(i = 0; i < sched->n_wake_fds; i++)
+        if(sched->wake_fds[i] == fd) return 0;      /* already there */
+
+    if(sched->n_wake_fds >= VWM_SCHED_MAX_WAKE_FDS) return -1;
+
+    sched->wake_fds[sched->n_wake_fds++] = fd;
+
+    return 0;
+}
+
+/* see sched.h */
+void
+vwm_sched_wake_fd_del(vwm_sched_t *sched, int fd)
+{
+    int     i;
+
     if(sched == NULL) return;
 
-    sched->wake_fd = fd;
+    for(i = 0; i < sched->n_wake_fds; i++)
+    {
+        if(sched->wake_fds[i] != fd) continue;
+
+        /* order does not matter: fill the hole with the last entry */
+        sched->wake_fds[i] = sched->wake_fds[--sched->n_wake_fds];
+        return;
+    }
 }
 
 int
@@ -158,7 +198,7 @@ vwm_sched_run(vwm_sched_t *sched, int *shutdown)
     struct timespec     now;
     struct timespec     last_tick;
     struct timespec     timeout;
-    struct pollfd       pfds[2];
+    struct pollfd       pfds[1 + VWM_SCHED_MAX_WAKE_FDS];
     nfds_t              n_pfds;
     sigset_t            pollmask;
     long                elapsed_ms;
@@ -172,15 +212,12 @@ vwm_sched_run(vwm_sched_t *sched, int *shutdown)
 
     if(sched == NULL || shutdown == NULL) return;
 
+    /* the set ppoll() sleeps on is built at each sleep (below): tasks
+       add and remove their descriptors as they come and go */
     pfds[0].fd = STDIN_FILENO;
     pfds[0].events = POLLIN;
+    pfds[0].revents = 0;
     n_pfds = 1;
-    if(sched->wake_fd >= 0)
-    {
-        pfds[1].fd = sched->wake_fd;
-        pfds[1].events = POLLIN;
-        n_pfds = 2;
-    }
 
     sigemptyset(&pollmask);
 
@@ -299,8 +336,30 @@ vwm_sched_run(vwm_sched_t *sched, int *shutdown)
                 timeout.tv_sec = 0;
                 timeout.tv_nsec = remaining_ms * 1000000L;
 
+                /* sleep on the keyboard and on every registered wake
+                   descriptor: the control socket and each terminal's
+                   pty.  Whichever becomes readable ends the sleep, and
+                   the round that follows gives its task a turn. */
+                n_pfds = 1;
+                for(i = 0; i < sched->n_wake_fds; i++)
+                {
+                    pfds[n_pfds].fd = sched->wake_fds[i];
+                    pfds[n_pfds].events = POLLIN;
+                    pfds[n_pfds].revents = 0;
+                    n_pfds++;
+                }
+
                 ppoll(pfds, n_pfds, &timeout, &pollmask);
                 /* tick detection happens at the top of next iteration */
+
+                /* a descriptor closed without being taken out reports
+                   POLLNVAL at once, every time, and would turn the
+                   sleep into a spin.  Drop it. */
+                for(i = 1; i < (int)n_pfds; i++)
+                {
+                    if(pfds[i].revents & POLLNVAL)
+                        vwm_sched_wake_fd_del(sched, pfds[i].fd);
+                }
             }
 
             sweep_had_work = 0;

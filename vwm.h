@@ -13,7 +13,7 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"7.0.2"
+#define VWM_VERSION					"7.1.0"
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
    outer terminal may have changed under us -- teleport to a new PTY, a

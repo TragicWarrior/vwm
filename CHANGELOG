@@ -1,3 +1,20 @@
+Version 7.1.0
+
+*  [Bryan Christ] The scheduler waits on every terminal's pty itself.
+   A terminal task used to wait up to 10ms for data on each of its
+   turns, so every idle terminal put up to 10ms in front of the
+   keyboard and of any terminal that did have output.  The task now
+   takes what is there and returns, and registers its pty with the
+   scheduler, whose one ppoll() ends as soon as any of them is
+   readable (vwm_sched_wake_fd_add / _del).  A terminal frozen for
+   SELECT mode takes its pty out while it is not reading.
+
+   Measured in a pty, one busy terminal plus idle ones (before -> after):
+     key echo, median      alone 11ms -> 1ms;  8 idle  37ms -> 1ms
+     30 fps animation      8 idle  41% of frames shown -> 100%
+     4 MB of output        8 idle  24s -> 0.4s
+   Idle CPU is unchanged (about 1%).
+
 Version 7.0.2
 
 *  [Bryan Christ] "make install" runs ldconfig on Linux.  vwm installs

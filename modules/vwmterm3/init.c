@@ -372,6 +372,7 @@ vwmterm_main(vwm_module_t *mod)
     vk_object_set_kmio(VK_OBJECT(window), vwmterm_ON_KEYSTROKE);
 
     vwmterm_data = (vwmterm_data_t*)calloc(1, sizeof(vwmterm_data_t));
+    vwmterm_data->wake_fd = -1;         /* nothing registered yet */
     ctx_vwmterm = calloc(1, sizeof(vwm_sched_ctx_t));
 
     vwmterm_data->window = window;
