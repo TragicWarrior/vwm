@@ -13,7 +13,7 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"8.0.3"
+#define VWM_VERSION					"8.0.4"
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
    terminal may have changed under us -- a move to another terminal or

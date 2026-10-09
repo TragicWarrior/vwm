@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.0.3.  Items are located by file and
+Last pruned 2026-10-09 against 8.0.4.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -23,24 +23,7 @@ item by reading the code; everything else was confirmed still present.
 1. DEFECTS -- DO FIRST
 ----------------------
 
-[ ] D10. Manage Desktop acts on the wrong window after another window
-         closes under it  (review 2026-07)
-         manage_windows.c collect_checked
-         Checked row i is mapped to vk_deck_get_widget(deck, i), but a
-         window closing on its own shifts every higher index down and
-         nothing rebuilds the list while the dialog is open.  Close then
-         lands on the wrong terminal.
-         Fix: rebuild the list when the deck changes while the tool is
-         open, or bind window ids and validate them on use.
-
-[ ] D15. copy_selection writes through an unchecked calloc
-         (review 2026-07)
-         modules/vwmterm3/events.c vwmterm_copy_selection
-         buf_sz = rows * (cols * MB_LEN_MAX + 1), hundreds of KB for a
-         full-screen selection, and the result is used with no NULL
-         check.
-         Fix: NULL-check buf (and free the cell rows) before the fill
-         loop.  Item 12 below is the same buffer seen as a cost.
+Nothing open.  The next most serious items are in section 2.
 
 
 2. DEFECTS -- MEDIUM
@@ -173,7 +156,8 @@ and the background session.  Re-run before acting on any of these.
          (review 2026-06)
          modules/vwmterm3/events.c
          About 360KB for a 200x60 selection.  One-shot, so the cost is
-         small.  Fix: measure in a first pass, or realloc down.  See D15.
+         small, and the allocation is now checked (8.0.4).  Fix: measure
+         in a first pass, or realloc down.
 
 [ ] E1.  Reducing the desktop count is quadratic in window updates
          (review 2026-07)

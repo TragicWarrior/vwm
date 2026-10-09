@@ -1,5 +1,12 @@
 2026-10-09
 
+In Manage Desktop, Close / Move / Minimize / Restore could act on the
+wrong window if another window on the desktop had closed by itself
+while the dialog was open.  They now act on the windows you checked.
+
+
+2026-10-09
+
 Two dialog fixes.  In Manage Desktop, the "Confirm Close" question no
 longer takes a click on its text as "Yes".  In Settings, Modify after
 loading a file now edits the highlighted setting.

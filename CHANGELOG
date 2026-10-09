@@ -1,3 +1,19 @@
+Version 8.0.4
+
+*  [Bryan Christ] Manage Desktop acts on the windows its rows show.
+   Each checked row was mapped to the window at the same position in
+   the deck, but a window that closes on its own while the dialog is
+   open moves every later window up one position.  Close, Move,
+   Minimize and Restore then landed on the wrong window, or on none.
+   Rows now remember the id of the window they were listed for; a row
+   whose window is gone is skipped.  (TODO D10)
+
+*  [Bryan Christ] Copying a selection checks its allocation.  The
+   buffer is sized for the worst case (hundreds of KB for a large
+   selection) and was written to without a NULL check; a selection
+   that clamps to nothing no longer computes a size from a negative
+   row count either.  (TODO D15)
+
 Version 8.0.3
 
 *  [Bryan Christ] Manage Desktop: the Confirm Close popup only answers
