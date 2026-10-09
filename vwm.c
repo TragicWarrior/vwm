@@ -415,6 +415,7 @@ vwm_init(void)
         vwm->hotkey_grow_w = '>';
         vwm->hotkey_shrink_w = '<';
         vwm->hotkey_desktop = (27 | (100 << 8));
+        vwm->hotkey_detach = 28;        /* Ctrl-\, the key dtach uses */
         {
             const char *term = getenv("TERM");
             if(term != NULL && strcmp(term, "linux") == 0)
@@ -728,6 +729,86 @@ vwm_go_headless(void)
     vk_screen_set_overlay(vwm->screen, NULL);
 
     vwm->screen_dirty = 1;
+}
+
+/*
+    Why the session cannot be detached from where it is, or NULL when it
+    can.  Two cases are left for now:
+
+      under dtach   the dtach client owns the terminal; its own detach
+                    key does the job.
+      at home       on the terminal vwm was started from, vwm is that
+                    shell's foreground job, and the shell goes on
+                    waiting for it whatever vwm does with the screen.
+                    (This case disappears when vwm stops having a home
+                    terminal.)
+*/
+static const char *
+vwm_detach_blocker(void)
+{
+    if(getenv("VWM_SOCK") != NULL)
+        return "Running under dtach: detach with its own key";
+
+    if(!vwm_is_headless() && vwm_at_home())
+        return "Cannot detach on the terminal vwm was started from";
+
+    return NULL;
+}
+
+/* see vwm.h */
+bool
+vwm_can_detach(void)
+{
+    return vwm_detach_blocker() == NULL;
+}
+
+/* see vwm.h */
+int
+vwm_detach(const char **why)
+{
+    const char  *blocker = vwm_detach_blocker();
+
+    if(why != NULL) *why = blocker;
+    if(blocker != NULL) return -1;
+
+    /* libviper's detach hands the terminal back as part of leaving it:
+       modes restored, and the shell that was suspended when vwm took
+       the terminal is resumed */
+    vwm_go_headless();
+
+    return 0;
+}
+
+/* see vwm.h */
+void
+vwm_stop(void)
+{
+    extern int  shutdown;
+    vwm_t       *vwm = vwm_get_instance();
+    int         i;
+    int         j;
+
+    if(vwm == NULL) return;
+
+    /* hang up every terminal's program first, all at once, so they
+       exit side by side while the scheduler winds down.  Each window's
+       own close then finds its program already gone instead of waiting
+       for it in turn. */
+    for(i = 0; i < vwm->surface_count; i++)
+    {
+        if(vwm->decks[i] == NULL) continue;
+
+        for(j = 0; j < vk_deck_count(vwm->decks[i]); j++)
+        {
+            vk_widget_t *w = vk_deck_get_widget(vwm->decks[i], j);
+
+            if(w != NULL) vk_object_emit(VK_OBJECT(w), VWM_EVENT_ON_HANGUP);
+        }
+    }
+
+    /* every task sees this on its next turn (the scheduler wakes them
+       all while it is set) and returns */
+    shutdown = 1;
 }
 
 /* see vwm.h.  Decides whether "Teleport home" is offered as active. */

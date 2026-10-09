@@ -37,6 +37,10 @@ usage(FILE *fp)
         "  screenshot [--target screen|top] [--path FILE]\n"
         "  attention <id>\n"
         "  attention-off [id]\n"
+        "  detach\n"
+        "      give the terminal back and keep the session running\n"
+        "  stop\n"
+        "      end the session (vwm-stop does this and waits for it)\n"
         "  adopt [--tty PATH] [--term TYPE]\n"
         "      bring the session to a terminal (default: this one and its\n"
         "      $TERM).  A session started directly moves there; a dtach\n"
@@ -383,7 +387,9 @@ main(int argc, char **argv)
         strcmp(op, "list-windows") == 0 ||
         strcmp(op, "list-desktops") == 0 ||
         strcmp(op, "list-apps") == 0 ||
-        strcmp(op, "focused") == 0)
+        strcmp(op, "focused") == 0 ||
+        strcmp(op, "detach") == 0 ||
+        strcmp(op, "stop") == 0)
     {
         snprintf(req, sizeof(req), "{\"op\":\"%s\"}", op);
         return transact(req);

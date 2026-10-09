@@ -340,6 +340,18 @@ vwm_switch_desktop(vk_widget_t *widget, void *anything)
     return 0;
 }
 
+/* VWM > Detach */
+static int
+vwm_detach_item(vk_widget_t *widget, void *anything)
+{
+    (void)widget;
+    (void)anything;
+
+    vwm_detach(NULL);
+
+    return 0;
+}
+
 static int
 vwm_teleport_home_item(vk_widget_t *widget, void *anything)
 {
@@ -505,6 +517,14 @@ create_file_dropdown(vwm_t *vwm)
 
         vk_listbox_add_item(listbox, "Teleport to...",
             vwm_teleport, NULL);
+
+        /* detach: hand this terminal back and keep the session running
+           (vwm-resume brings it back).  Grayed out where it cannot be
+           done -- see vwm_can_detach. */
+        vk_listbox_add_item(listbox, "Detach",
+            vwm_detach_item, NULL);
+        vk_listbox_set_item_active(listbox,
+            vk_listbox_get_item_count(listbox) - 1, vwm_can_detach());
     }
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Manage Apps Menu",

@@ -49,6 +49,7 @@ vwm_settings_load(vwm_t *vwm)
         { "grow_w",     &vwm->hotkey_grow_w },
         { "shrink_w",   &vwm->hotkey_shrink_w },
         { "desktop",    &vwm->hotkey_desktop },
+        { "detach",     &vwm->hotkey_detach },
     };
 
     count = sizeof(entries) / sizeof(entries[0]);
@@ -101,6 +102,7 @@ vwm_settings_save(vwm_t *vwm)
         { "grow_w",     vwm->hotkey_grow_w },
         { "shrink_w",   vwm->hotkey_shrink_w },
         { "desktop",    vwm->hotkey_desktop },
+        { "detach",     vwm->hotkey_detach },
     };
 
     count = sizeof(keys) / sizeof(keys[0]);

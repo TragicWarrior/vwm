@@ -586,6 +586,10 @@ op_ping(int fd)
         cJSON_AddStringToObject(data, "version", VWM_VERSION);
         /* lets vwm-resume choose: reattach (dtach) or adopt (direct) */
         cJSON_AddBoolToObject(data, "dtach", getenv("VWM_SOCK") != NULL);
+        /* for vwm-stop: who to wait for, and whether a terminal is
+           attached at all */
+        cJSON_AddNumberToObject(data, "pid", (double)getpid());
+        cJSON_AddBoolToObject(data, "headless", vwm_is_headless());
     }
 
     ctl_reply(fd, 1, data, NULL);
@@ -653,6 +657,38 @@ ctl_peer_is_descendant(int fd)
     type `term`.  Validates and answers here; vwm_adopt_terminal() does
     the move (or, under dtach, holds it for the next reattach).
 */
+/*
+    detach: give the terminal back and keep the session running.  The
+    answer is sent first: the client may be on the very terminal being
+    released.
+*/
+static void
+op_detach(int fd)
+{
+    const char  *why = NULL;
+
+    if(!vwm_can_detach())
+    {
+        vwm_detach(&why);       /* does nothing; fetches the reason */
+        ctl_reply(fd, 0, NULL, (why != NULL) ? why : "cannot detach");
+        return;
+    }
+
+    ctl_reply(fd, 1, NULL, NULL);
+    vwm_detach(NULL);
+}
+
+/*
+    stop: end the session.  Answered first, because vwm is on its way
+    out once vwm_stop() returns; vwm-stop then waits for the process.
+*/
+static void
+op_stop(int fd)
+{
+    ctl_reply(fd, 1, NULL, NULL);
+    vwm_stop();
+}
+
 static void
 op_adopt(int fd, cJSON *req)
 {
@@ -2285,6 +2321,8 @@ ctl_dispatch(int fd, cJSON *req)
     else if(strcmp(op, "screenshot") == 0)    op_screenshot(fd, req);
     else if(strcmp(op, "attention") == 0)     op_attention(fd, req);
     else if(strcmp(op, "adopt") == 0)         op_adopt(fd, req);
+    else if(strcmp(op, "detach") == 0)        op_detach(fd);
+    else if(strcmp(op, "stop") == 0)          op_stop(fd);
     else
         ctl_reply(fd, 0, NULL, "unknown op");
 }

@@ -659,6 +659,19 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
         return KMIO_HANDLED;
     }
 
+    /* detach: give the terminal back and keep the session running.
+       when it cannot be done from here, say why on the status bar
+       rather than swallow the key silently. */
+    if(keystroke == vwm->hotkey_detach)
+    {
+        const char  *why = NULL;
+
+        if(vwm_detach(&why) != 0 && why != NULL)
+            vwm_panel_set_status(why);
+
+        return KMIO_HANDLED;
+    }
+
     return keystroke;
 }
 

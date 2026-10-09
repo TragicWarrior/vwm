@@ -186,6 +186,14 @@ cannot say what kind of terminal it is, so vwm goes by what it knows:
 /dev/ttyN is a Linux console, and a terminal the session has been on
 before keeps the type it had.
 
+To leave a session running and get your shell back, detach: press Ctrl-\
+(rebindable in Manage Hotkeys), choose VWM > Detach, or run vwm-msg
+detach.  vwm lets go of the terminal and waits for vwm-resume.  If the
+terminal simply goes away -- a dropped connection, a closed window --
+vwm does the same on its own.  To end a session from any terminal,
+attached or not, run vwm-stop: every program in it is hung up as if its
+terminal had closed, and the terminal vwm was on is put back.
+
 vwm-resume run from a terminal inside vwm is refused.  A session moved
 onto an SSH terminal without dtach still ends if that connection drops;
 use vwm-start when you need the session to survive disconnects.

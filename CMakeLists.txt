@@ -180,7 +180,7 @@ install (TARGETS vwmfont DESTINATION lib/vwm/)
 # dtach session launchers -- PROGRAMS installs them with the execute bit
 # set, alongside the vwm binary so they share its PATH (and tab-complete
 # together as vwm-*)
-install (PROGRAMS scripts/vwm-start scripts/vwm-resume DESTINATION bin)
+install (PROGRAMS scripts/vwm-start scripts/vwm-resume scripts/vwm-stop DESTINATION bin)
 install (FILES
     fonts/DejaVuSansMono.ttf
     fonts/DejaVuSansMono-Bold.ttf

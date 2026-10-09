@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
+#include <unistd.h>
+#include <signal.h>
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -1079,6 +1081,59 @@ vwmterm_ON_RECREATE(vk_object_t *object, int event, void *anything)
     return 0;
 }
 
+/* how long a program gets to exit after a hang-up before it is killed */
+#define VWMTERM_HANGUP_GRACE_MS     300
+
+/*
+    VWM_EVENT_ON_HANGUP: the session is ending.  Tell the program in
+    this terminal the way a closing terminal would -- SIGHUP -- so a
+    shell can save its history and pass the word to its own jobs.  It
+    is not waited for here; ON_CLOSE does that.
+*/
+int
+vwmterm_ON_HANGUP(vk_object_t *object, int event, void *anything)
+{
+    vwmterm_data_t  *vwmterm_data = (vwmterm_data_t *)anything;
+
+    (void)object;
+    (void)event;
+
+    if(vwmterm_data == NULL || vwmterm_data->vterm == NULL) return 0;
+
+    kill(vterm_get_pid(vwmterm_data->vterm), SIGHUP);
+
+    return 0;
+}
+
+/*
+    End the program in a terminal: hang up, give it a moment, and only
+    then kill it.  It used to be killed outright, which cost a shell its
+    history and left its jobs to be reaped by whoever noticed.  A
+    program that already exited (the usual case after ON_HANGUP, or
+    when the user typed "exit") is collected at once.
+*/
+static void
+vwmterm_end_child(pid_t child_pid)
+{
+    int     waited_ms;
+
+    if(child_pid <= 0) return;
+
+    kill(child_pid, SIGHUP);
+
+    for(waited_ms = 0; waited_ms < VWMTERM_HANGUP_GRACE_MS; waited_ms += 10)
+    {
+        /* gone (or never ours to wait for): nothing more to do */
+        if(waitpid(child_pid, NULL, WNOHANG) != 0) return;
+
+        usleep(10000);
+    }
+
+    /* it ignored the hang-up */
+    kill(child_pid, SIGKILL);
+    waitpid(child_pid, NULL, 0);
+}
+
 int
 vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything)
 {
@@ -1112,8 +1167,7 @@ vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything)
     {
         child_pid = vterm_get_pid(vwmterm_data->vterm);
 
-        kill(child_pid, SIGKILL);
-        waitpid(child_pid, NULL, 0);
+        vwmterm_end_child(child_pid);
 
         /*
             Invalidate any in-flight drag targeting this window before

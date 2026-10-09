@@ -43,6 +43,10 @@
 
 /* VWM-specific event types */
 #define VWM_EVENT_ON_CLOSE          100
+/* the session is ending: a window that runs a program should tell it to
+   finish now (a terminal hangs up its shell).  The window's ON_CLOSE
+   follows; this only gives the program a head start. */
+#define VWM_EVENT_ON_HANGUP         101
 
 /* desktop wallpaper patterns (per-surface, picked in Settings) */
 #define VWM_WALLPAPER_NONE          0
@@ -112,6 +116,19 @@ int             vwm_teleport_home(void);
    vwm_is_headless() says which state we are in. */
 void            vwm_go_headless(void);
 bool            vwm_is_headless(void);
+
+/* Detach on request: give the terminal back to its shell and go
+   headless.  Returns 0 when detached (or already headless), -1 with
+   *why set to a sentence for the user when it cannot be done from
+   where the session is.  vwm_can_detach() is the same test without
+   doing it, for the menu. */
+int             vwm_detach(const char **why);
+bool            vwm_can_detach(void);
+
+/* End the session: hang up every terminal's program, then let the
+   scheduler wind down and vwm exit, restoring whatever terminal it is
+   on.  Works with no terminal attached. */
+void            vwm_stop(void);
 
 /* is the session on the terminal it was started on?  (also true when
    there is no home terminal to go back to) */
