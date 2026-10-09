@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.0.2.  Items are located by file and
+Last pruned 2026-10-09 against 8.0.3.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -22,24 +22,6 @@ item by reading the code; everything else was confirmed still present.
 
 1. DEFECTS -- DO FIRST
 ----------------------
-
-[ ] D2.  Settings "Load" leaves model->selected stale: keyboard Modify
-         edits the WRONG setting and saves it  (review 2026-07)
-         manage_settings.c load_popup_ok
-         Resets the listbox cursor to 0 but not model->selected
-         (manage_apps and manage_hotkeys both reset it).  Load a file
-         after selecting row 5, press Enter: setting 5 is edited while
-         row 0 is highlighted.
-         Fix: model->selected = 0 before vk_listbox_set_curr(.., 0).
-
-[ ] D4.  Confirm-Close popup ignores the click row: any click in its
-         left half closes the checked windows  (review 2026-07)
-         manage_windows.c, the confirm popup's mouse handler
-         ((void)rel_y)
-         The title, both message rows and the padding all count as
-         "Yes".  The move popup and the dialog bars gate on rel_y; this
-         one does not.
-         Fix: gate Yes/No on rel_y >= ph - 3.
 
 [ ] D10. Manage Desktop acts on the wrong window after another window
          closes under it  (review 2026-07)

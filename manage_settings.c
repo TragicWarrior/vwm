@@ -2126,6 +2126,12 @@ load_popup_ok(void)
 
     rebuild_listbox();
 
+    /* back to the first row -- in the dialog's own record of the
+       selection as well as on screen.  The keyboard acts on
+       model->selected, so leaving it where it was would open Modify
+       for one setting while another is highlighted. */
+    model->selected = 0;
+
     if(NUM_SETTINGS > 0)
     {
         vk_listbox_set_curr(settings_listbox, 0);
