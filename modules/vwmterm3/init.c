@@ -28,7 +28,6 @@
 #include "vwmterm.h"
 #include "events.h"
 #include "pt_thread.h"
-#include "signals.h"
 #include "module.h"
 
 #include "../../vwm.h"
@@ -328,7 +327,6 @@ vwmterm_main(vwm_module_t *mod)
     if(mod->scrollback > 0)
         vterm_set_history_size(vterm, mod->scrollback);
 
-    vterm_init_sigio(vterm);
 
     char title[64] = "";
 
@@ -374,6 +372,7 @@ vwmterm_main(vwm_module_t *mod)
     vwmterm_data = (vwmterm_data_t*)calloc(1, sizeof(vwmterm_data_t));
     vwmterm_data->wake_fd = -1;         /* nothing registered yet */
     ctx_vwmterm = calloc(1, sizeof(vwm_sched_ctx_t));
+    vwmterm_data->sched_ctx = ctx_vwmterm;
 
     vwmterm_data->window = window;
     vwmterm_data->vterm = vterm;

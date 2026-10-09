@@ -51,9 +51,9 @@
     Keep the scheduler's wake set in step with whether this terminal is
     reading its pty.
 
-    While it reads, the pty is registered: the task never waits on the
-    pty itself (see the zero timeout below), and the scheduler's idle
-    sleep ends the moment the child writes.  While it does not read --
+    While it reads, the pty is registered: the scheduler wakes this task
+    the moment the child writes, and the task never waits on the pty
+    itself (see the zero timeout below).  While it does not read --
     frozen for SELECT mode -- the pty has to come out: unread output
     would leave it readable for good and the scheduler would never
     sleep.  `want` false also serves as the final unregister at exit.
@@ -71,8 +71,11 @@ vwmterm_wake_sync(vwmterm_data_t *vwmterm_data, int want)
         fd = vterm_get_pty_fd(vwmterm_data->vterm);
         if(fd < 0) return;
 
-        if(vwm_sched_wake_fd_add(sched, fd) == 0)
+        if(vwm_sched_wake_fd_add(sched, fd,
+            (vwm_sched_ctx_t *)vwmterm_data->sched_ctx) == 0)
+        {
             vwmterm_data->wake_fd = fd;
+        }
     }
     else
     {
@@ -81,6 +84,18 @@ vwmterm_wake_sync(vwmterm_data_t *vwmterm_data, int want)
         vwm_sched_wake_fd_del(sched, vwmterm_data->wake_fd);
         vwmterm_data->wake_fd = -1;
     }
+}
+
+/* see pt_thread.h */
+void
+vwmterm_wake(void *data)
+{
+    extern vwm_sched_t  *sched;
+    vwmterm_data_t      *vwmterm_data = (vwmterm_data_t *)data;
+
+    if(vwmterm_data == NULL) return;
+
+    vwm_sched_wake(sched, (vwm_sched_ctx_t *)vwmterm_data->sched_ctx);
 }
 
 pt_t vwmterm_thd(void * const env)
@@ -110,9 +125,11 @@ pt_t vwmterm_thd(void * const env)
         /* registered while reading, not while frozen */
         vwmterm_wake_sync(vwmterm_data, !vwmterm_data->frozen);
 
+        /* frozen: nothing to do until SELECT mode ends, which wakes
+           this task (vwmterm_wake); the heartbeat is the fallback */
         if(vwmterm_data->frozen)
         {
-            pt_yield(ctx_vwmterm);
+            vwm_sched_wait(ctx_vwmterm);
             continue;
         }
 
@@ -120,12 +137,9 @@ pt_t vwmterm_thd(void * const env)
         got_data = 0;
         for(i = 0; i < VWMTERM_DRAIN_CHUNKS; i++)
         {
-            /* timeout 0: take what is there and return.  This used to
-               wait up to 10ms for data, on every turn of every idle
-               terminal -- time the keyboard and the busy terminals
-               spent queued behind it.  The waiting is the scheduler's
-               job now: its ppoll() watches this pty (registered just
-               above) along with everything else. */
+            /* timeout 0: take what is there and return.  The waiting
+               is the scheduler's job: its ppoll() watches this pty
+               (registered just above) along with everything else. */
             bytes_read = vterm_read_pipe(vterm, 0);
             if(bytes_read <= 0) break;
 
@@ -170,7 +184,11 @@ pt_t vwmterm_thd(void * const env)
                 vwmterm_data->redraw_pending = 0;
             }
 
-            pt_yield(ctx_vwmterm);
+            /* the pty is drained: wait until the child writes again.
+               (vterm_read_pipe also reaps the child, so the heartbeat's
+               periodic wake is what notices a program that exited
+               without closing the pty.) */
+            vwm_sched_wait(ctx_vwmterm);
 
             continue;
         }
@@ -178,8 +196,9 @@ pt_t vwmterm_thd(void * const env)
         /* saturated drain (all VWMTERM_DRAIN_CHUNKS produced data):
            WINDOW is current from the paint above; leave redraw_pending
            set so a later dry turn still does the window_update +
-           screen_dirty hand-off. */
-        ctx_vwmterm->did_work = 1;
+           screen_dirty hand-off.  There is more to read, so yield
+           rather than wait: stay ready, but let the others have a
+           turn first. */
         pt_yield(ctx_vwmterm);
     }
     while(!(*ctx_vwmterm->shutdown));

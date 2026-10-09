@@ -1,5 +1,14 @@
 2026-10-09
 
+No visible change in this one: vwm's scheduler was rebuilt so that tasks
+sleep until there is something for them to do, instead of each being
+checked in turn.  It behaves the same and is simpler inside.
+
+Building this release needs libvterm 10.9+ and libviper 8.1.0+.
+
+
+2026-10-09
+
 vwm is much more responsive when several terminals are open.  Typing
 echoes in about a millisecond instead of 10 to 40, animations such as
 aaplay no longer drop frames because other terminals are open, and a

@@ -93,14 +93,6 @@ void vwm_backtrace(int signum)
 #endif
 
 void
-vwm_SIGIO(int signum)
-{
-    // noop for now
-
-    (void)signum;
-}
-
-void
 vwm_SIGWINCH(int signum)
 {
     vwm_winch_pending = 1;

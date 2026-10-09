@@ -10,6 +10,7 @@
 #include "modules.h"
 #include "strings.h"
 #include "screensaver.h"
+#include "poll_input_thd.h"
 
 /*
     The screensaver runs a user-configured program in a fullscreen vterm.
@@ -90,6 +91,7 @@ screensaver_on_close(vk_object_t *object, int event, void *anything)
        current geometry.  Idempotent -- and a welcome repaint -- even when no
        reattach occurred (a local unlock). */
     ungetch(KEY_RESIZE);
+    vwm_input_wake();           /* the key is in ncurses, not on a fd */
 
     return 0;
 }

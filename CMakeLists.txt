@@ -84,7 +84,6 @@ add_library(vwmterm SHARED
     modules/vwmterm3/init.c
     modules/vwmterm3/module.c
     modules/vwmterm3/pt_thread.c
-    modules/vwmterm3/signals.c
     )
 
 add_library(vwmprint SHARED
