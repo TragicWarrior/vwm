@@ -1,3 +1,17 @@
+Version 8.0.3
+
+*  [Bryan Christ] Manage Desktop: the Confirm Close popup only answers
+   on its buttons.  The click row was ignored, so a click anywhere in
+   the popup's left half -- the title, the message text, or the release
+   at the end of dragging the popup by its title -- counted as "Yes"
+   and closed the checked windows.  Only the three rows of the button
+   bar answer now.  (TODO D4)
+
+*  [Bryan Christ] Settings: Load resets the selection.  After loading
+   a file the highlight went back to the first row but the dialog's
+   own record of the selected row did not, so Modify opened the
+   setting that had been selected before the load.  (TODO D2)
+
 Version 8.0.2
 
 *  [Bryan Christ] Big-font text is drawn with square pixels.  The

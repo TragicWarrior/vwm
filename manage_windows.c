@@ -1372,7 +1372,12 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
 
         rel_x = mouse_event->x - px;
         rel_y = mouse_event->y - py;
-        (void)rel_y;
+
+        /* only the button bar answers: the 3 rows above the popup's
+           bottom border.  A click on the title or the message -- or
+           the release that ends a drag of the popup by its title -- is
+           not a "Yes", and "Yes" here closes windows. */
+        if(rel_y < ph - 4 || rel_y > ph - 2) return 0;
 
         /* Yes is the left button, No is the right -- in the centered bar */
         if(rel_x < pw / 2)
