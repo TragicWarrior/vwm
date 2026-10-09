@@ -1263,6 +1263,16 @@ vwm_manage_windows_close(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(dialog_window));
 
+    /* an attached scroller does not belong to the widget it is attached
+       to, so destroying the dialog does not free it.  Take it off the
+       list while the list is still there, then free it. */
+    if(listbox_scroller != NULL)
+    {
+        vk_widget_detach_scroller(VK_WIDGET(windows_selectbox),
+            listbox_scroller);
+        vk_scroller_destroy(listbox_scroller);
+    }
+
     vk_window_destroy(dialog_window);
     dialog_window = NULL;
     main_vbox = NULL;

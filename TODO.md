@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.0.4.  Items are located by file and
+Last pruned 2026-10-09 against 8.0.5.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -64,18 +64,6 @@ Nothing open.  The next most serious items are in section 2.
          edge opens Load.  manage_settings.c has the same layout right.
          Fix: shift the right-hand cluster's ranges by +1 in both.
 
-[ ] D8.  Manage Desktop leaks its listbox scroller on every close
-         (review 2026-07)
-         manage_windows.c close path (listbox_scroller = NULL)
-         An attached scroller is not owned by its host widget.
-         Fix: detach and vk_scroller_destroy before vk_window_destroy.
-
-[ ] D9.  Apps dropdown leaks its scroller on every menu close
-         (review 2026-07)
-         mainmenu.c create_apps_dropdown / vwm_menubar_close_dropdown
-         Fix: detach and destroy the listbox's vscroller in
-         close_dropdown.
-
 [ ] D12. Title-bar [v] / [X] hit zones underflow on windows narrower
          than 9 columns  (review 2026-07)
          poll_input_thd.c (rx >= ww - 5 ... / ww - 8 ...) and the
@@ -126,8 +114,8 @@ and the background session.  Re-run before acting on any of these.
          (valgrind 2026-06)
          Top sites were dialog and menu open paths, terminal
          allocations and vwm_programs_load.  The OS reclaims them; a
-         teardown pass would zero the count.  D8 and D9 are two of the
-         causes.
+         teardown pass would zero the count.  (The two scroller leaks
+         among them, D8 and D9, were fixed in 8.0.5.)
 
 [ ] M1.  ncurses colour-tree "Invalid read of size 4" at startup and
          exit  (valgrind 2026-06)

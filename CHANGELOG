@@ -1,3 +1,13 @@
+Version 8.0.5
+
+*  [Bryan Christ] Two scroll bars are no longer leaked.  A scroller
+   attached to a widget is not owned by it, so destroying the widget
+   leaves the scroller behind.  Manage Desktop leaked its list's
+   scroller on every close, and the Apps dropdown (and a category
+   submenu long enough to scroll) leaked one on every menu close.
+   Each is now detached and destroyed before its list goes.
+   (TODO D8, D9)
+
 Version 8.0.4
 
 *  [Bryan Christ] Manage Desktop acts on the windows its rows show.
