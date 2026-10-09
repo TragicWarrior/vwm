@@ -1,5 +1,13 @@
 2026-10-09
 
+The large host name on the desktop no longer looks stretched: its
+letters now have the proportions of the font they come from.  It is
+twice as wide as before for the same size, so you may want to pick a
+smaller size in Settings.
+
+
+2026-10-09
+
 Fixes a crash: with the Windows menu open, choosing a window whose
 program had just exited could bring the whole session down.
 

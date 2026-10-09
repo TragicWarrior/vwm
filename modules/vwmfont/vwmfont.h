@@ -4,7 +4,9 @@
 /*
     vwmfont -- render a UTF-8 string as large "pixel-art" text using a
     Terminus PSF console font as the glyph source.  Each *on* pixel of a
-    glyph becomes one filled terminal cell, each *off* pixel a blank cell.
+    glyph becomes two filled terminal cells side by side, each *off*
+    pixel two blank ones: a cell is about twice as tall as it is wide,
+    so a pixel two cells wide comes out roughly square.
     The result is painted into a freshly created vk_widget_t sized exactly
     to fit, which vwmfont_render() returns.  See vwmfont-spec.md.
 */
@@ -63,7 +65,9 @@ void            vwmfont_shutdown(void);
 
 /* Render utf8_text (embedded '\n' starts a new glyph row) at the given
    grid with the given on-pixel fill.  Returns a newly allocated
-   vk_widget_t sized exactly to the text, or NULL on any failure (font
+   vk_widget_t sized exactly to the text -- twice the grid's pixel width
+   in columns per character, its pixel height in rows -- or NULL on any
+   failure (font
    missing, parse error, allocation failure, empty/whitespace input,
    out-of-range dimensions).  The caller applies fg/bg colors to the
    returned widget. */

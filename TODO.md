@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.0.1.  Items are located by file and
+Last pruned 2026-10-09 against 8.0.2.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -22,20 +22,6 @@ item by reading the code; everything else was confirmed still present.
 
 1. DEFECTS -- DO FIRST
 ----------------------
-
-[ ] D14. Big-font hostname cache is not orphaned when the screen is
-         rebuilt  (review 2026-07)
-         bkgd.c, the static `cached` widget in the big-font hostname
-         renderer; vwm.c vwm_on_teleport
-         vwm_on_teleport orphans only the wallpaper cache.  The
-         hostname-font cache holds a vk_widget whose WINDOW belongs to
-         the old SCREEN, so the first font / fill / host change after a
-         rebuild calls g_font_free() on a WINDOW bound to a dead SCREEN
-         -- the corruption the wallpaper orphan path exists to avoid.
-         MORE EXPOSED SINCE 8.0.0: the screen is rebuilt on every detach
-         and every vwm-resume, not only on a rare Teleport.  Needs
-         vwmfont and the big-font hostname switched on.
-         Fix: a hostname-cache orphan hook, called from vwm_on_teleport.
 
 [ ] D2.  Settings "Load" leaves model->selected stale: keyboard Modify
          edits the WRONG setting and saves it  (review 2026-07)

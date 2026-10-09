@@ -969,6 +969,9 @@ vwm_on_teleport(vk_object_t *object, int event, void *anything)
        the new SCREEN lazily allocates fresh caches. */
     vwm_invalidate_wallpaper_cache_all_orphan();
 
+    /* so does the cached big-font host name */
+    vwm_hostname_cache_orphan();
+
     /* re-arm everything kmio set up at startup against the new SCREEN:
        mousemask + mouseinterval are SCREEN-local ncurses state, and
        the \033[?1003h hover escape has to land on the new fd (kmio

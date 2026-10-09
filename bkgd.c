@@ -355,6 +355,35 @@ _bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
     }
 }
 
+/* the big-font host name as last rendered, and what it was rendered
+   from.  File-level so that vwm_hostname_cache_orphan can reach it. */
+static vk_widget_t  *g_host_cached = NULL;
+static int          g_host_font = -2;
+static int          g_host_fill = -2;
+static short        g_host_fg = -2;
+static short        g_host_bg = -2;
+static char         g_host_name[256] = "";
+
+/*
+    The screen has been rebuilt on another terminal (or on none): the
+    cached widget's WINDOW belongs to the SCREEN that was left.  Forget
+    it without freeing it -- delwin on another SCREEN's window corrupts
+    ncurses, the same reason the wallpaper cache has an orphan variant
+    -- and let the next draw render a fresh one on the new SCREEN.  The
+    old widget leaks with the old SCREEN; it is small, and this happens
+    once per move.
+*/
+void
+vwm_hostname_cache_orphan(void)
+{
+    g_host_cached = NULL;
+    g_host_font = -2;       /* matches no real setting: forces a render */
+    g_host_fill = -2;
+    g_host_fg = -2;         /* and a recolor: color pairs are per SCREEN */
+    g_host_bg = -2;
+    g_host_name[0] = '\0';
+}
+
 /*
     Big-font host name via the registered vwmfont renderer.  Renders the
     name into a cached vk_widget and blits its canvas into the bottom-left,
@@ -367,34 +396,33 @@ static int
 _bkgd_draw_hostname_big(WINDOW *canvas, vwm_t *vwm, const char *host,
     int width, int height)
 {
-    static vk_widget_t  *cached = NULL;
-    static int          c_font = -2, c_fill = -2;
-    static short        c_fg = -2, c_bg = -2;
-    static char         c_host[256] = "";
     WINDOW              *src;
     int                 W, H, top, left, right;
 
-    if(c_font != vwm->hostname_font || c_fill != vwm->hostname_fill ||
-       strcmp(c_host, host) != 0)
+    if(g_host_font != vwm->hostname_font
+        || g_host_fill != vwm->hostname_fill
+        || strcmp(g_host_name, host) != 0)
     {
-        if(cached != NULL && g_font_free != NULL) g_font_free(cached);
-        cached = g_font_render(host, vwm->hostname_font, vwm->hostname_fill);
-        c_font = vwm->hostname_font;
-        c_fill = vwm->hostname_fill;
-        snprintf(c_host, sizeof(c_host), "%s", host);
-        c_fg = -2;                  /* force a recolor */
+        if(g_host_cached != NULL && g_font_free != NULL)
+            g_font_free(g_host_cached);
+        g_host_cached = g_font_render(host, vwm->hostname_font,
+            vwm->hostname_fill);
+        g_host_font = vwm->hostname_font;
+        g_host_fill = vwm->hostname_fill;
+        snprintf(g_host_name, sizeof(g_host_name), "%s", host);
+        g_host_fg = -2;             /* force a recolor */
     }
-    if(cached == NULL) return 0;    /* render failed -> fall back */
+    if(g_host_cached == NULL) return 0; /* render failed -> fall back */
 
-    if(c_fg != vwm->hostname_fg || c_bg != vwm->hostname_bg)
+    if(g_host_fg != vwm->hostname_fg || g_host_bg != vwm->hostname_bg)
     {
         if(g_font_apply != NULL)
-            g_font_apply(cached, vwm->hostname_fg, vwm->hostname_bg);
-        c_fg = vwm->hostname_fg;
-        c_bg = vwm->hostname_bg;
+            g_font_apply(g_host_cached, vwm->hostname_fg, vwm->hostname_bg);
+        g_host_fg = vwm->hostname_fg;
+        g_host_bg = vwm->hostname_bg;
     }
 
-    src = vk_widget_get_canvas(cached);
+    src = vk_widget_get_canvas(g_host_cached);
     if(src == NULL) return 0;
     getmaxyx(src, H, W);
 
