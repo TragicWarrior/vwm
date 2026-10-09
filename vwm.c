@@ -695,6 +695,41 @@ vwm_adopt_terminal(const char *tty, const char *term, const char **err)
     return 0;
 }
 
+/* see vwm.h */
+bool
+vwm_is_headless(void)
+{
+    vwm_t   *vwm = vwm_get_instance();
+
+    return vwm != NULL && vk_screen_is_detached(vwm->screen);
+}
+
+/* see vwm.h */
+void
+vwm_go_headless(void)
+{
+    vwm_t   *vwm = vwm_get_instance();
+
+    if(vwm == NULL || vk_screen_is_detached(vwm->screen)) return;
+
+    /* no terminal, so no console and no console mouse: drop the GPM
+       connection and forget which console it was for */
+    unsetenv("VK_GPM_VC");
+    vk_kmio_gpm_reset();
+
+    /* libviper moves the screen off the terminal, keeping its size and
+       contents, and emits VK_EVENT_ON_TELEPORT -- vwm_on_teleport then
+       re-arms input against the new (null) screen exactly as it does
+       after any move */
+    if(vk_screen_detach(vwm->screen) != 0) return;
+
+    /* the console pointer is drawn by vwm; nobody is looking */
+    vwm->show_cursor = false;
+    vk_screen_set_overlay(vwm->screen, NULL);
+
+    vwm->screen_dirty = 1;
+}
+
 /* see vwm.h.  Decides whether "Teleport home" is offered as active. */
 bool
 vwm_at_home(void)

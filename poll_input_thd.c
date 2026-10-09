@@ -4,6 +4,8 @@
 #include "protothread.h"
 
 #include "vwm.h"
+#include <poll.h>
+
 #include "poll_input_thd.h"
 #include "private.h"
 #include "mainmenu.h"
@@ -347,6 +349,28 @@ vwm_input_wake_sync(vwm_t *vwm, vwm_sched_ctx_t *ctx)
     }
 }
 
+/*
+    Has the terminal the screen is on gone away?  A terminal whose other
+    end closed -- an SSH connection that dropped, a terminal window that
+    was shut -- reports a hang-up on its descriptor from then on.  A
+    Linux console and a pty that is merely idle never do.
+*/
+static bool
+vwm_input_terminal_gone(vwm_t *vwm)
+{
+    struct pollfd   pfd;
+
+    pfd.fd = vk_screen_get_input_fd(vwm->screen);
+    if(pfd.fd < 0) return false;            /* headless already */
+
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+
+    if(poll(&pfd, 1, 0) < 0) return false;
+
+    return (pfd.revents & (POLLHUP | POLLERR | POLLNVAL)) != 0;
+}
+
 pt_t
 vwm_poll_input(void * const env)
 {
@@ -377,6 +401,14 @@ vwm_poll_input(void * const env)
            before the task waits. */
         if(keystroke == -1)
         {
+            /* woken with nothing to read: was it the terminal going
+               away?  A hung-up descriptor counts as readable for ever,
+               so left alone it would wake this task in a tight loop.
+               Let go of the terminal and carry on headless; the session
+               stays up and vwm-resume brings it back. */
+            if(vwm_input_terminal_gone(vwm))
+                vwm_go_headless();
+
             vwm_input_wake_sync(vwm, ctx_poll_input);
             vwm_sched_wait(ctx_poll_input);
             continue;

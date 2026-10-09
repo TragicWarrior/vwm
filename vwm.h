@@ -105,6 +105,14 @@ bool            vwm_adopt_apply_pending(void);
    terminal or the move failed. */
 int             vwm_teleport_home(void);
 
+/* Let go of the terminal and keep running on none: every program in the
+   session carries on, nothing is drawn anywhere, and the session waits
+   for vwm-resume (an adopt) to give it a terminal again.  Used when the
+   terminal goes away under us.  Does nothing if already headless.
+   vwm_is_headless() says which state we are in. */
+void            vwm_go_headless(void);
+bool            vwm_is_headless(void);
+
 /* is the session on the terminal it was started on?  (also true when
    there is no home terminal to go back to) */
 bool            vwm_at_home(void);
