@@ -49,6 +49,32 @@ vwm_module_clone(vwm_module_t *mod)
     return new_mod;
 }
 
+/*
+    Free a module that was made with vwm_module_clone() and is done
+    with: one cloned for a single launch (a control-socket launch, the
+    screensaver), once the launch has been made.  A terminal copies
+    what it needs from its module while it starts and does not look at
+    it again.
+
+    Only for a clone that was never put on the module list -- the
+    modules on the list are the Apps menu and live for the session.
+    NULL is a no-op.
+*/
+void
+vwm_module_destroy(vwm_module_t *mod)
+{
+    if(mod == NULL) return;
+
+    /* a module type that owns more than its own struct frees it all */
+    if(mod->destroy != NULL)
+    {
+        mod->destroy(mod);
+        return;
+    }
+
+    free(mod);
+}
+
 int
 vwm_module_configure(vwm_module_t *mod, ...)
 {

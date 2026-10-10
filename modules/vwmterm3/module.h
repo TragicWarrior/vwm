@@ -25,5 +25,6 @@ typedef struct _vwmterm_mod_s   vwmterm_mod_t;
 
 vwm_module_t*   vwmterm_module_clone(vwm_module_t *mod);
 int             vwmterm_module_configure(vwm_module_t *mod, va_list *argp);
+void            vwmterm_module_destroy(vwm_module_t *mod);
 
 #endif

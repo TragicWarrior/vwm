@@ -1380,7 +1380,7 @@ op_launch(int fd, cJSON *req)
     argv = ctl_args_from_json(req, bin);
     if(argv == NULL)
     {
-        free(clone);
+        vwm_module_destroy(clone);
         ctl_reply(fd, 0, NULL, "oom");
         return;
     }
@@ -1388,6 +1388,11 @@ op_launch(int fd, cJSON *req)
     vwm_module_configure(clone, (char *)bin, argv);
     window = vwm_module_exec(clone);
     strfreev(argv);
+
+    /* the clone existed for this one launch.  The terminal took what it
+       needed from it while starting (or failed to start); either way it
+       is finished with. */
+    vwm_module_destroy(clone);
 
     if(window == NULL)
     {
