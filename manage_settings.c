@@ -743,6 +743,62 @@ rebuild_listbox(void)
 /* ── value cycling for dropdown settings ──────────────────── */
 
 /*
+    The two "action" rows -- what a click on the task indicator does,
+    and what a click on the date does -- work the same way.  Each is
+    either its built-in choice or the title of an app, and its choices
+    are numbered alike: 0 is the built-in one, 1.. are the apps in
+    model->app_titles order.  They differ only in what the built-in
+    choice is called.
+*/
+static bool
+is_action_row(int setting_idx)
+{
+    return setting_idx == SETTING_TASK_ACTION
+        || setting_idx == SETTING_DATE_ACTION;
+}
+
+/* the built-in choice as it is stored in the row's value */
+static const char *
+action_builtin_value(int setting_idx)
+{
+    return (setting_idx == SETTING_DATE_ACTION) ? "calendar" : "none";
+}
+
+/* the built-in choice as it is shown in the Modify list */
+static const char *
+action_builtin_label(int setting_idx)
+{
+    return (setting_idx == SETTING_DATE_ACTION)
+        ? "Built-in Calendar" : "none";
+}
+
+/* which choice the row holds now; 0 when it holds no app's title */
+static int
+action_position(int setting_idx)
+{
+    int i;
+
+    for(i = 0; i < model->app_count; i++)
+    {
+        if(strcmp(model->values[setting_idx], model->app_titles[i]) == 0)
+            return i + 1;
+    }
+
+    return 0;
+}
+
+/* set the row to choice `pos`; out of range leaves it alone */
+static void
+action_set_position(int setting_idx, int pos)
+{
+    if(pos < 0 || pos > model->app_count) return;
+
+    snprintf(model->values[setting_idx], NAME_MAX, "%s",
+        (pos == 0) ? action_builtin_value(setting_idx)
+                   : model->app_titles[pos - 1]);
+}
+
+/*
     Step the value of row `setting_idx` to the next or previous of the
     `count` names in `names`, wrapping at either end.  A value that is
     not in the list starts from the first name.
@@ -775,61 +831,22 @@ cycle_names(int setting_idx, const char * const *names, int count,
 static void
 cycle_value(int setting_idx, int direction)
 {
-    int     i, curr, total;
+    int     curr, total;
     char    before[NAME_MAX];
 
     /* to tell afterwards whether anything changed */
     snprintf(before, sizeof(before), "%s", model->values[setting_idx]);
 
-    if(setting_idx == SETTING_TASK_ACTION)
+    if(is_action_row(setting_idx))
     {
+        /* position 0 is the built-in choice, 1.. are the apps */
         total = model->app_count + 1;
-        curr = 0;
 
-        for(i = 0; i < model->app_count; i++)
-        {
-            if(strcmp(model->values[setting_idx],
-                model->app_titles[i]) == 0)
-            {
-                curr = i + 1;
-                break;
-            }
-        }
-
-        curr += direction;
+        curr = action_position(setting_idx) + direction;
         if(curr < 0) curr = total - 1;
         if(curr >= total) curr = 0;
 
-        if(curr == 0)
-            strncpy(model->values[setting_idx], "none", NAME_MAX - 1);
-        else
-            strncpy(model->values[setting_idx],
-                model->app_titles[curr - 1], NAME_MAX - 1);
-    }
-    else if(setting_idx == SETTING_DATE_ACTION)
-    {
-        total = model->app_count + 1;
-        curr = 0;
-
-        for(i = 0; i < model->app_count; i++)
-        {
-            if(strcmp(model->values[setting_idx],
-                model->app_titles[i]) == 0)
-            {
-                curr = i + 1;
-                break;
-            }
-        }
-
-        curr += direction;
-        if(curr < 0) curr = total - 1;
-        if(curr >= total) curr = 0;
-
-        if(curr == 0)
-            strncpy(model->values[setting_idx], "calendar", NAME_MAX - 1);
-        else
-            strncpy(model->values[setting_idx],
-                model->app_titles[curr - 1], NAME_MAX - 1);
+        action_set_position(setting_idx, curr);
     }
     else if(setting_idx == SETTING_SHOW_HOSTNAME)
     {
@@ -1018,23 +1035,10 @@ modify_popup_apply(void)
 
             if(curr >= 0 && curr < count)
             {
-                if(modify_setting_idx == SETTING_TASK_ACTION)
+                if(is_action_row(modify_setting_idx))
                 {
-                    if(curr == 0)
-                        strncpy(model->values[modify_setting_idx],
-                            "none", NAME_MAX - 1);
-                    else
-                        strncpy(model->values[modify_setting_idx],
-                            model->app_titles[curr - 1], NAME_MAX - 1);
-                }
-                else if(modify_setting_idx == SETTING_DATE_ACTION)
-                {
-                    if(curr == 0)
-                        strncpy(model->values[modify_setting_idx],
-                            "calendar", NAME_MAX - 1);
-                    else
-                        strncpy(model->values[modify_setting_idx],
-                            model->app_titles[curr - 1], NAME_MAX - 1);
+                    /* the list is in action_position() order */
+                    action_set_position(modify_setting_idx, curr);
                 }
                 else if(modify_setting_idx == SETTING_CLIPBOARD)
                 {
@@ -1430,32 +1434,20 @@ modify_popup_open(int setting_idx)
         vk_widget_set_colors(VK_WIDGET(modify_listbox),
             COLOR_WHITE, COLOR_BLUE);
 
-        if(setting_idx == SETTING_TASK_ACTION)
+        if(is_action_row(setting_idx))
         {
-            vk_listbox_add_item(modify_listbox, "none", NULL, NULL);
-
-            for(i = 0; i < model->app_count; i++)
-            {
-                vk_listbox_add_item(modify_listbox,
-                    model->app_titles[i], NULL, NULL);
-                if(strcmp(model->values[setting_idx],
-                    model->app_titles[i]) == 0)
-                    sel_idx = i + 1;
-            }
-        }
-        else if(setting_idx == SETTING_DATE_ACTION)
-        {
+            /* the built-in choice first, then every app, which is the
+               order action_position() counts in */
             vk_listbox_add_item(modify_listbox,
-                "Built-in Calendar", NULL, NULL);
+                (char *)action_builtin_label(setting_idx), NULL, NULL);
 
             for(i = 0; i < model->app_count; i++)
             {
                 vk_listbox_add_item(modify_listbox,
                     model->app_titles[i], NULL, NULL);
-                if(strcmp(model->values[setting_idx],
-                    model->app_titles[i]) == 0)
-                    sel_idx = i + 1;
             }
+
+            sel_idx = action_position(setting_idx);
         }
         else if(setting_idx == SETTING_CLIPBOARD)
         {
@@ -1808,37 +1800,42 @@ refresh_dialog(void)
     vk_screen_refresh(vwm->screen);
 }
 
-/* ── error popup ──────────────────────────────────────────── */
+/* ── the small popups: error, warning, saved, the two confirms ─ */
 
+/*
+    Close one of the dialog's popups and repaint the dialog under it.
+    Does nothing (and repaints nothing) when it is not open.
+*/
 static void
-error_popup_close(void)
+popup_close(vk_popup_t **popup)
 {
-    vwm_t *vwm;
+    if(*popup == NULL) return;
 
-    if(error_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(error_popup));
-
-    vk_popup_destroy(error_popup);
-    error_popup = NULL;
-
+    vwm_popup_dismiss(popup);
     refresh_dialog();
 }
 
-static int
-error_popup_kmio(vk_object_t *object, int32_t keystroke)
-{
-    (void)object;
+static void error_popup_close(void)        { popup_close(&error_popup); }
+static void warning_popup_close(void)      { popup_close(&warning_popup); }
+static void saved_popup_close(void)        { popup_close(&saved_popup); }
+static void confirm_popup_close(void)      { popup_close(&confirm_popup); }
+static void save_confirm_popup_close(void) { popup_close(&save_confirm_popup); }
 
-    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        error_popup_close();
+/*
+    Keys for the three notices -- error, warning, saved.  Each only has
+    to be acknowledged: Esc, Enter or Space closes it, and every other
+    key is swallowed.  `object` is the popup the key was sent to, which
+    says which one to close.
+*/
+static int
+notice_popup_kmio(vk_object_t *object, int32_t keystroke)
+{
+    if(keystroke != 27 && keystroke != KEY_CRLF && keystroke != ' ')
         return 0;
-    }
+
+    if(object == VK_OBJECT(error_popup))        error_popup_close();
+    else if(object == VK_OBJECT(warning_popup)) warning_popup_close();
+    else if(object == VK_OBJECT(saved_popup))   saved_popup_close();
 
     return 0;
 }
@@ -1849,42 +1846,7 @@ error_popup_show(const char *msg)
     if(error_popup != NULL) return;
 
     error_popup = vwm_error_popup_show(msg, 40, 7);
-    vk_object_set_kmio(VK_OBJECT(error_popup), error_popup_kmio);
-}
-
-/* ── warning popup ────────────────────────────────────────── */
-
-static void
-warning_popup_close(void)
-{
-    vwm_t *vwm;
-
-    if(warning_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(warning_popup));
-
-    vk_popup_destroy(warning_popup);
-    warning_popup = NULL;
-
-    refresh_dialog();
-}
-
-static int
-warning_popup_kmio(vk_object_t *object, int32_t keystroke)
-{
-    (void)object;
-
-    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        warning_popup_close();
-        return 0;
-    }
-
-    return 0;
+    vk_object_set_kmio(VK_OBJECT(error_popup), notice_popup_kmio);
 }
 
 static void
@@ -1893,42 +1855,7 @@ warning_popup_show(void)
     if(warning_popup != NULL) return;
 
     warning_popup = vwm_warning_popup_show();
-    vk_object_set_kmio(VK_OBJECT(warning_popup), warning_popup_kmio);
-}
-
-/* ── saved popup ──────────────────────────────────────────── */
-
-static void
-saved_popup_close(void)
-{
-    vwm_t *vwm;
-
-    if(saved_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(saved_popup));
-
-    vk_popup_destroy(saved_popup);
-    saved_popup = NULL;
-
-    refresh_dialog();
-}
-
-static int
-saved_popup_kmio(vk_object_t *object, int32_t keystroke)
-{
-    (void)object;
-
-    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        saved_popup_close();
-        return 0;
-    }
-
-    return 0;
+    vk_object_set_kmio(VK_OBJECT(warning_popup), notice_popup_kmio);
 }
 
 static void
@@ -1937,90 +1864,67 @@ saved_popup_show(void)
     if(saved_popup != NULL) return;
 
     saved_popup = vwm_saved_popup_show("Settings saved.");
-    vk_object_set_kmio(VK_OBJECT(saved_popup), saved_popup_kmio);
+    vk_object_set_kmio(VK_OBJECT(saved_popup), notice_popup_kmio);
 }
 
-/* ── confirm-discard popup ────────────────────────────────── */
+/*
+    Keys for a popup with two buttons, the first of which does
+    something and the second of which backs out -- "Discard / Cancel"
+    and "Save / Cancel".
 
-static void
-confirm_popup_close(void)
-{
-    vwm_t *vwm;
+      Esc                 back out
+      Tab, Left, Right    move to the other button
+      Enter, Space        press the button that has the focus
 
-    if(confirm_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(confirm_popup));
-
-    vk_popup_destroy(confirm_popup);
-    confirm_popup = NULL;
-
-    refresh_dialog();
-}
-
+    *active is the index of the focused button.  on_first runs when the
+    first button is pressed, after the popup has been closed (it may
+    close the whole dialog, so the popup must be gone by then).
+*/
 static int
-confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
+two_button_kmio(vk_popup_t **popup, int *active, int32_t keystroke,
+    void (*on_first)(void))
 {
-    (void)object;
-
     if(keystroke == 27)
     {
-        confirm_popup_close();
+        popup_close(popup);
         return 0;
     }
 
     if(keystroke == '\t' || keystroke == KEY_RIGHT || keystroke == KEY_LEFT)
     {
-        int count = vk_popup_get_button_count(confirm_popup);
-        confirm_active_btn = (confirm_active_btn + 1) % count;
+        vwm_t   *vwm = vwm_get_instance();
 
-        for(int i = 0; i < count; i++)
-        {
-            vk_button_t *btn = vk_popup_get_button(confirm_popup, i);
-            vk_button_release(btn);
+        *active = (*active + 1) % vk_popup_get_button_count(*popup);
 
-            if(i == confirm_active_btn)
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_YELLOW, COLOR_WHITE);
-                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            }
-            else
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_BLACK, COLOR_WHITE);
-                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            }
-
-            vk_button_update(btn);
-        }
-
-        vk_popup_update(confirm_popup);
-
-        vwm_t *vwm = vwm_get_instance();
+        vwm_popup_buttons_paint(*popup, *active);
+        vk_popup_update(*popup);
         vk_screen_refresh(vwm->screen);
         return 0;
     }
 
     if(keystroke == KEY_CRLF || keystroke == ' ')
     {
-        if(confirm_active_btn == 0)
-        {
-            confirm_popup_close();
-            vwm_manage_settings_close();
-        }
-        else
-        {
-            confirm_popup_close();
-        }
+        bool    first = (*active == 0);
+
+        popup_close(popup);
+        if(first) on_first();
 
         return 0;
     }
 
     return 0;
+}
+
+/* ── confirm-discard popup ────────────────────────────────── */
+
+static int
+confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
+{
+    (void)object;
+
+    /* Discard: close the dialog without saving */
+    return two_button_kmio(&confirm_popup, &confirm_active_btn, keystroke,
+        vwm_manage_settings_close);
 }
 
 static void
@@ -2037,87 +1941,14 @@ confirm_popup_show(void)
 
 static void do_save(void);
 
-static void
-save_confirm_popup_close(void)
-{
-    vwm_t *vwm;
-
-    if(save_confirm_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(save_confirm_popup));
-
-    vk_popup_destroy(save_confirm_popup);
-    save_confirm_popup = NULL;
-
-    refresh_dialog();
-}
-
 static int
 save_confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27)
-    {
-        save_confirm_popup_close();
-        return 0;
-    }
-
-    if(keystroke == '\t' || keystroke == KEY_RIGHT || keystroke == KEY_LEFT)
-    {
-        int count = vk_popup_get_button_count(save_confirm_popup);
-        save_confirm_active_btn =
-            (save_confirm_active_btn + 1) % count;
-
-        for(int i = 0; i < count; i++)
-        {
-            vk_button_t *btn =
-                vk_popup_get_button(save_confirm_popup, i);
-            vk_button_release(btn);
-
-            if(i == save_confirm_active_btn)
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_YELLOW, COLOR_WHITE);
-                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            }
-            else
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_BLACK, COLOR_WHITE);
-                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            }
-
-            vk_button_update(btn);
-        }
-
-        vk_popup_update(save_confirm_popup);
-
-        vwm_t *vwm = vwm_get_instance();
-        vk_screen_refresh(vwm->screen);
-        return 0;
-    }
-
-    if(keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        if(save_confirm_active_btn == 0)
-        {
-            save_confirm_popup_close();
-            do_save();
-        }
-        else
-        {
-            save_confirm_popup_close();
-        }
-
-        return 0;
-    }
-
-    return 0;
+    /* Save: write the settings out */
+    return two_button_kmio(&save_confirm_popup, &save_confirm_active_btn,
+        keystroke, do_save);
 }
 
 static void
@@ -2201,29 +2032,7 @@ save_confirm_popup_show(void)
 
     save_confirm_active_btn = 0;
 
-    {
-        int count =
-            vk_popup_get_button_count(save_confirm_popup);
-        for(int i = 0; i < count; i++)
-        {
-            vk_button_t *btn =
-                vk_popup_get_button(save_confirm_popup, i);
-
-            if(i == save_confirm_active_btn)
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_YELLOW, COLOR_WHITE);
-            }
-            else
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_BLACK, COLOR_WHITE);
-            }
-
-            vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            vk_button_update(btn);
-        }
-    }
+    vwm_popup_buttons_paint(save_confirm_popup, save_confirm_active_btn);
 
     pos_x = (scr_w - popup_w) / 2;
     pos_y = (scr_h - popup_h) / 2;
@@ -2455,14 +2264,16 @@ manage_settings_kmio(vk_object_t *object, int32_t keystroke)
     if(save_confirm_popup != NULL)
         return save_confirm_popup_kmio(NULL, keystroke);
 
+    /* the three notices share a handler, which goes by the popup it is
+       handed */
     if(saved_popup != NULL)
-        return saved_popup_kmio(NULL, keystroke);
+        return notice_popup_kmio(VK_OBJECT(saved_popup), keystroke);
 
     if(error_popup != NULL)
-        return error_popup_kmio(NULL, keystroke);
+        return notice_popup_kmio(VK_OBJECT(error_popup), keystroke);
 
     if(warning_popup != NULL)
-        return warning_popup_kmio(NULL, keystroke);
+        return notice_popup_kmio(VK_OBJECT(warning_popup), keystroke);
 
     if(modify_popup != NULL)
         return modify_popup_kmio(NULL, keystroke);

@@ -1,3 +1,26 @@
+Version 8.1.4
+
+*  [Bryan Christ] Settings dialog: less repeated code, same behaviour.
+   (TODO S3)
+
+   -  The five small popups (error, warning, saved, discard, save)
+      each had their own copy of the same close routine, and the three
+      notices their own copy of the same key handler.  One popup_close
+      and one notice_popup_kmio serve them all.
+   -  The two confirmations ("Discard / Cancel", "Save / Cancel")
+      share one two-button key handler, which takes what the first
+      button does as an argument.
+   -  The task-indicator and date-click rows are handled once.  Their
+      choices -- the built-in one, then every app -- were coded
+      separately for each row in three places: stepping with Left and
+      Right, filling the Modify list, and applying its selection.
+
+   New in manage_ui_common for the other dialogs to pick up later:
+   vwm_popup_dismiss() and vwm_popup_buttons_paint().
+
+*  [Bryan Christ] vwm_on_surface_change calls vk_deck_finalize()
+   instead of repeating the loop that finalize runs.  (TODO S13)
+
 Version 8.1.3
 
 *  [Bryan Christ] The remaining defects from the review list.

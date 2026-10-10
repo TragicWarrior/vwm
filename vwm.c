@@ -906,19 +906,13 @@ vwm_on_surface_change(vk_object_t *object, int event, void *anything)
 
     /*
         re-decorate every window on the now-active deck so exactly its
-        top shows focused.  windows can carry a stale focus border after
+        top shows focused (finalize runs vwm_on_deck_finalize, which
+        does exactly that).  windows can carry a stale focus border after
         being moved between desktops (Manage Desktop) without a redraw,
         which otherwise leaves two windows looking focused on the
         destination desktop.
     */
-    {
-        int i, n = vk_deck_count(vwm->deck);
-        for(i = 0; i < n; i++)
-        {
-            vk_widget_t *w = vk_deck_get_widget(vwm->deck, i);
-            if(w != NULL) vk_window_update(VK_WINDOW(w));
-        }
-    }
+    vk_deck_finalize(vwm->deck);
 
     /* the "(N) Windows" count is per-desktop -- recount for the new deck */
     vwm_window_menu_refresh();

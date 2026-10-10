@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.1.3.  Items are located by file and
+Last pruned 2026-10-09 against 8.1.4.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -89,17 +89,12 @@ behind.  What vwm still holds when it exits is left to the OS.
 
 Line counts are rough estimates from the original pass.
 
-[ ] S13. vwm_on_surface_change hand-rolls the deck-finalize loop
-         (review 2026-07)
-         vwm.c; replace with vk_deck_finalize(vwm->deck).
 [ ] S14. Dead free(mod) on an always-NULL local in the module-init
          error path  (review 2026-07)
          modules.c; delete it and the unused local.
 [ ] S15. Four identical "Alt+%c" branches collapse to one else
          (review 2026-07)
          manage_hotkeys.c
-[ ] S3.  manage_settings: popup-lifecycle trios (~90 lines), two-button
-         handler (~55), TASK / DATE actions x3 (~45).  (review 2026-06)
 [ ] S4.  manage_hotkeys: an offsetof table for the 14-field
          load / apply / has_changes triplication (~40); scroll twins
          (~22).  (review 2026-06)
