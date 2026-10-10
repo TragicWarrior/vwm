@@ -7,6 +7,32 @@
 #include "private.h"
 #include "manage_ui_common.h"
 
+/* see manage_ui_common.h */
+int
+vwm_button_bar_hit(vk_button_t **buttons, int count, int col)
+{
+    int i;
+
+    if(buttons == NULL) return -1;
+
+    for(i = 0; i < count; i++)
+    {
+        int bx, by;
+        int bw, bh;
+
+        if(buttons[i] == NULL) continue;
+
+        /* a button's position is within the button row, which spans the
+           dialog's interior from its first column */
+        vk_widget_get_position(VK_WIDGET(buttons[i]), &bx, &by);
+        vk_widget_get_metrics(VK_WIDGET(buttons[i]), &bw, &bh);
+
+        if(col >= bx && col < bx + bw) return i;
+    }
+
+    return -1;
+}
+
 void
 vwm_listbox_scroll_info(vk_widget_t *child,
     int *content_h, int *content_w,

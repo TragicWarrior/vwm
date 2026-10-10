@@ -1619,12 +1619,15 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
     if(ry >= frame_h && ry < INTERIOR_HEIGHT)
     {
         int zone = -1;
+        int hit;
 
-        if(rx <= 7)                     zone = FOCUS_BTN_MODIFY;
-        else if(rx >= 8 && rx <= 14)    zone = FOCUS_BTN_RESET;
-        else if(rx >= 38 && rx <= 43)   zone = FOCUS_BTN_SAVE;
-        else if(rx >= 44 && rx <= 49)   zone = FOCUS_BTN_LOAD;
-        else if(rx >= 50)               zone = FOCUS_BTN_CLOSE;
+        /* ask the buttons where they are.  The column table this
+           replaced had the Save / Load / Close group one column to the
+           left of the buttons, so a click on Load's right edge closed
+           the dialog.  buttons[] is in the order of the FOCUS_BTN_*
+           values. */
+        hit = vwm_button_bar_hit(buttons, NUM_BUTTONS, rx);
+        if(hit >= 0) zone = FOCUS_BTN_MODIFY + hit;
 
         if(zone >= 0)
         {

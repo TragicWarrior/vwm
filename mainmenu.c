@@ -987,11 +987,13 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
     return 0;
 }
 
+static void
+vwm_menubar_fit(const char *windows_label);
+
 void
 vwm_menubar_init(void)
 {
     vwm_t       *vwm;
-    int         menubar_width;
 
     vwm = vwm_get_instance();
 
@@ -1005,9 +1007,7 @@ vwm_menubar_init(void)
     vk_object_register_event(VK_OBJECT(vwm->menubar),
         VK_EVENT_ON_SELECT, vwm_menubar_on_select, NULL);
 
-    // " Apps " + "|" + " VWM " + "|" + " (99) Windows " = 6+1+5+1+14 = 27
-    menubar_width = 27;
-    vk_widget_resize(VK_WIDGET(vwm->menubar), menubar_width, 1);
+    vwm_menubar_fit("(0) Windows");
 
     vk_menubar_update(vwm->menubar);
 
@@ -1018,6 +1018,37 @@ vwm_menubar_init(void)
     }
 
     vwm->menu_item_idx = -1;
+}
+
+/* the narrowest the menubar is drawn: room for a two-digit count,
+   " Apps " + "|" + " VWM " + "|" + " (99) Windows " = 6+1+5+1+14 */
+#define VWM_MENUBAR_MIN_W   27
+
+/*
+    Size the menubar for its third item's label, `windows_label`
+    ("(N) Windows").  The first two items never change, so the width is
+    theirs plus the label with a space each side.  It never goes below
+    the two-digit width, so the bar does not twitch as windows open and
+    close; it grows for a third digit, which a fixed width clipped.
+*/
+static void
+vwm_menubar_fit(const char *windows_label)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     width;
+    int     cur_w, cur_h;
+
+    if(vwm == NULL || vwm->menubar == NULL) return;
+
+    /* " Apps " + "|" + " VWM " + "|" + " <label> " */
+    width = 6 + 1 + 5 + 1 + (int)strlen(windows_label) + 2;
+    if(width < VWM_MENUBAR_MIN_W) width = VWM_MENUBAR_MIN_W;
+
+    vk_widget_get_metrics(VK_WIDGET(vwm->menubar), &cur_w, &cur_h);
+    if(cur_w == width) return;
+
+    vk_widget_resize(VK_WIDGET(vwm->menubar), width, 1);
+    vk_menubar_update(vwm->menubar);
 }
 
 /*
@@ -1049,6 +1080,9 @@ vwm_window_menu_refresh(void)
 
     snprintf(label, sizeof(label), "(%d) Windows", n);
     vk_menubar_set_item_label(vwm->menubar, 2, label);
+
+    /* the count can gain a digit: keep the bar wide enough for it */
+    vwm_menubar_fit(label);
 
     {
         VWM_PANEL *panel = vwm_panel_get_data();

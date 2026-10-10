@@ -1,5 +1,15 @@
 2026-10-09
 
+A round of dialog fixes.  Loading a settings file now brings in its
+per-desktop colours and wallpapers; the left and right arrows change
+the clipboard and wallpaper settings; a click beside an open Settings,
+Apps or Hotkeys dialog no longer lands on the terminal behind it; and
+the Load button in Manage Apps and Manage Hotkeys no longer closes the
+dialog when clicked on its right edge.
+
+
+2026-10-09
+
 vwm no longer grows a little every time you close a terminal window or
 open one of its management dialogs.  That memory was never given back
 before; it is now.

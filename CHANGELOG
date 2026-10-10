@@ -1,3 +1,31 @@
+Version 8.1.3
+
+*  [Bryan Christ] The remaining defects from the review list.
+
+   -  Settings > Load reads the per-desktop colours and wallpapers.
+      It skipped the three desktop_* arrays, so those rows kept the
+      running values and a Save after the Load wrote them over the
+      file's.  (TODO D6)
+   -  Settings: Left / Right work on the Copy to Clipboard and
+      Desktop Wallpaper rows.  They did nothing there but still marked
+      the dialog as changed, which brought up "Discard changes?" on
+      the way out.  The dialog is now marked changed only when a value
+      actually changes.  (TODO D7)
+   -  Manage Apps, Hotkeys and Settings are modal for the mouse too.
+      A click beside the open dialog reached the window behind it,
+      raising it and typing into it.  Such clicks are now swallowed;
+      the panel and status bar still answer.  (TODO D11)
+   -  Manage Apps and Manage Hotkeys find the button under a click
+      from where the buttons are (new vwm_button_bar_hit).  The column
+      table they used had Save / Load / Close one column to the left,
+      so clicking Load's right edge closed the dialog.  (TODO D5)
+   -  A window narrower than 9 columns has no title-bar buttons, drawn
+      or clickable.  On a 5-to-8-column window they were drawn over
+      the left corner and a click there minimized or closed it.
+      (TODO D12)
+   -  The menubar is sized from the "(N) Windows" label, so a
+      three-digit count is not clipped.  (TODO D16)
+
 Version 8.1.2
 
 *  [Bryan Christ] A module cloned for one launch is freed after it.

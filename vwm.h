@@ -13,7 +13,12 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"8.1.2"
+#define VWM_VERSION					"8.1.3"
+
+/* the narrowest window that shows its title-bar buttons: a corner, the
+   3 columns of [v], the 3 of [X], and the 2-column margin to the right
+   corner.  Narrower windows have none drawn and none tested for. */
+#define VWM_WINDOW_CONTROLS_MIN_W   9
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
    terminal may have changed under us -- a move to another terminal or

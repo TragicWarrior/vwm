@@ -43,6 +43,7 @@ enum
     ZONE_RESIZE_CORNER,
     ZONE_FRAME,
     ZONE_CONTENT,
+    ZONE_MODAL_MISS,        /* beside an open manage dialog: goes nowhere */
 };
 
 static int      drag_mode = DRAG_NONE;
@@ -209,6 +210,19 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
 
 #undef MHIT
 
+    /* Manage Apps / Hotkeys / Settings are modal: a click that missed
+       the dialog and everything above it must not reach the windows
+       behind.  (The keyboard is already theirs alone; without this a
+       click beside the dialog raised a terminal under it and typed
+       into it while the dialog stayed up.)  The panel and the status
+       bar were answered above and still work. */
+    if(vwm->manage_apps_popup != NULL
+        || vwm->manage_hotkeys_popup != NULL
+        || vwm->manage_settings_popup != NULL)
+    {
+        return ZONE_MODAL_MISS;
+    }
+
     hit = vk_deck_hit_test(vwm->deck, mx, my);
     if(hit == NULL) return ZONE_SCREEN;
 
@@ -222,11 +236,18 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
     /* top-border controls, right-aligned with a two-column corner margin:
        [v][X]__ -- [X] spans ww-5..ww-3, [v] spans ww-8..ww-6, each 3 wide
        (must track the drawing in vwm_window_decorate, private.c) */
-    if(ry == 0 && rx >= ww - 5 && rx <= ww - 3)
-        return ZONE_CLOSE_BTN;
+    /* a window too narrow for both buttons has neither drawn (same
+       test in vwm_window_decorate): without it the ranges below run
+       off the left edge and a click on the top-left corner of a
+       5-to-8-column window closed or minimized it */
+    if(ww >= VWM_WINDOW_CONTROLS_MIN_W)
+    {
+        if(ry == 0 && rx >= ww - 5 && rx <= ww - 3)
+            return ZONE_CLOSE_BTN;
 
-    if(ry == 0 && rx >= ww - 8 && rx <= ww - 6)
-        return ZONE_MINIMIZE_BTN;
+        if(ry == 0 && rx >= ww - 8 && rx <= ww - 6)
+            return ZONE_MINIMIZE_BTN;
+    }
 
     state = vk_widget_get_state(hit);
     if(ry == wh - 1 && rx == ww - 1 && !(state & VK_STATE_NORESIZE))
@@ -801,6 +822,10 @@ vwm_poll_input(void * const env)
                 }
 
                 case ZONE_STATUS_BAR:
+                    break;
+
+                /* swallowed: see classify_mouse */
+                case ZONE_MODAL_MISS:
                     break;
 
                 case ZONE_SCREEN:

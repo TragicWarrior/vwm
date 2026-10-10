@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.1.2.  Items are located by file and
+Last pruned 2026-10-09 against 8.1.3.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -20,70 +20,14 @@ Marked "(not re-checked)" where the 2026-10-09 prune did not confirm the
 item by reading the code; everything else was confirmed still present.
 
 
-1. DEFECTS -- DO FIRST
-----------------------
+1. DEFECTS
+----------
 
-Nothing open.  The next most serious items are in section 2.
-
-
-2. DEFECTS -- MEDIUM
---------------------
-
-[ ] D6.  Settings "Load" ignores per-desktop colours and wallpapers; a
-         following Save overwrites the file's values  (review 2026-07)
-         manage_settings.c model_load_from_config
-         Never reads desktop_colors / desktop_fgs / desktop_wallpapers
-         (which settings.c writes), so after Load those rows still show
-         the running values and Save puts them back.
-         Fix: parse the three desktop_* arrays, mirroring
-         model_load_from_vwm.
-
-[ ] D7.  Settings Left/Right on the Clipboard and Desktop-Wallpaper
-         rows does nothing but still marks the dialog dirty
-         (review 2026-07)
-         manage_settings.c cycle_value
-         No branch for SETTING_CLIPBOARD or the wallpaper rows, so the
-         value is unchanged and a bogus "Discard changes?" follows.
-         Fix: add the cycle branches, or set dirty only on a change.
-
-[ ] D11. Open manage_* dialogs do not capture mouse clicks that miss
-         them  (review 2026-07)
-         poll_input_thd.c, the mouse path after classify_mouse
-         A click beside an open Settings / Apps / Hotkeys dialog falls
-         through to the deck and raises and feeds a terminal behind it.
-         The keystroke path guards this (vwm->tool_window); the mouse
-         path does not.
-         Fix: when a manage dialog is open and the click missed it,
-         swallow it or route it to the dialog.
-
-[ ] D5.  manage_apps and manage_hotkeys: the Save / Load / Close hit
-         zones are one column left of the buttons
-         (review 2026-07, not re-checked)
-         manage_apps.c, manage_hotkeys.c mouse handlers
-         Clicking Load's right edge triggers Close, and Save's right
-         edge opens Load.  manage_settings.c has the same layout right.
-         Fix: shift the right-hand cluster's ranges by +1 in both.
-
-[ ] D12. Title-bar [v] / [X] hit zones underflow on windows narrower
-         than 9 columns  (review 2026-07)
-         poll_input_thd.c (rx >= ww - 5 ... / ww - 8 ...) and the
-         decorator in private.c
-         Windows resize down to width 3; at 5-8 a click on the top-left
-         corner minimizes or closes the window.
-         Fix: draw and test the controls only when ww >= 9.
+Nothing open.  Every defect from the 2026-07 review has been fixed or
+found no longer to apply (8.0.1 through 8.1.3).
 
 
-3. DEFECTS -- LOW
------------------
-
-[ ] D16. Menubar width is a constant; a 3-digit "(100) Minimized" label
-         would be clipped  (review 2026-07)
-         mainmenu.c (menubar_width)
-         Not reachable in realistic use.  Fix: derive the width from the
-         rendered labels.
-
-
-4. MEMORY
+2. MEMORY
 ---------
 
 The leaks found by valgrind in June and re-measured with LeakSanitizer
@@ -98,7 +42,7 @@ behind.  What vwm still holds when it exits is left to the OS.
          whether vdk_color_init can avoid it, else suppress.
 
 
-5. PERFORMANCE
+3. PERFORMANCE
 --------------
 
 [ ] 6.   vk_window_set_title is called when the title has not changed
@@ -140,7 +84,7 @@ behind.  What vwm still holds when it exits is left to the OS.
          Called rarely.  Fine unless modules become plentiful.  See S10.
 
 
-6. SIMPLIFICATION
+4. SIMPLIFICATION
 -----------------
 
 Line counts are rough estimates from the original pass.
@@ -189,7 +133,7 @@ Decided against (would trade simplicity for a negligible gain):
     iteration contract
 
 
-7. KNOWN ISSUES OUTSIDE VWM
+5. KNOWN ISSUES OUTSIDE VWM
 ---------------------------
 
 Carried over from the old BUGS file.  Not re-tested; the report is many

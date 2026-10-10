@@ -389,6 +389,105 @@ model_load_from_vwm(vwm_t *vwm)
     }
 }
 
+/*
+    Is `name` one of the `count` names in `names`?
+*/
+static bool
+name_in(const char *name, const char * const *names, int count)
+{
+    int i;
+
+    if(name == NULL) return false;
+
+    for(i = 0; i < count; i++)
+        if(strcmp(name, names[i]) == 0) return true;
+
+    return false;
+}
+
+/*
+    Fill the per-desktop rows of the model from a loaded config's
+    "settings" object: "desktop_fgs" and "desktop_colors" (the two
+    halves of a row's "Fg/Bg" value) and "desktop_wallpapers".
+
+    Only the desktops that exist now have rows.  A name the file does
+    not give, or one that is not a colour or wallpaper we know, leaves
+    that part of the row as it was -- the same rule settings.c applies
+    when it reads the file at startup.
+*/
+static void
+model_load_desktops(cJSON *settings)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    cJSON   *fgs;
+    cJSON   *bgs;
+    cJSON   *wps;
+    int     wp_base;
+    int     d;
+
+    if(vwm == NULL || settings == NULL) return;
+
+    fgs = cJSON_GetObjectItemCaseSensitive(settings, "desktop_fgs");
+    bgs = cJSON_GetObjectItemCaseSensitive(settings, "desktop_colors");
+    wps = cJSON_GetObjectItemCaseSensitive(settings, "desktop_wallpapers");
+
+    wp_base = SETTING_DESKTOP_COLOR_BASE + vwm->surface_count;
+
+    for(d = 0; d < vwm->surface_count; d++)
+    {
+        char        *row = model->values[SETTING_DESKTOP_COLOR_BASE + d];
+        char        cur_fg[NAME_MAX];
+        char        cur_bg[NAME_MAX];
+        char        *slash;
+        cJSON       *item;
+        const char  *fg;
+        const char  *bg;
+
+        /* the row as it stands, split into its two halves */
+        snprintf(cur_fg, sizeof(cur_fg), "%s", row);
+        cur_bg[0] = '\0';
+        slash = strchr(cur_fg, '/');
+        if(slash != NULL)
+        {
+            *slash = '\0';
+            snprintf(cur_bg, sizeof(cur_bg), "%s", slash + 1);
+        }
+
+        fg = cur_fg;
+        bg = cur_bg;
+
+        /* either half may come from the file */
+        item = cJSON_IsArray(fgs) ? cJSON_GetArrayItem(fgs, d) : NULL;
+        if(cJSON_IsString(item)
+            && name_in(item->valuestring, vwm_color_names, 16))
+            fg = item->valuestring;
+
+        item = cJSON_IsArray(bgs) ? cJSON_GetArrayItem(bgs, d) : NULL;
+        if(cJSON_IsString(item)
+            && name_in(item->valuestring, vwm_color_names, 16))
+            bg = item->valuestring;
+
+        {
+            char    joined[NAME_MAX];
+
+            /* colour names are a dozen characters at most; the limits
+               only tell the compiler the two halves fit */
+            snprintf(joined, sizeof(joined), "%.100s/%.100s", fg, bg);
+            snprintf(row, NAME_MAX, "%s", joined);
+        }
+
+        /* the wallpaper row */
+        item = cJSON_IsArray(wps) ? cJSON_GetArrayItem(wps, d) : NULL;
+        if(cJSON_IsString(item)
+            && name_in(item->valuestring, vwm_wallpaper_names,
+                VWM_WALLPAPER_COUNT))
+        {
+            snprintf(model->values[wp_base + d], NAME_MAX, "%s",
+                item->valuestring);
+        }
+    }
+}
+
 static void
 model_load_from_config(const char *path)
 {
@@ -459,6 +558,12 @@ model_load_from_config(const char *path)
        item->valueint < NUM_HOSTNAME_FILLS)
         strncpy(model->values[SETTING_HOSTNAME_FILL],
             hostname_fill_names[item->valueint], NAME_MAX - 1);
+
+    /* the per-desktop rows: colours and wallpaper.  settings.c writes
+       them as three arrays of names; without this a Load left those
+       rows showing the running values, and a Save after it wrote the
+       running values over the file's. */
+    model_load_desktops(settings);
 
     cJSON_Delete(root);
 }
@@ -637,10 +742,44 @@ rebuild_listbox(void)
 
 /* ── value cycling for dropdown settings ──────────────────── */
 
+/*
+    Step the value of row `setting_idx` to the next or previous of the
+    `count` names in `names`, wrapping at either end.  A value that is
+    not in the list starts from the first name.
+*/
+static void
+cycle_names(int setting_idx, const char * const *names, int count,
+    int direction)
+{
+    int curr = 0;
+    int i;
+
+    if(count < 1) return;
+
+    for(i = 0; i < count; i++)
+    {
+        if(strcmp(model->values[setting_idx], names[i]) == 0)
+        {
+            curr = i;
+            break;
+        }
+    }
+
+    curr += direction;
+    if(curr < 0) curr = count - 1;
+    if(curr >= count) curr = 0;
+
+    snprintf(model->values[setting_idx], NAME_MAX, "%s", names[curr]);
+}
+
 static void
 cycle_value(int setting_idx, int direction)
 {
-    int i, curr, total;
+    int     i, curr, total;
+    char    before[NAME_MAX];
+
+    /* to tell afterwards whether anything changed */
+    snprintf(before, sizeof(before), "%s", model->values[setting_idx]);
 
     if(setting_idx == SETTING_TASK_ACTION)
     {
@@ -727,6 +866,31 @@ cycle_value(int setting_idx, int direction)
             NAME_MAX - 1);
         model->values[setting_idx][NAME_MAX - 1] = '\0';
     }
+    else if(setting_idx == SETTING_CLIPBOARD)
+    {
+        /* the copy-to-clipboard transport */
+        cycle_names(setting_idx, vwm_clipboard_mode_names,
+            VWM_CLIPBOARD_COUNT, direction);
+    }
+    else
+    {
+        /* the per-desktop wallpaper rows, which follow the per-desktop
+           colour rows (those are edited in the colour popup, not here) */
+        vwm_t   *vwm = vwm_get_instance();
+        int     sc = (vwm != NULL) ? vwm->surface_count : 0;
+        int     wp_base = SETTING_DESKTOP_COLOR_BASE + sc;
+
+        if(setting_idx >= wp_base && setting_idx < wp_base + sc)
+        {
+            cycle_names(setting_idx, vwm_wallpaper_names,
+                VWM_WALLPAPER_COUNT, direction);
+        }
+    }
+
+    /* a row this function does not cycle, or a list of one: nothing
+       changed, so the dialog is no dirtier than it was and there is
+       nothing to redraw */
+    if(strcmp(before, model->values[setting_idx]) == 0) return;
 
     model->dirty = true;
     rebuild_listbox();

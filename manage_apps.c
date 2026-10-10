@@ -3119,13 +3119,13 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
     if(ry >= btn_row && ry <= btn_row + 2)
     {
         int zone = -1;
+        int hit;
 
-        if(rx <= 4)                     zone = FOCUS_BTN_ADD;
-        else if(rx >= 5 && rx <= 12)    zone = FOCUS_BTN_REMOVE;
-        else if(rx >= 13 && rx <= 18)   zone = FOCUS_BTN_EDIT;
-        else if(rx >= 46 && rx <= 51)   zone = FOCUS_BTN_SAVE;
-        else if(rx >= 52 && rx <= 57)   zone = FOCUS_BTN_LOAD;
-        else if(rx >= 58 && rx <= 65)   zone = FOCUS_BTN_CANCEL;
+        /* ask the buttons where they are (see the same change in
+           manage_hotkeys.c).  buttons[] is in the order of the
+           FOCUS_BTN_* values. */
+        hit = vwm_button_bar_hit(buttons, NUM_BUTTONS, rx);
+        if(hit >= 0) zone = FOCUS_BTN_ADD + hit;
 
         if(zone >= 0)
         {
