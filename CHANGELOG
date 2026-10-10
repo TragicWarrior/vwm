@@ -1,3 +1,19 @@
+Version 8.1.6
+
+*  [Bryan Christ] Two small simplifications, no change in behaviour.
+
+   -  The solid desktop colour, the Stiple and Dots 1 wallpapers and
+      the window-manager backdrop were four copies of one loop that
+      fills the canvas with a single character.  One _bkgd_fill serves
+      them all.  (TODO S8)
+   -  The hotkey name formatter tested for lower case, upper case and
+      digits and then printed the same "Alt+%c" in every branch,
+      including the final else.  The three tests are gone.  (TODO S15)
+   -  TODO S7 (four message-list scans in the panel) is dropped: the
+      panel was rewritten on VDK widgets and has no message list.
+   -  TODO gains four items noticed during the October fixes: D20,
+      D21, D22 and S16.
+
 Version 8.1.5
 
 *  [Bryan Christ] Module lookup tidy-up, no change in behaviour.
