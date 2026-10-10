@@ -272,7 +272,7 @@ vwmterm_main(vwm_module_t *mod)
 
     extern vwm_sched_t      *sched;
     vwm_sched_ctx_t         *ctx_vwmterm;
-    extern int              shutdown;
+    extern vwm_shutdown_t   shutdown;
 
     vwm = vwm_get_instance();
     vwmterm_mod = (vwmterm_mod_t *)mod;

@@ -12,6 +12,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "protothread.h"
+#include "sched.h"
 #include "vwm.h"
 #include "signals.h"
 
@@ -53,8 +55,10 @@ void vwm_backtrace(int signum)
     if(term_name!=NULL)
     {
         fd = open(term_name, O_RDWR);
-        if(fd != -1);
-        dup2(fd, STDIN_FILENO);
+
+        /* only when the terminal could be opened.  (A stray semicolon
+           after the test used to make the dup2 unconditional.) */
+        if(fd != -1) dup2(fd, STDIN_FILENO);
     }
 
     count = backtrace(array, 10);
@@ -79,7 +83,7 @@ void vwm_backtrace(int signum)
 void
 vwm_SIGTERM(int signum)
 {
-    extern int  shutdown;
+    extern vwm_shutdown_t   shutdown;
 
     (void)signum;
 
