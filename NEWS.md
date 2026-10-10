@@ -1,5 +1,14 @@
 2026-10-09
 
+vwm no longer grows a little every time you close a terminal window or
+open one of its management dialogs.  That memory was never given back
+before; it is now.
+
+Building this release needs libvterm 10.9+ and libviper 10.0.0+.
+
+
+2026-10-09
+
 In Manage Desktop, Close / Move / Minimize / Restore could act on the
 wrong window if another window on the desktop had closed by itself
 while the dialog was open.  They now act on the windows you checked.

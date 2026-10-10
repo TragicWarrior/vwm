@@ -1,3 +1,32 @@
+Version 8.1.0
+
+*  [Bryan Christ] Built on libviper 10, where a container owns what it
+   holds: destroying a window destroys everything inside it.  vwm
+   relied on that being true long before it was, so this release is
+   mostly leaks that stop:
+
+   -  A closed terminal window is freed.  vwm destroyed it through
+      vk_widget_destroy(), which until libviper 10 did nothing for a
+      window: the window object, its content widget, its event
+      handlers and its ncurses windows stayed allocated for the life
+      of the session, for every terminal ever closed.  The print and
+      screenshot tool windows were the same.
+   -  The four management dialogs free their widgets on close.  Each
+      destroyed only its outer window and left every button, box,
+      list, frame and label inside it behind: about 3.6KB per open of
+      Manage Desktop, 5KB for Settings and Manage Hotkeys, 18KB for
+      Manage Apps Menu, not counting their ncurses windows.
+   -  The popups inside those dialogs free their contents too.
+   -  Manage Desktop's Confirm Close and Move popups are destroyed at
+      all: they were handed to vk_window_destroy(), which refuses a
+      popup, so neither was ever freed.
+
+   The only source changes are those two popup calls and dropping the
+   hand-written scroller teardown in Manage Desktop that 8.0.5 added,
+   which the library now does.  This was the bulk of TODO M3.
+
+   Needs libviper 10.0.0 (libvdk.so.10).
+
 Version 8.0.5
 
 *  [Bryan Christ] Two scroll bars are no longer leaked.  A scroller
