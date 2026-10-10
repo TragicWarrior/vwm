@@ -591,7 +591,9 @@ warning_popup_close(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(warning_popup));
 
-    vk_window_destroy(VK_WINDOW(warning_popup));
+    /* a popup, so the popup call: the window call refuses an object
+       that is not exactly a window and would leave this one behind */
+    vk_popup_destroy(warning_popup);
     warning_popup = NULL;
     warning_client = NULL;
     warning_label_1 = NULL;
@@ -913,7 +915,8 @@ move_popup_close(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(move_popup));
 
-    vk_window_destroy(VK_WINDOW(move_popup));
+    /* a popup, so the popup call (see warning_popup_close) */
+    vk_popup_destroy(move_popup);
     move_popup = NULL;
     move_client = NULL;
     move_listbox = NULL;
@@ -1263,16 +1266,9 @@ vwm_manage_windows_close(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(dialog_window));
 
-    /* an attached scroller does not belong to the widget it is attached
-       to, so destroying the dialog does not free it.  Take it off the
-       list while the list is still there, then free it. */
-    if(listbox_scroller != NULL)
-    {
-        vk_widget_detach_scroller(VK_WIDGET(windows_selectbox),
-            listbox_scroller);
-        vk_scroller_destroy(listbox_scroller);
-    }
-
+    /* the window takes everything in it along: the boxes, the buttons,
+       the list and the list's scroller (libviper 10: a container owns
+       what it holds) */
     vk_window_destroy(dialog_window);
     dialog_window = NULL;
     main_vbox = NULL;
