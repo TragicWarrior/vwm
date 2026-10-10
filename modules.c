@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <dirent.h>
 #include <string.h>
 #include <dlfcn.h>
@@ -347,48 +348,46 @@ vwm_module_type_value(char *string)
     return i;
 }
 
-vwm_module_t*
-vwm_module_find_by_name(char *name)
+/*
+    Find the first module on the list whose string field at `offset`
+    (its name or its title, both char arrays inside the module struct)
+    equals `value`.  The list is searched head first, so of several
+    modules with the same string the most recently added one wins.
+    Returns NULL when there is none, or when value is NULL.
+*/
+static vwm_module_t*
+_vwm_module_find_by_string(size_t offset, const char *value)
 {
     vwm_t               *vwm;
-    vwm_module_t        *module = NULL;
+    vwm_module_t        *module;
     struct list_head    *pos;
 
-    if(name == NULL) return NULL;
+    if(value == NULL) return NULL;
+
     vwm = vwm_get_instance();
 
     list_for_each(pos, &vwm->module_list)
     {
         module = list_entry(pos, vwm_module_t, list);
 
-        if(strcmp(module->name, name) == 0) break;
-
-        module = NULL;
+        if(strcmp((const char *)module + offset, value) == 0) return module;
     }
 
-	return module;
+    return NULL;
 }
 
+/* the module with this unique name, e.g. "vterm-color" */
+vwm_module_t*
+vwm_module_find_by_name(char *name)
+{
+    return _vwm_module_find_by_string(offsetof(vwm_module_t, name), name);
+}
+
+/* the module with this display title, e.g. "VTerm (color)" */
 vwm_module_t*
 vwm_module_find_by_title(char *title)
 {
-	vwm_t			    *vwm;
-	vwm_module_t	    *module = NULL;
-	struct list_head    *pos;
-
-	if(title == NULL) return NULL;
-	vwm = vwm_get_instance();
-
-    list_for_each(pos, &vwm->module_list)
-    {
-        module = list_entry(pos, vwm_module_t, list);
-
-        if(strcmp(module->title, title) == 0) break;
-
-        module = NULL;
-    }
-
-	return module;
+    return _vwm_module_find_by_string(offsetof(vwm_module_t, title), title);
 }
 
 vwm_module_t*
@@ -438,7 +437,6 @@ static int
 _vwm_module_init(const char *modpath)
 {
     void            *handle = NULL;
-    vwm_module_t    *mod = NULL;
     int             retval = 0;
     int             (*constructor)(const char *modpath);
 
@@ -461,7 +459,6 @@ _vwm_module_init(const char *modpath)
     // handle "user error" from module constructor
     if(retval != 0)
     {
-        free(mod);
         dlclose(handle);
         return -3;
     }

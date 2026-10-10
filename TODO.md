@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.1.4.  Items are located by file and
+Last pruned 2026-10-09 against 8.1.5.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -81,7 +81,7 @@ behind.  What vwm still holds when it exits is left to the OS.
 
 [ ] 11.  vwm_module_find_by_title is a linear strcmp  (review 2026-06)
          modules.c
-         Called rarely.  Fine unless modules become plentiful.  See S10.
+         Called rarely.  Fine unless modules become plentiful.
 
 
 4. SIMPLIFICATION
@@ -89,9 +89,6 @@ behind.  What vwm still holds when it exits is left to the OS.
 
 Line counts are rough estimates from the original pass.
 
-[ ] S14. Dead free(mod) on an always-NULL local in the module-init
-         error path  (review 2026-07)
-         modules.c; delete it and the unused local.
 [ ] S15. Four identical "Alt+%c" branches collapse to one else
          (review 2026-07)
          manage_hotkeys.c
@@ -109,8 +106,6 @@ Line counts are rough estimates from the original pass.
          (review 2026-06)
 [ ] S9.  mainmenu: dropdown boilerplate and nav duplication.
          (review 2026-06)
-[ ] S10. modules: find_by_name / title / type share a structure; dead
-         ghost declarations.  (review 2026-06)
 [ ] S12. vwmterm3: the wheel-down, Alt+PgDn and drain-task render
          blocks are still inline (wheel-up, Alt+PgUp and scrollbar drag
          already share vwmterm_scroll_render); 6-block module

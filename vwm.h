@@ -13,7 +13,7 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"8.1.4"
+#define VWM_VERSION					"8.1.5"
 
 /* the narrowest window that shows its title-bar buttons: a corner, the
    3 columns of [v], the 3 of [X], and the 2-column margin to the right
@@ -155,20 +155,8 @@ char*	        vwm_modules_load(char *module_dir);
 /* profile functions */
 int             vwm_profile_init(vwm_t *vwm);
 char*           vwm_profile_mod_dir_get(vwm_t *vwm);
-void            vwm_profile_mod_dir_set(char *module_dir);
 char*           vwm_profile_login_get(vwm_t *vwm);
 char*           vwm_profile_rc_file_get(vwm_t *vwm);
-
-/* screensaver functions   */
-void            vwm_scrsaver_start(void);
-void            vwm_scrsaver_stop(void);
-void            vwm_scrsaver_set(char *title);
-const char*     vwm_scrsaver_get(void);
-void            vwm_scrsaver_timeout_set(int timeout);
-int             vwm_scrsaver_timeout_get(void);
-
-/*	helper functions	*/
-void            vwm_post_help(char *msg);
 
 /* big-font hostname hook.  The optional vwmfont module registers a
    renderer on load (vwm_mod_init); the bottom-left hostname label uses it

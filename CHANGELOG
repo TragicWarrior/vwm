@@ -1,3 +1,19 @@
+Version 8.1.5
+
+*  [Bryan Christ] Module lookup tidy-up, no change in behaviour.
+
+   -  vwm_module_find_by_name and vwm_module_find_by_title were the
+      same loop over a different field.  Both now call one helper that
+      takes the field's offset.  vwm_module_find_by_type is left as it
+      is: it is an iterator, not a lookup.  (TODO S10)
+   -  Nine functions were declared in headers and defined nowhere:
+      vwm_scrsaver_start / _stop / _set / _get / _timeout_set /
+      _timeout_get, vwm_post_help and vwm_profile_mod_dir_set in vwm.h,
+      and vwm_settings_hotkey_load in settings.h.  Nothing called
+      them.  The declarations are gone.  (TODO S10)
+   -  The module loader's error path freed a local that was never
+      assigned.  The local and the free are gone.  (TODO S14)
+
 Version 8.1.4
 
 *  [Bryan Christ] Settings dialog: less repeated code, same behaviour.
