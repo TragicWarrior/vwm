@@ -124,19 +124,25 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
     close_col = x - 2 - 3;          /* [X] ends two columns short of the corner */
     min_col   = close_col - 3;      /* [v] sits immediately left of [X] */
 
-    mvwprintw(canvas, 0, close_col, "[X]");
-
-    mvwaddch(canvas, 0, min_col, '[');
-    if(vwm_has_utf8())
+    /* only when there is room for both: on a narrower window the
+       columns above are on or left of the frame's own corner (same
+       test in classify_mouse, poll_input_thd.c) */
+    if(x >= VWM_WINDOW_CONTROLS_MIN_W)
     {
-        wch[0] = 0x2193;                        /* U+2193 DOWNWARDS ARROW */
-        wch[1] = L'\0';
-        setcchar(&cc, wch, extra, pair, NULL);
-        mvwadd_wch(canvas, 0, min_col + 1, &cc);
+        mvwprintw(canvas, 0, close_col, "[X]");
+
+        mvwaddch(canvas, 0, min_col, '[');
+        if(vwm_has_utf8())
+        {
+            wch[0] = 0x2193;                    /* U+2193 DOWNWARDS ARROW */
+            wch[1] = L'\0';
+            setcchar(&cc, wch, extra, pair, NULL);
+            mvwadd_wch(canvas, 0, min_col + 1, &cc);
+        }
+        else
+            mvwaddch(canvas, 0, min_col + 1, 'v');
+        mvwaddch(canvas, 0, min_col + 2, ']');
     }
-    else
-        mvwaddch(canvas, 0, min_col + 1, 'v');
-    mvwaddch(canvas, 0, min_col + 2, ']');
 
     snprintf(buf, sizeof(buf), "[%d x %d]", x - 2 - reserved, y - 2);
     len = strlen(buf);

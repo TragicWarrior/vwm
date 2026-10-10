@@ -8,6 +8,15 @@
     extracted from their former per-file copies (TODO S2).
 */
 
+/* Which of a dialog's `count` bottom-row buttons is under column `col`?
+   `col` is counted across the dialog's interior, which is where the
+   button row starts.  Returns the button's index in `buttons`, or -1
+   for the gap between the left and right groups.
+
+   The answer comes from where each button actually is, so it cannot
+   drift from the layout the way a table of column numbers can. */
+int     vwm_button_bar_hit(vk_button_t **buttons, int count, int col);
+
 /* vk_scroller content/scroll-extent callback for a listbox child: reports
    the item count as content height, the listbox width as content width,
    and the current item as the vertical scroll position. */
