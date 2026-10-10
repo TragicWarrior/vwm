@@ -8,6 +8,17 @@
     extracted from their former per-file copies (TODO S2).
 */
 
+/* Take a popup off the screen and destroy it, and clear the caller's
+   pointer to it.  Does nothing when *popup is already NULL.  The caller
+   repaints whatever was underneath. */
+void    vwm_popup_dismiss(vk_popup_t **popup);
+
+/* Paint a popup's buttons so that button `active` stands out (yellow
+   on white) and the others are plain (black on white).  Updates the
+   buttons only; the caller updates the popup and refreshes the screen
+   when it is ready to show the result. */
+void    vwm_popup_buttons_paint(vk_popup_t *popup, int active);
+
 /* Which of a dialog's `count` bottom-row buttons is under column `col`?
    `col` is counted across the dialog's interior, which is where the
    button row starts.  Returns the button's index in `buttons`, or -1

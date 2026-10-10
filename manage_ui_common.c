@@ -8,6 +8,47 @@
 #include "manage_ui_common.h"
 
 /* see manage_ui_common.h */
+void
+vwm_popup_dismiss(vk_popup_t **popup)
+{
+    vwm_t   *vwm;
+
+    if(popup == NULL || *popup == NULL) return;
+
+    vwm = vwm_get_instance();
+
+    vk_screen_detach_widget(vwm->screen,
+        vk_screen_get_active_surface(vwm->screen), VK_WIDGET(*popup));
+
+    /* the popup takes its buttons and its client with it */
+    vk_popup_destroy(*popup);
+    *popup = NULL;
+}
+
+/* see manage_ui_common.h */
+void
+vwm_popup_buttons_paint(vk_popup_t *popup, int active)
+{
+    int count;
+    int i;
+
+    if(popup == NULL) return;
+
+    count = vk_popup_get_button_count(popup);
+
+    for(i = 0; i < count; i++)
+    {
+        vk_button_t *btn = vk_popup_get_button(popup, i);
+
+        vk_button_release(btn);
+        vk_widget_set_colors(VK_WIDGET(btn),
+            (i == active) ? COLOR_YELLOW : COLOR_BLACK, COLOR_WHITE);
+        vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
+        vk_button_update(btn);
+    }
+}
+
+/* see manage_ui_common.h */
 int
 vwm_button_bar_hit(vk_button_t **buttons, int count, int col)
 {

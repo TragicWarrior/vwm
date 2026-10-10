@@ -13,7 +13,7 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"8.1.3"
+#define VWM_VERSION					"8.1.4"
 
 /* the narrowest window that shows its title-bar buttons: a corner, the
    3 columns of [v], the 3 of [X], and the 2-column margin to the right
