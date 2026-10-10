@@ -277,7 +277,7 @@ vwm_sched_task_create(vwm_sched_t *sched, vwm_sched_ctx_t *ctx,
 }
 
 void
-vwm_sched_run(vwm_sched_t *sched, int *shutdown)
+vwm_sched_run(vwm_sched_t *sched, vwm_shutdown_t *shutdown)
 {
     struct timespec     now;
     struct timespec     last_tick;

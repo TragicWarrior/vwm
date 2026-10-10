@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.1.0.  Items are located by file and
+Last pruned 2026-10-09 against 8.1.1.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -81,22 +81,6 @@ Nothing open.  The next most serious items are in section 2.
          mainmenu.c (menubar_width)
          Not reachable in realistic use.  Fix: derive the width from the
          rendered labels.
-
-[ ] D17. `shutdown` is a plain int written from the SIGTERM handler
-         (review 2026-07)
-         vwm.c, signals.c vwm_SIGTERM
-         Should be volatile sig_atomic_t.  Works today.
-
-[ ] D18. Stray semicolon makes the dup2 unconditional in the crash
-         handler  (review 2026-07)
-         signals.c vwm_backtrace: `if(fd != -1);`
-         _DEBUG builds only; harmless (EBADF).  Fix: remove the `;`.
-
-[ ] D19. isdigit() on an unfiltered key code is undefined behaviour
-         (review 2026-07)
-         manage_settings.c, numeric modify-input path
-         KEY_UP, KEY_MOUSE and the like are above 255.  Benign on glibc.
-         Fix: keystroke >= '0' && keystroke <= '9'.
 
 
 4. MEMORY (valgrind)

@@ -2,6 +2,7 @@
 #define _VWM_SCHED_H_
 
 #include <inttypes.h>
+#include <signal.h>
 
 #include "protothread.h"
 
@@ -35,6 +36,15 @@
         vwm_sched_wait(ctx);    nothing to do -- run me when woken
         pt_yield(ctx);          more to do -- let the others have a turn
 */
+
+/*
+    the type of the process-wide shutdown flag.  It is set from the
+    SIGTERM handler as well as from ordinary code, and read by every
+    task, so it has to be the one type C guarantees a signal handler may
+    write: a volatile sig_atomic_t.  Every declaration of the flag, and
+    every pointer to it, uses this name so they cannot drift apart.
+*/
+typedef volatile sig_atomic_t   vwm_shutdown_t;
 
 /*
     compile-time cap on the number of concurrent tasks.  task creation
@@ -73,7 +83,7 @@ typedef struct _vwm_sched_ctx_s
 {
     pt_func_t               pt_func;
 
-    int                     *shutdown;
+    vwm_shutdown_t          *shutdown;
     void                    *anything;
 
     /* scheduler use only; do not touch from task code */
@@ -113,7 +123,7 @@ int             vwm_sched_task_create(vwm_sched_t *sched,
     '*shutdown' becomes non-zero, arms alarm(20) as a watchdog: if tasks
     have not drained by then, the handler _exit()s.
 */
-void            vwm_sched_run(vwm_sched_t *sched, int *shutdown);
+void            vwm_sched_run(vwm_sched_t *sched, vwm_shutdown_t *shutdown);
 
 /*
     optional per-step callback, fired once at the end of every step.

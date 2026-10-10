@@ -23,6 +23,8 @@
 #include <vdk.h>
 
 #include "profile.h"
+#include "protothread.h"
+#include "sched.h"
 #include "vwm.h"
 #include "modules.h"
 #include "mainmenu.h"
@@ -178,7 +180,7 @@ vwm_modules_preload(vwm_t *vwm)
 int
 vwm_exit(vk_widget_t *widget, void *anything)
 {
-    extern int  shutdown;
+    extern vwm_shutdown_t   shutdown;
 
     (void)widget;
     (void)anything;

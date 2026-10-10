@@ -1,3 +1,19 @@
+Version 8.1.1
+
+*  [Bryan Christ] Three small correctness fixes from the review list.
+
+   -  The shutdown flag is a volatile sig_atomic_t.  It is written from
+      the SIGTERM handler and was a plain int.  New type name
+      vwm_shutdown_t (sched.h), used by the flag, every extern of it
+      and every pointer to it, so they cannot drift apart.  (TODO D17)
+   -  The debug crash handler only redirects stdin when it managed to
+      open the terminal.  A stray semicolon after the test made the
+      dup2 unconditional.  _DEBUG builds only.  (TODO D18)
+   -  The numeric fields in Settings test for a digit with a plain
+      range check.  The keystroke can be a key code above 255 (an
+      arrow, a mouse event), and isdigit() is only defined for
+      unsigned char values.  (TODO D19)
+
 Version 8.1.0
 
 *  [Bryan Christ] Built on libviper 10, where a container owns what it

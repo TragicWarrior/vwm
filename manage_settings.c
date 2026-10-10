@@ -1178,7 +1178,11 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
             {
                 int numeric = (modify_setting_idx == SETTING_NUM_DESKTOPS ||
                     modify_setting_idx == SETTING_SCREENSAVER_IDLE);
-                int accept = numeric ? (isdigit(keystroke) != 0)
+                /* a plain range test, not isdigit(): the keystroke can be
+                   a key code above 255 (an arrow, a mouse event), and
+                   isdigit() is only defined for unsigned char values */
+                int accept = numeric
+                    ? (keystroke >= '0' && keystroke <= '9')
                     : (keystroke >= 32 && keystroke <= 126);
 
                 if(accept)

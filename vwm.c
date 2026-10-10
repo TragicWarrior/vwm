@@ -79,7 +79,7 @@ static void
 vwm_sched_render(void *arg);
 
 vwm_sched_t             *sched = NULL;
-int                     shutdown = 0;
+vwm_shutdown_t          shutdown = 0;
 
 /* the size the session's screen starts at: that of the terminal it was
    launched from (see vwm_launch) */
@@ -101,7 +101,7 @@ int main(int argc,char **argv)
     extern int              vwm_argc;
 	char		      		*locale = NULL;
 
-    extern int              shutdown;
+    extern vwm_shutdown_t   shutdown;
     extern vwm_sched_t      *sched;
 
     vwm_sched_ctx_t         *ctx_clock;
@@ -778,7 +778,7 @@ vwm_detach(void)
 void
 vwm_stop(void)
 {
-    extern int  shutdown;
+    extern vwm_shutdown_t   shutdown;
     vwm_t       *vwm = vwm_get_instance();
     int         i;
     int         j;
