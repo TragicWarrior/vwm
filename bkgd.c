@@ -111,29 +111,22 @@ _bkgd_make_cc(cchar_t *dest, const cchar_t *src, short pair)
     setcchar(dest, wch, attrs, pair, NULL);
 }
 
+/*
+    Fill the whole canvas with one character: the solid colour (a
+    space), Stiple, Dots 1 and the window-manager backdrop are all this.
+    The pair is applied as a separate short so bright (8-15) colors,
+    whose pair numbers exceed 255, are not truncated by COLOR_PAIR.
+*/
 static void
-_bkgd_render_stiple(WINDOW *canvas, int width, int height, short pair)
+_bkgd_fill(WINDOW *canvas, int width, int height, attr_t attrs, short pair,
+    chtype ch)
 {
     int i;
 
-    /* apply the pair as a separate short so bright (8-15) colors, whose
-       pair numbers exceed 255, are not truncated by COLOR_PAIR */
-    wattr_set(canvas, A_ALTCHARSET, pair, NULL);
+    wattr_set(canvas, attrs, pair, NULL);
     wmove(canvas, 0, 0);
     for(i = 0; i < width * height; i++)
-        waddch(canvas, ACS_CKBOARD);
-    wattr_set(canvas, A_NORMAL, 0, NULL);
-}
-
-static void
-_bkgd_render_dots_1(WINDOW *canvas, int width, int height, short pair)
-{
-    int i;
-
-    wattr_set(canvas, A_NORMAL, pair, NULL);
-    wmove(canvas, 0, 0);
-    for(i = 0; i < width * height; i++)
-        waddch(canvas, '.');
+        waddch(canvas, ch);
     wattr_set(canvas, A_NORMAL, 0, NULL);
 }
 
@@ -324,15 +317,9 @@ _bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
     switch(pattern)
     {
         case VWM_WALLPAPER_NONE:
-        {
             /* solid fill: just the desktop color, no overlay glyph */
-            int i;
-            wattr_set(target, A_NORMAL, pair, NULL);
-            wmove(target, 0, 0);
-            for(i = 0; i < width * height; i++) waddch(target, ' ');
-            wattr_set(target, A_NORMAL, 0, NULL);
+            _bkgd_fill(target, width, height, A_NORMAL, pair, ' ');
             break;
-        }
         case VWM_WALLPAPER_SMALL_BRICKS:
             _bkgd_render_small_bricks(target, width, height, pair);
             break;
@@ -340,7 +327,7 @@ _bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
             _bkgd_render_large_bricks(target, width, height, pair);
             break;
         case VWM_WALLPAPER_DOTS_1:
-            _bkgd_render_dots_1(target, width, height, pair);
+            _bkgd_fill(target, width, height, A_NORMAL, pair, '.');
             break;
         case VWM_WALLPAPER_DOTS_2:
             _bkgd_render_dots_2(target, width, height, pair);
@@ -350,7 +337,8 @@ _bkgd_paint_into(WINDOW *target, int surface_id, int width, int height)
             break;
         case VWM_WALLPAPER_STIPLE:
         default:
-            _bkgd_render_stiple(target, width, height, pair);
+            _bkgd_fill(target, width, height, A_ALTCHARSET, pair,
+                ACS_CKBOARD);
             break;
     }
 }
@@ -596,21 +584,16 @@ vwm_invalidate_wallpaper_cache_all_orphan(void)
 void
 vwm_bkgd_simple_winman(vk_screen_t *screen, int surface_id, WINDOW *canvas)
 {
-    short       color;
     int         width, height;
-    int         i;
 
     (void)screen;
     (void)surface_id;
 
     getmaxyx(canvas, height, width);
 
-    color = vdk_color_pair(COLOR_BLACK, COLOR_WHITE);
-    wattron(canvas, COLOR_PAIR(color));
-    wmove(canvas, 0, 0);
-    for(i = 0; i < width * height; i++)
-        waddch(canvas, '.');
-    wattroff(canvas, COLOR_PAIR(color));
+    /* a field of dots, black on white */
+    _bkgd_fill(canvas, width, height, A_NORMAL,
+        vdk_color_pair(COLOR_BLACK, COLOR_WHITE), '.');
 }
 
 /*

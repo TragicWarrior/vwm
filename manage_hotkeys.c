@@ -142,12 +142,6 @@ hotkey_format(int32_t keycode, char *buf, int buflen)
 
         if(c == '`')
             snprintf(buf, buflen, "Alt+~");
-        else if(c >= 'a' && c <= 'z')
-            snprintf(buf, buflen, "Alt+%c", c);
-        else if(c >= 'A' && c <= 'Z')
-            snprintf(buf, buflen, "Alt+%c", c);
-        else if(c >= '0' && c <= '9')
-            snprintf(buf, buflen, "Alt+%c", c);
         else
             snprintf(buf, buflen, "Alt+%c", c);
         return;
