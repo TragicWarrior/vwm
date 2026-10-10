@@ -187,6 +187,7 @@ vwm_mod_init(const char *modpath)
     VWM_MODULE(mod)->main = vwmterm_main;
     VWM_MODULE(mod)->clone = vwmterm_module_clone;
     VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
     vwm_module_set_name(VWM_MODULE(mod), "vterm-color");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (color)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
@@ -199,6 +200,7 @@ vwm_mod_init(const char *modpath)
     VWM_MODULE(mod)->main = vwmterm_main;
     VWM_MODULE(mod)->clone = vwmterm_module_clone;
     VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
     vwm_module_set_name(VWM_MODULE(mod), "vterm-vt100");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (vt100)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
@@ -211,6 +213,7 @@ vwm_mod_init(const char *modpath)
     VWM_MODULE(mod)->main = vwmterm_main;
     VWM_MODULE(mod)->clone = vwmterm_module_clone;
     VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
     vwm_module_set_name(VWM_MODULE(mod), "vterm-fullscreen");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (fullscreen)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
@@ -224,6 +227,7 @@ vwm_mod_init(const char *modpath)
     VWM_MODULE(mod)->main = vwmterm_main;
     VWM_MODULE(mod)->clone = vwmterm_module_clone;
     VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
     vwm_module_set_name(VWM_MODULE(mod), "vterm-xterm");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (xterm)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
@@ -236,6 +240,7 @@ vwm_mod_init(const char *modpath)
     VWM_MODULE(mod)->main = vwmterm_main;
     VWM_MODULE(mod)->clone = vwmterm_module_clone;
     VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
     vwm_module_set_name(VWM_MODULE(mod), "vterm-xterm256");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (xterm 256)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
@@ -248,6 +253,7 @@ vwm_mod_init(const char *modpath)
     VWM_MODULE(mod)->main = vwmterm_main;
     VWM_MODULE(mod)->clone = vwmterm_module_clone;
     VWM_MODULE(mod)->configure = vwmterm_module_configure;
+    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
     vwm_module_set_name(VWM_MODULE(mod), "vterm-truecolor");
     vwm_module_set_title(VWM_MODULE(mod), "VTerm (truecolor)");
     vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);

@@ -44,6 +44,10 @@ struct _vwm_module_s
     vwm_module_t*           (*clone)            (vwm_module_t *);
     int                     (*configure)        (vwm_module_t *, va_list *);
 
+    /* free a module made by clone(), with whatever it owns.  NULL means
+       the module owns nothing beyond itself.  See vwm_module_destroy. */
+    void                    (*destroy)          (vwm_module_t *);
+
     struct list_head        list;
 
     vk_window_t*            (*main)             (vwm_module_t *);

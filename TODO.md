@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.1.1.  Items are located by file and
+Last pruned 2026-10-09 against 8.1.2.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -83,28 +83,13 @@ Nothing open.  The next most serious items are in section 2.
          rendered labels.
 
 
-4. MEMORY (valgrind)
---------------------
+4. MEMORY
+---------
 
-The numbers are from 2026-06-17 and predate the event-loop scheduler
-and the background session.  Re-run before acting on any of these.
-
-[ ] M2.  vwmterm reads an uninitialised value  (valgrind 2026-06)
-         "Conditional jump or move depends on uninitialised value(s)"
-         in the terminal task (modules/vwmterm3).  Re-run with
-         --track-origins=yes to find the origin.
-
-[ ] M3.  What is left of the leak findings  (valgrind 2026-06;
-         re-measured with LeakSanitizer 2026-10)
-         The large parts are fixed: closed terminal windows, the four
-         management dialogs and their popups (8.1.0, with libviper 10's
-         destroy cascade) and the two scroller leaks (8.0.5).  Still
-         open:
-           - a closed terminal leaves about 1KB behind in vwm's own
-             bookkeeping: the module clone (vwmterm_module_clone) and
-             the exec strings (vterm_set_exec, module_configure)
-           - memory still held at exit (an open terminal's widgets,
-             vwm_programs_load).  The OS reclaims it; low priority.
+The leaks found by valgrind in June and re-measured with LeakSanitizer
+in October are fixed (8.0.5, 8.1.0, 8.1.2, libviper 10, libvterm
+10.10.2).  Opening and closing dialogs and terminals now leaves nothing
+behind.  What vwm still holds when it exits is left to the OS.
 
 [ ] M1.  ncurses colour-tree "Invalid read of size 4" at startup and
          exit  (valgrind 2026-06)

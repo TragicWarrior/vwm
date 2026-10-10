@@ -120,7 +120,7 @@ screensaver_start(void)
     if(args == NULL || args[0] == NULL)
     {
         if(args != NULL) strfreev(args);
-        free(mod);
+        vwm_module_destroy(mod);
         return;
     }
 
@@ -129,11 +129,12 @@ screensaver_start(void)
     strfreev(args);
 
     window = vwm_module_exec(mod);
-    if(window == NULL)
-    {
-        free(mod);
-        return;
-    }
+
+    /* the clone existed for this one launch; the terminal took what it
+       needed from it while starting */
+    vwm_module_destroy(mod);
+
+    if(window == NULL) return;
 
     s_window = window;
     s_surface = vk_screen_get_active_surface(vwm->screen);

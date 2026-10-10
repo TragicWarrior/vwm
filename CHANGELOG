@@ -1,3 +1,18 @@
+Version 8.1.2
+
+*  [Bryan Christ] A module cloned for one launch is freed after it.
+   `vwm-msg launch` and the screensaver each clone a terminal profile,
+   configure it with the program to run, start it, and then dropped
+   the clone: about 1KB per control-socket launch and per screensaver
+   start.  New vwm_module_destroy(), with a destroy hook in the module
+   struct so a module type frees what it owns (the terminal module's
+   program path and argument list).  A terminal takes what it needs
+   from its module while starting and does not look at it again.
+
+   With libvterm 10.10.2, which frees a terminal's command line on
+   destroy, opening and closing terminals leaves nothing behind.  This
+   closes TODO M3; M2 was dropped as no longer reproducible.
+
 Version 8.1.1
 
 *  [Bryan Christ] Three small correctness fixes from the review list.

@@ -37,6 +37,28 @@ vwmterm_module_clone(vwm_module_t *mod)
     return VWM_MODULE(vwmterm_mod);
 }
 
+/*
+    Free a terminal module made by vwmterm_module_clone, with the
+    program path and argument list that configure() gave it.
+
+    Not fd_argv: the clone's copy of that pointer is the source
+    module's own (the memcpy in clone shares it), so it is not ours to
+    free.
+*/
+void
+vwmterm_module_destroy(vwm_module_t *mod)
+{
+    vwmterm_mod_t   *vwmterm_mod;
+
+    if(mod == NULL) return;
+
+    vwmterm_mod = (vwmterm_mod_t *)mod;
+
+    free(vwmterm_mod->bin_path);
+    strfreev(vwmterm_mod->exec_args);
+    free(vwmterm_mod);
+}
+
 int
 vwmterm_module_configure(vwm_module_t *mod, va_list *argp)
 {

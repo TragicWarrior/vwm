@@ -13,7 +13,7 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"8.1.1"
+#define VWM_VERSION					"8.1.2"
 
 /* the kmio feature set vwm arms at startup and must re-arm whenever the
    terminal may have changed under us -- a move to another terminal or
@@ -124,6 +124,9 @@ void            vwm_panel_init(vwm_t *vwm);
 /*	extensibility functions	*/
 vwm_module_t*   vwm_module_create(void);
 vwm_module_t*   vwm_module_clone(vwm_module_t *mod);
+/* free a clone that is done with (one made for a single launch), with
+   whatever its module type owns.  Not for a module on the module list. */
+void            vwm_module_destroy(vwm_module_t *mod);
 int             vwm_module_configure(vwm_module_t *mod, ...);
 int             vwm_module_set_name(vwm_module_t *mod, char *name);
 void            vwm_module_set_type(vwm_module_t *mod, int type);
