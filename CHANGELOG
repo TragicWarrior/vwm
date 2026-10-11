@@ -1,3 +1,31 @@
+Version 8.1.7
+
+*  [Bryan Christ] Three small fixes around Manage Desktop and the
+   status bar.
+
+   -  Manage Desktop's list now follows the desktop while the dialog is
+      open.  A window that closed, opened, was minimized or was
+      restored behind the dialog (a program exiting, vwm-msg) used to
+      leave the list as it was until the dialog was reopened.  The
+      list is rebuilt at each such change, and the ticks and the
+      cursor stay on the windows they were on.  (TODO D21)
+   -  The "Move To..." popup took a click on its bottom border as a
+      press of Okay or Cancel, and ignored a click on the top row of
+      either button.  The button rows are now the three the buttons
+      occupy.  (TODO D20)
+   -  The status bar of an empty desktop read "Alt ~ Menu | Alt d
+      Switch Desktop" at startup and "Press Alt ~ for Menu" once any
+      dialog or the last window had closed.  It is the startup text
+      throughout.  The choice between it and the window key help was
+      written out in nine places; they now call one
+      vwm_panel_status_idle.  (TODO D22)
+
+      D22 was recorded as "the status bar keeps a dialog's key help
+      after the dialog closes".  That did not reproduce: the text is
+      restored in the same refresh that removes the dialog.  What was
+      seen was the dialog itself staying up for the second ncurses
+      waits after a bare Esc.
+
 Version 8.1.6
 
 *  [Bryan Christ] Two small simplifications, no change in behaviour.

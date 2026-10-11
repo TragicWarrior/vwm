@@ -2586,13 +2586,7 @@ vwm_manage_settings_close(void)
         pending_desktops = 0;
     }
 
-    {
-        vk_widget_t *top = vk_deck_get_top(vwm->deck);
-        if(top != NULL)
-            vwm_panel_set_status(VWM_WINDOW_HELP);
-        else
-            vwm_panel_set_status("Press Alt ~ for Menu");
-    }
+    vwm_panel_status_idle();
 
     vk_screen_refresh(vwm->screen);
 }

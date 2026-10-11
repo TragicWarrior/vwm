@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.1.6.  Items are located by file and
+Last pruned 2026-10-09 against 8.1.7.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -24,31 +24,9 @@ item by reading the code; everything else was confirmed still present.
 1. DEFECTS
 ----------
 
-Every defect from the 2026-07 review has been fixed or found no longer
-to apply (8.0.1 through 8.1.3).  The items below were noticed since and
-have not been reproduced under a test.
-
-[ ] D20. The move popup's button-row test may be off by one
-         (noticed 2026-10)
-         manage_windows.c: `if(rel_y >= ph - 3)`
-         The same test, copied to the confirm popup, was a row out and
-         was corrected there to `rel_y < ph - 4 || rel_y > ph - 2`
-         (8.0.3).  The original was not checked against a click.
-         Fix: click each row of the move popup and correct the bounds,
-         or move it onto vwm_button_bar_hit.
-
-[ ] D21. Manage Desktop does not redraw its list when a window closes
-         behind it  (noticed 2026-10)
-         manage_windows.c
-         The list resolves windows by id (8.1.3), so a stale row is
-         harmless to act on, but it stays on screen until the next key.
-         Fix: refresh the list when a window is destroyed while the
-         dialog is open.
-
-[ ] D22. The status bar keeps a dialog's key help after the dialog
-         closes  (noticed 2026-10)
-         Fix: restore the default help text on every close path, in one
-         place (vwm_popup_dismiss is the natural spot).
+Nothing open.  Every defect from the 2026-07 review, and the three
+noticed in October, has been fixed or found no longer to apply (8.0.1
+through 8.1.7).
 
 
 2. MEMORY

@@ -52,15 +52,10 @@ void
 vwm_default_VWM_STOP(void)
 {
     vwm_t       *vwm;
-    vk_widget_t *top;
 
     vwm = vwm_get_instance();
 
-    top = vk_deck_get_top(vwm->deck);
-    if(top != NULL)
-        vwm_panel_set_status(VWM_WINDOW_HELP);
-    else
-        vwm_panel_set_status("Press Alt ~ for Menu");
+    vwm_panel_status_idle();
 
     vk_screen_set_wallpaper(vwm->screen, vwm_bkgd_simple_normal);
 
@@ -156,7 +151,7 @@ vwm_default_WINDOW_CLOSE(vk_widget_t *widget)
     vk_widget_destroy(widget);
 
     if(vk_deck_get_top(vwm->deck) == NULL)
-        vwm_panel_set_status("Press Alt ~ for Menu");
+        vwm_panel_set_status(VWM_IDLE_HELP);
 
     vwm_window_menu_refresh();
     vk_screen_refresh(vwm->screen);
@@ -194,7 +189,7 @@ vwm_minimize_window(vk_widget_t *widget)
     vk_deck_finalize(deck);
 
     if(vk_deck_get_top(vwm->deck) == NULL)
-        vwm_panel_set_status("Press Alt ~ for Menu");
+        vwm_panel_set_status(VWM_IDLE_HELP);
 
     vwm_window_menu_refresh();
     vk_screen_refresh(vwm->screen);

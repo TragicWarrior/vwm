@@ -98,6 +98,11 @@ static int                  list_count = 0;
    and ids, unlike addresses, are never reused. */
 static uint32_t             *list_ids = NULL;
 
+/* set while the dialog itself is closing, moving, minimizing or
+   restoring windows.  It rebuilds the list once when it is done, so
+   vwm_manage_windows_sync stands back until then. */
+static bool                 list_busy = false;
+
 
 /* ── forward decls ─────────────────────────────────────────── */
 
@@ -259,6 +264,71 @@ rebuild_listbox(void)
 }
 
 
+/*
+    The desktop's windows changed behind the dialog: a program exited,
+    one was started, vwm-msg closed or minimized one.  Rebuild the list
+    so it shows what is there now, keeping the ticks and the cursor on
+    the windows they were on.  Called from vwm_window_menu_refresh,
+    which already runs at every such change.
+*/
+void
+vwm_manage_windows_sync(void)
+{
+    uint32_t    *was_checked = NULL;
+    uint32_t    was_curr = 0;
+    int         n_checked = 0;
+    int         curr;
+    int         i, j;
+
+    if(dialog_window == NULL || windows_selectbox == NULL) return;
+
+    /* the dialog is changing the desktop itself and will rebuild */
+    if(list_busy) return;
+
+    /* remember, by window id, which rows are ticked and where the
+       cursor is: row numbers mean nothing after the rebuild */
+    curr = vk_selectbox_get_curr(windows_selectbox);
+    if(list_ids != NULL && list_count > 0)
+    {
+        if(curr >= 0 && curr < list_count) was_curr = list_ids[curr];
+
+        was_checked = calloc((size_t)list_count, sizeof(uint32_t));
+        for(i = 0; was_checked != NULL && i < list_count; i++)
+        {
+            if(vk_selectbox_item_is_checked(windows_selectbox, i))
+                was_checked[n_checked++] = list_ids[i];
+        }
+    }
+
+    rebuild_listbox();
+
+    /* tick the rows of the windows that were ticked and are still here */
+    for(i = 0; i < list_count; i++)
+    {
+        for(j = 0; j < n_checked; j++)
+        {
+            if(list_ids[i] == was_checked[j])
+            {
+                vk_selectbox_toggle_item(windows_selectbox, i);
+                break;
+            }
+        }
+    }
+    free(was_checked);
+
+    /* cursor: back on its window, else the nearest row that exists */
+    if(curr < 0) curr = 0;
+    if(curr >= list_count) curr = (list_count > 0) ? list_count - 1 : 0;
+    for(i = 0; i < list_count; i++)
+    {
+        if(was_curr != 0 && list_ids[i] == was_curr) curr = i;
+    }
+    vk_selectbox_set_curr(windows_selectbox, curr);
+
+    refresh_dialog();
+}
+
+
 /* ── focus/highlights ──────────────────────────────────────── */
 
 static void
@@ -382,8 +452,11 @@ do_close_selected(void)
        invalidate the row->deck index mapping mid-loop */
     n = collect_checked(checked, n);
 
+    /* one rebuild below, not one per window closed */
+    list_busy = true;
     for(i = 0; i < n; i++)
         vwm_default_WINDOW_CLOSE(checked[i]);
+    list_busy = false;
 
     free(checked);
 
@@ -426,6 +499,8 @@ do_minimize_restore_selected(bool restore)
 
     n = collect_checked(checked, n);
 
+    /* one rebuild below, not one per window */
+    list_busy = true;
     for(i = 0; i < n; i++)
     {
         if(restore)
@@ -433,6 +508,7 @@ do_minimize_restore_selected(bool restore)
         else
             vwm_minimize_window(checked[i]);
     }
+    list_busy = false;
 
     free(checked);
 
@@ -775,12 +851,15 @@ move_apply(void)
         && target_surface >= 0
         && target_surface < vwm->surface_count)
     {
+        /* one rebuild below, not one per window moved */
+        list_busy = true;
         for(i = 0; i < n; i++)
         {
             vk_deck_remove_widget(vwm->decks[active_surface], checked[i]);
             vwm_deck_add_window(vwm->decks[target_surface],
                 checked[i], VK_DECK_TOP);
         }
+        list_busy = false;
     }
 
     free(checked);
@@ -1285,13 +1364,7 @@ vwm_manage_windows_close(void)
 
     vwm->tool_window = NULL;
 
-    {
-        vk_widget_t *top = vk_deck_get_top(vwm->deck);
-        if(top != NULL)
-            vwm_panel_set_status(VWM_WINDOW_HELP);
-        else
-            vwm_panel_set_status("Press Alt ~ for Menu");
-    }
+    vwm_panel_status_idle();
 
     vk_screen_refresh(vwm->screen);
 }
@@ -1364,8 +1437,11 @@ vwm_manage_windows_mouse(MEVENT *mouse_event)
         rel_y = mouse_event->y - py;
         interior_x = rel_x - 1;
 
-        /* button-bar row is the last 3 rows of the popup */
-        if(rel_y >= ph - 3)
+        /* the bottom border is not a button */
+        if(rel_y > ph - 2) return 0;
+
+        /* the button bar is the 3 rows above the bottom border */
+        if(rel_y >= ph - 4)
         {
             int mid = (pw - 2) / 2;
 
