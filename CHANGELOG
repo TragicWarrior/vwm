@@ -1,3 +1,25 @@
+Version 8.1.9
+
+*  [Bryan Christ] Manage Hotkeys and Manage Apps: less repeated code,
+   same behaviour.
+
+   -  Manage Hotkeys named all fourteen hotkeys three times over: once
+      to load them from vwm, once to apply them, once to see whether
+      anything had changed.  The table of hotkeys now carries where
+      each one lives in vwm, and the three are loops over it.
+      (TODO S4)
+   -  In both dialogs the Up and Down arrows were the same block
+      written twice, as were wheel-up and wheel-down, and the "which
+      button was it" switch was written once for the keyboard and once
+      for the mouse.  Each is now one function (hotkey_list_step,
+      app_list_step, button_activate).  (TODO S4, S5)
+   -  Manage Apps paired its four dropdowns with their focus zones in
+      a dozen places.  zone_dropdown is now the one place, and a click
+      on any of the four goes through dropdown_zone_open.  (TODO S5)
+   -  Manage Apps: two includes it no longer used (strings.h,
+      winman.h) and two sizes it asked for and never read are gone.
+      (TODO S5)
+
 Version 8.1.8
 
 *  [Bryan Christ] Menus: less code, and one resize fix.

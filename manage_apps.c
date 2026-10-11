@@ -14,9 +14,7 @@
 #include "programs.h"
 #include "profile.h"
 #include "private.h"
-#include "strings.h"
 #include "panel.h"
-#include "winman.h"
 #include "manage_apps.h"
 #include "manage_ui_common.h"
 
@@ -705,7 +703,7 @@ dropdown_popup_attach(vk_dropdown_t *dropdown)
 {
     vwm_t       *vwm;
     vk_widget_t *popup;
-    int         dd_x, dd_y, dd_w, dd_h;
+    int         dd_x, dd_y, dd_h;
     int         pp_w, pp_h;
     int         dlg_x, dlg_y;
     int         popup_x, popup_y;
@@ -734,7 +732,7 @@ dropdown_popup_attach(vk_dropdown_t *dropdown)
 
     vk_widget_get_position(VK_WIDGET(dialog_window), &dlg_x, &dlg_y);
     dropdown_interior_origin(dropdown, &dd_x, &dd_y);
-    vk_widget_get_metrics(VK_WIDGET(dropdown), &dd_w, &dd_h);
+    vk_widget_get_metrics(VK_WIDGET(dropdown), NULL, &dd_h);
     vk_widget_get_metrics(popup, &pp_w, &pp_h);
 
     /* dialog border is 1 cell; client origin is (dlg_x+1, dlg_y+1).
@@ -1666,41 +1664,67 @@ confirm_popup_show(void)
 
 /* ── keyboard handlers ──────────────────────────────────────── */
 
-static int
-handle_app_list_keys(int32_t keystroke)
+/*
+    Move the apps list's highlight one row up (dir < 0) or down.  The
+    fields under the list show the highlighted app, so when the
+    highlight lands on another app the fields are first written back to
+    the one it left and then filled from the new one.  The arrow keys
+    and the mouse wheel both come here.
+*/
+static void
+app_list_step(int dir)
 {
     int new_sel;
 
+    if(dir < 0)
+        vk_listbox_set_prev(app_listbox);
+    else
+        vk_listbox_set_next(app_listbox);
+    vk_listbox_update(app_listbox);
+
+    new_sel = vk_listbox_get_curr(app_listbox);
+    if(new_sel != model->selected)
+    {
+        commit_dropdowns_to_entry(model->selected);
+        model->selected = new_sel;
+        populate_dropdowns_from_entry(model->selected);
+    }
+}
+
+static int
+handle_app_list_keys(int32_t keystroke)
+{
     switch(keystroke)
     {
         case KEY_UP:
-            vk_listbox_set_prev(app_listbox);
-            vk_listbox_update(app_listbox);
-
-            new_sel = vk_listbox_get_curr(app_listbox);
-            if(new_sel != model->selected)
-            {
-                commit_dropdowns_to_entry(model->selected);
-                model->selected = new_sel;
-                populate_dropdowns_from_entry(model->selected);
-            }
+            app_list_step(-1);
             return 0;
 
         case KEY_DOWN:
-            vk_listbox_set_next(app_listbox);
-            vk_listbox_update(app_listbox);
-
-            new_sel = vk_listbox_get_curr(app_listbox);
-            if(new_sel != model->selected)
-            {
-                commit_dropdowns_to_entry(model->selected);
-                model->selected = new_sel;
-                populate_dropdowns_from_entry(model->selected);
-            }
+            app_list_step(1);
             return 0;
     }
 
     return -1;
+}
+
+/*
+    The dropdown that focus zone `zone` stands for, or NULL when the
+    zone is not a dropdown (the list, a spin button, a button).  The one
+    place that pairs the two: the keyboard and the mouse both ask here.
+*/
+static vk_dropdown_t *
+zone_dropdown(int zone)
+{
+    switch(zone)
+    {
+        case FOCUS_CATEGORY:    return cat_dropdown;
+        case FOCUS_TERMINAL:    return term_dropdown;
+        case FOCUS_VISIBILITY:  return vis_dropdown;
+        case FOCUS_START_DIR:   return start_dir_dropdown;
+    }
+
+    return NULL;
 }
 
 static int
@@ -1728,13 +1752,12 @@ handle_dropdown_keys(vk_dropdown_t *dropdown, int32_t keystroke)
     return -1;
 }
 
-static int
-handle_button_keys(int32_t keystroke)
+/* do what the button of focus zone `zone` does; the keyboard and the
+   mouse both come here */
+static void
+button_activate(int zone)
 {
-    if(keystroke != KEY_CRLF && keystroke != ' ')
-        return -1;
-
-    switch(model->focus_zone)
+    switch(zone)
     {
         case FOCUS_BTN_ADD:       on_add();       break;
         case FOCUS_BTN_REMOVE:    on_remove();    break;
@@ -1743,6 +1766,33 @@ handle_button_keys(int32_t keystroke)
         case FOCUS_BTN_LOAD:      on_load();      break;
         case FOCUS_BTN_CANCEL:    on_cancel();    break;
     }
+}
+
+/* a click on the dropdown of focus zone `zone`: give it the focus and
+   open its list */
+static void
+dropdown_zone_open(int zone)
+{
+    vk_dropdown_t *dropdown = zone_dropdown(zone);
+
+    if(dropdown == NULL) return;
+
+    model->focus_zone = zone;
+    update_button_highlights();
+
+    vk_dropdown_set_expanded(dropdown, true);
+    dropdown_popup_attach(dropdown);
+
+    refresh_dialog();
+}
+
+static int
+handle_button_keys(int32_t keystroke)
+{
+    if(keystroke != KEY_CRLF && keystroke != ' ')
+        return -1;
+
+    button_activate(model->focus_zone);
 
     return 0;
 }
@@ -1776,19 +1826,10 @@ manage_apps_kmio(vk_object_t *object, int32_t keystroke)
         switch(keystroke)
         {
             case KEY_UP:
-                vk_dropdown_popup_navigate(dd, -1);
-                {
-                    vwm_t *vwm = vwm_get_instance();
-                    vk_screen_refresh(vwm->screen);
-                }
-                return 0;
-
             case KEY_DOWN:
-                vk_dropdown_popup_navigate(dd, 1);
-                {
-                    vwm_t *vwm = vwm_get_instance();
-                    vk_screen_refresh(vwm->screen);
-                }
+                vk_dropdown_popup_navigate(dd,
+                    (keystroke == KEY_UP) ? -1 : 1);
+                vk_screen_refresh(vwm_get_instance()->screen);
                 return 0;
 
             case KEY_CRLF:
@@ -1852,7 +1893,11 @@ manage_apps_kmio(vk_object_t *object, int32_t keystroke)
             break;
 
         case FOCUS_CATEGORY:
-            retval = handle_dropdown_keys(cat_dropdown, keystroke);
+        case FOCUS_TERMINAL:
+        case FOCUS_VISIBILITY:
+        case FOCUS_START_DIR:
+            retval = handle_dropdown_keys(zone_dropdown(model->focus_zone),
+                keystroke);
             break;
 
         case FOCUS_WIDTH:
@@ -1865,24 +1910,12 @@ manage_apps_kmio(vk_object_t *object, int32_t keystroke)
                 keystroke);
             break;
 
-        case FOCUS_TERMINAL:
-            retval = handle_dropdown_keys(term_dropdown, keystroke);
-            break;
-
         case FOCUS_SCROLLBACK:
             /* spinbutton's own kmio handles Up/Down and (since it is
                editable) typed digits; returns 0 when it consumed the key,
                else the keystroke -- normalized to 0/-1 by the tail */
             retval = vk_object_push_keystroke(VK_OBJECT(scrollback_spin),
                 keystroke);
-            break;
-
-        case FOCUS_VISIBILITY:
-            retval = handle_dropdown_keys(vis_dropdown, keystroke);
-            break;
-
-        case FOCUS_START_DIR:
-            retval = handle_dropdown_keys(start_dir_dropdown, keystroke);
             break;
 
         case FOCUS_BTN_ADD:
@@ -2811,11 +2844,10 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
 
     if(edit_popup != NULL)
     {
-        int ep_x, ep_y, ep_w, ep_h;
+        int ep_x, ep_y;
         int ex, ey;
 
         vk_widget_get_position(VK_WIDGET(edit_popup), &ep_x, &ep_y);
-        vk_widget_get_metrics(VK_WIDGET(edit_popup), &ep_w, &ep_h);
 
         ex = mouse_event->x - ep_x - 1;
         ey = mouse_event->y - ep_y - 1;
@@ -2929,18 +2961,13 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
     {
         if(ry >= 0 && ry <= lb_end && model->count > 0)
         {
+            /* the fields may have been edited in another zone: write
+               them back before the highlight moves */
             commit_dropdowns_to_entry(model->selected);
             model->focus_zone = FOCUS_APP_LIST;
 
-            if(bs & BUTTON4_PRESSED)
-                vk_listbox_set_prev(app_listbox);
-            else
-                vk_listbox_set_next(app_listbox);
+            app_list_step((bs & BUTTON4_PRESSED) ? -1 : 1);
 
-            model->selected = vk_listbox_get_curr(app_listbox);
-            populate_dropdowns_from_entry(model->selected);
-
-            vk_listbox_update(app_listbox);
             update_button_highlights();
             refresh_dialog();
         }
@@ -3005,13 +3032,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
          * expanding filler. */
         if(rx < PAIR_LEFT_COL_WIDTH)
         {
-            model->focus_zone = FOCUS_CATEGORY;
-            update_button_highlights();
-
-            vk_dropdown_set_expanded(cat_dropdown, true);
-            dropdown_popup_attach(cat_dropdown);
-
-            refresh_dialog();
+            dropdown_zone_open(FOCUS_CATEGORY);
             return 0;
         }
 
@@ -3050,13 +3071,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         /* left column: the VTerm Mode dropdown */
         if(rx < PAIR_LEFT_COL_WIDTH)
         {
-            model->focus_zone = FOCUS_TERMINAL;
-            update_button_highlights();
-
-            vk_dropdown_set_expanded(term_dropdown, true);
-            dropdown_popup_attach(term_dropdown);
-
-            refresh_dialog();
+            dropdown_zone_open(FOCUS_TERMINAL);
             return 0;
         }
 
@@ -3084,26 +3099,14 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
         /* left column: Visibility */
         if(rx < PAIR_LEFT_COL_WIDTH)
         {
-            model->focus_zone = FOCUS_VISIBILITY;
-            update_button_highlights();
-
-            vk_dropdown_set_expanded(vis_dropdown, true);
-            dropdown_popup_attach(vis_dropdown);
-
-            refresh_dialog();
+            dropdown_zone_open(FOCUS_VISIBILITY);
             return 0;
         }
 
         /* right column: Start directory (flush right) */
         if(rx >= INTERIOR_WIDTH - PAIR_RIGHT_COL_WIDTH)
         {
-            model->focus_zone = FOCUS_START_DIR;
-            update_button_highlights();
-
-            vk_dropdown_set_expanded(start_dir_dropdown, true);
-            dropdown_popup_attach(start_dir_dropdown);
-
-            refresh_dialog();
+            dropdown_zone_open(FOCUS_START_DIR);
             return 0;
         }
 
@@ -3127,15 +3130,7 @@ vwm_manage_apps_mouse(MEVENT *mouse_event)
             update_button_highlights();
             refresh_dialog();
 
-            switch(zone)
-            {
-                case FOCUS_BTN_ADD:       on_add();       break;
-                case FOCUS_BTN_REMOVE:    on_remove();    break;
-                case FOCUS_BTN_EDIT:      on_edit();      break;
-                case FOCUS_BTN_SAVE:      on_save();      break;
-                case FOCUS_BTN_LOAD:      on_load();      break;
-                case FOCUS_BTN_CANCEL:    on_cancel();    break;
-            }
+            button_activate(zone);
         }
 
         return 0;
