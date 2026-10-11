@@ -28,6 +28,13 @@ void    vwm_popup_buttons_paint(vk_popup_t *popup, int active);
    drift from the layout the way a table of column numbers can. */
 int     vwm_button_bar_hit(vk_button_t **buttons, int count, int col);
 
+/* The first widget in `layers` (NULL entries are skipped) that the
+   screen cell (mx, my) falls inside, or NULL.  A dialog lists its
+   popups topmost first and itself last, and so answers "what of mine
+   is under the pointer?" in one call. */
+vk_widget_t *vwm_layers_hit(vk_widget_t **layers, int count,
+                int mx, int my);
+
 /* vk_scroller content/scroll-extent callback for a listbox child: reports
    the item count as content height, the listbox width as content width,
    and the current item as the vertical scroll position. */

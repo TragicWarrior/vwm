@@ -606,3 +606,30 @@ vwm_error_popup_show(const char *msg, int popup_w, int popup_h)
 
     return popup;
 }
+
+/*
+    Which of a dialog's widgets is under the pointer.  `layers` is the
+    dialog's popups, topmost first, with the dialog itself last; a
+    popup that is not open is NULL and is skipped.  Returns the first
+    one that contains the screen cell (mx, my), or NULL when the cell
+    is outside all of them.
+*/
+vk_widget_t *
+vwm_layers_hit(vk_widget_t **layers, int count, int mx, int my)
+{
+    int i;
+    int wx, wy, ww, wh;
+
+    for(i = 0; i < count; i++)
+    {
+        if(layers[i] == NULL) continue;
+
+        vk_widget_get_position(layers[i], &wx, &wy);
+        vk_widget_get_metrics(layers[i], &ww, &wh);
+
+        if(mx >= wx && mx < wx + ww && my >= wy && my < wy + wh)
+            return layers[i];
+    }
+
+    return NULL;
+}

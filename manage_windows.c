@@ -1375,12 +1375,6 @@ vwm_manage_windows_is_open(void)
     return (dialog_window != NULL);
 }
 
-vk_widget_t*
-vwm_manage_windows_get_warning_popup(void)
-{
-    return VK_WIDGET(warning_popup);
-}
-
 
 /* ── resize ────────────────────────────────────────────────── */
 

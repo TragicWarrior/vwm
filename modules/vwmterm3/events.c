@@ -297,6 +297,57 @@ vwmterm_grid_size(vwmterm_data_t *vwmterm_data, int *width, int *height)
     if(height != NULL) *height = h;
 }
 
+/*
+    The selection as (first row, first column) .. (last row, last
+    column) in reading order.  It is kept as the cell where it was
+    started and the cell it has been dragged to, and the second can be
+    before the first.
+*/
+static void
+vwmterm_selection_span(vwmterm_data_t *vwmterm_data,
+    int *r1, int *c1, int *r2, int *c2)
+{
+    if(vwmterm_data->sel_anchor_row < vwmterm_data->sel_end_row ||
+       (vwmterm_data->sel_anchor_row == vwmterm_data->sel_end_row &&
+        vwmterm_data->sel_anchor_col <= vwmterm_data->sel_end_col))
+    {
+        *r1 = vwmterm_data->sel_anchor_row;
+        *c1 = vwmterm_data->sel_anchor_col;
+        *r2 = vwmterm_data->sel_end_row;
+        *c2 = vwmterm_data->sel_end_col;
+    }
+    else
+    {
+        *r1 = vwmterm_data->sel_end_row;
+        *c1 = vwmterm_data->sel_end_col;
+        *r2 = vwmterm_data->sel_anchor_row;
+        *c2 = vwmterm_data->sel_anchor_col;
+    }
+}
+
+/*
+    Scroll the view `lines` rows back into history (negative: forward,
+    toward the live screen) and repaint.  The position is held between
+    the live screen and the oldest row kept.  The wheel and Alt+PgUp /
+    Alt+PgDn come here; they differ only in how far they go.
+*/
+static void
+vwmterm_scroll_by(vwmterm_data_t *vwmterm_data, int lines)
+{
+    int used = vterm_get_history_used(vwmterm_data->vterm);
+
+    vwmterm_data->scroll_offset += lines;
+    if(vwmterm_data->scroll_offset > used)
+        vwmterm_data->scroll_offset = used;
+    if(vwmterm_data->scroll_offset < 0)
+        vwmterm_data->scroll_offset = 0;
+
+    /* at offset 0 this paints the live screen */
+    vwmterm_scroll_render(vwmterm_data);
+    vwmterm_window_update(vwmterm_data);
+    vk_screen_refresh(vwm_get_instance()->screen);
+}
+
 static void
 vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
 {
@@ -316,22 +367,7 @@ vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
        view to the bottom and the highlighted rows are the wrong ones */
     vwmterm_scroll_render(vwmterm_data);
 
-    if(vwmterm_data->sel_anchor_row < vwmterm_data->sel_end_row ||
-       (vwmterm_data->sel_anchor_row == vwmterm_data->sel_end_row &&
-        vwmterm_data->sel_anchor_col <= vwmterm_data->sel_end_col))
-    {
-        r1 = vwmterm_data->sel_anchor_row;
-        c1 = vwmterm_data->sel_anchor_col;
-        r2 = vwmterm_data->sel_end_row;
-        c2 = vwmterm_data->sel_end_col;
-    }
-    else
-    {
-        r1 = vwmterm_data->sel_end_row;
-        c1 = vwmterm_data->sel_end_col;
-        r2 = vwmterm_data->sel_anchor_row;
-        c2 = vwmterm_data->sel_anchor_col;
-    }
+    vwmterm_selection_span(vwmterm_data, &r1, &c1, &r2, &c2);
 
     for(int r = r1; r <= r2; r++)
     {
@@ -368,22 +404,7 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
         cells = vterm_copy_buffer(vterm, &rows, &cols);
     if(cells == NULL) return;
 
-    if(vwmterm_data->sel_anchor_row < vwmterm_data->sel_end_row ||
-       (vwmterm_data->sel_anchor_row == vwmterm_data->sel_end_row &&
-        vwmterm_data->sel_anchor_col <= vwmterm_data->sel_end_col))
-    {
-        r1 = vwmterm_data->sel_anchor_row;
-        c1 = vwmterm_data->sel_anchor_col;
-        r2 = vwmterm_data->sel_end_row;
-        c2 = vwmterm_data->sel_end_col;
-    }
-    else
-    {
-        r1 = vwmterm_data->sel_end_row;
-        c1 = vwmterm_data->sel_end_col;
-        r2 = vwmterm_data->sel_anchor_row;
-        c2 = vwmterm_data->sel_anchor_col;
-    }
+    vwmterm_selection_span(vwmterm_data, &r1, &c1, &r2, &c2);
 
     if(r1 < 0) r1 = 0;
     if(r2 >= rows) r2 = rows - 1;
@@ -641,7 +662,6 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
     vwmterm_data_t  *vwmterm_data;
     vterm_t         *vterm;
     int             width, height;
-    int             used;
 
     window = VK_WINDOW(object);
     vwm = vwm_get_instance();
@@ -786,18 +806,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
                 return KMIO_HANDLED;
 
-            vwmterm_grid_size(vwmterm_data, &width, &height);
-            used = vterm_get_history_used(vterm);
-
-            vwmterm_data->scroll_offset += VWMTERM_WHEEL_SCROLL_LINES;
-            if(vwmterm_data->scroll_offset > used)
-                vwmterm_data->scroll_offset = used;
-            if(vwmterm_data->scroll_offset < 0)
-                vwmterm_data->scroll_offset = 0;
-
-            vwmterm_scroll_render(vwmterm_data);
-            vwmterm_window_update(vwmterm_data);
-            vk_screen_refresh(vwm->screen);
+            vwmterm_scroll_by(vwmterm_data, VWMTERM_WHEEL_SCROLL_LINES);
 
             return KMIO_HANDLED;
         }
@@ -810,21 +819,10 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
                 return KMIO_HANDLED;
 
+            /* already on the live screen: nothing to scroll toward */
             if(vwmterm_data->scroll_offset == 0) return KMIO_HANDLED;
 
-            vwmterm_data->scroll_offset -= VWMTERM_WHEEL_SCROLL_LINES;
-            if(vwmterm_data->scroll_offset <= 0)
-            {
-                vwmterm_data->scroll_offset = 0;
-                vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
-                vwmterm_window_update(vwmterm_data);
-                vk_screen_refresh(vwm->screen);
-                return KMIO_HANDLED;
-            }
-
-            vwmterm_scroll_render(vwmterm_data);
-            vwmterm_window_update(vwmterm_data);
-            vk_screen_refresh(vwm->screen);
+            vwmterm_scroll_by(vwmterm_data, -VWMTERM_WHEEL_SCROLL_LINES);
 
             return KMIO_HANDLED;
         }
@@ -925,18 +923,9 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
         if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
             return KMIO_HANDLED;
 
+        /* a screenful at a time */
         vwmterm_grid_size(vwmterm_data, &width, &height);
-        used = vterm_get_history_used(vterm);
-
-        vwmterm_data->scroll_offset += height;
-        if(vwmterm_data->scroll_offset > used)
-            vwmterm_data->scroll_offset = used;
-        if(vwmterm_data->scroll_offset < 0)
-            vwmterm_data->scroll_offset = 0;
-
-        vwmterm_scroll_render(vwmterm_data);
-        vwmterm_window_update(vwmterm_data);
-        vk_screen_refresh(vwm->screen);
+        vwmterm_scroll_by(vwmterm_data, height);
 
         return KMIO_HANDLED;
     }
@@ -949,20 +938,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
         if(vwmterm_data->scroll_offset == 0) return KMIO_HANDLED;
 
         vwmterm_grid_size(vwmterm_data, &width, &height);
-
-        vwmterm_data->scroll_offset -= height;
-        if(vwmterm_data->scroll_offset <= 0)
-        {
-            vwmterm_data->scroll_offset = 0;
-            vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
-            vwmterm_window_update(vwmterm_data);
-            vk_screen_refresh(vwm->screen);
-            return KMIO_HANDLED;
-        }
-
-        vwmterm_scroll_render(vwmterm_data);
-        vwmterm_window_update(vwmterm_data);
-        vk_screen_refresh(vwm->screen);
+        vwmterm_scroll_by(vwmterm_data, -height);
 
         return KMIO_HANDLED;
     }

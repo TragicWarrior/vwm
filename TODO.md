@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.1.9.  Items are located by file and
+Last pruned 2026-10-09 against 8.1.10.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -89,19 +89,8 @@ behind.  What vwm still holds when it exits is left to the OS.
 4. SIMPLIFICATION
 -----------------
 
-Line counts are rough estimates from the original pass.
-
-[ ] S6.  winman: WINDOW_MOVE_* / WINDOW_RESIZE_* siblings -> two bodies
-         (~48).  (review 2026-06)
-[ ] S12. vwmterm3: the wheel-down, Alt+PgDn and drain-task render
-         blocks are still inline (wheel-up, Alt+PgUp and scrollbar drag
-         already share vwmterm_scroll_render); 6-block module
-         registration -> a table (~50); selection-normalization
-         duplicated (~13).  (review 2026-06)
-[ ] 13.  The manage_* dialogs each export half a dozen
-         vwm_X_get_<thing>_popup() accessors so classify_mouse can
-         hit-test them.  Goes away if popups register themselves.
-         (review 2026-06)
+Nothing open.  The simplification items from the 2026-06 review are
+all done or dropped (8.1.4 through 8.1.10).
 
 Decided against (would trade simplicity for a negligible gain):
   - a task counter in sched.c: a field and an invariant to keep, for

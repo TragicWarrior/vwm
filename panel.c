@@ -34,6 +34,32 @@
 #include "mainmenu.h"
 #include "bkgd.h"
 
+/*
+    The Ctrl-arrow keys, which resize the top window in window-manager
+    mode alongside the configurable hotkeys.  ncurses has no fixed code
+    for them: it numbers them when the terminal description is loaded,
+    and the numbers differ between ncurses versions.  So the code is
+    asked for by the sequence the key sends; the numbers below are only
+    what older versions used, kept for a terminal description that does
+    not name the sequence.
+*/
+#define     KEY_CTRL_DOWN       525
+#define     KEY_CTRL_UP         566
+#define     KEY_CTRL_RIGHT      560
+#define     KEY_CTRL_LEFT       545
+
+/* is `keystroke` the Ctrl-arrow key that sends `sequence`?  `legacy`
+   is the fixed code to accept when ncurses does not know the sequence. */
+static bool
+vwm_is_ctrl_arrow(int32_t keystroke, const char *sequence, int legacy)
+{
+    int code = key_defined(sequence);
+
+    if(code > 0) return (keystroke == code);
+
+    return (keystroke == legacy);
+}
+
 #define     KEY_PLUS            '+'
 #define     KEY_CTRL_DOWN       525
 
@@ -320,6 +346,59 @@ vwm_panel_ON_KEYSTROKE(int32_t keystroke, void *anything)
             vk_screen_refresh(vwm->screen);
             return KMIO_HANDLED;
         }
+
+        return KMIO_HANDLED;
+    }
+
+    /* into and out of window-manager mode */
+    if(keystroke == vwm->hotkey_wm)
+    {
+        vwm->state ^= VWM_STATE_ACTIVE;
+
+        if(vwm->state & VWM_STATE_ACTIVE)
+            vwm_default_VWM_START();
+        else
+            vwm_default_VWM_STOP();
+
+        return KMIO_HANDLED;
+    }
+
+    /*
+        In window-manager mode the keys act on the top window instead
+        of going to the program in it: close it, bring the next one up,
+        move it or resize it.  The Ctrl-arrow keys resize as well as the
+        configured grow / shrink hotkeys.  Any other key passes through.
+    */
+    if(vwm->state & VWM_STATE_ACTIVE)
+    {
+        vk_widget_t *top = vk_deck_get_top(vwm->deck);
+
+        if(keystroke == vwm->hotkey_close)
+            vwm_default_WINDOW_CLOSE(top);
+        else if(keystroke == vwm->hotkey_cycle)
+            vwm_default_WINDOW_CYCLE();
+        else if(keystroke == vwm->hotkey_move_up)
+            vwm_window_nudge(top, 0, -1);
+        else if(keystroke == vwm->hotkey_move_down)
+            vwm_window_nudge(top, 0, 1);
+        else if(keystroke == vwm->hotkey_move_left)
+            vwm_window_nudge(top, -1, 0);
+        else if(keystroke == vwm->hotkey_move_right)
+            vwm_window_nudge(top, 1, 0);
+        else if(keystroke == vwm->hotkey_grow_h
+            || vwm_is_ctrl_arrow(keystroke, "\033[1;5B", KEY_CTRL_DOWN))
+            vwm_window_grow(top, 0, 1);
+        else if(keystroke == vwm->hotkey_shrink_h
+            || vwm_is_ctrl_arrow(keystroke, "\033[1;5A", KEY_CTRL_UP))
+            vwm_window_grow(top, 0, -1);
+        else if(keystroke == vwm->hotkey_grow_w
+            || vwm_is_ctrl_arrow(keystroke, "\033[1;5C", KEY_CTRL_RIGHT))
+            vwm_window_grow(top, 1, 0);
+        else if(keystroke == vwm->hotkey_shrink_w
+            || vwm_is_ctrl_arrow(keystroke, "\033[1;5D", KEY_CTRL_LEFT))
+            vwm_window_grow(top, -1, 0);
+        else
+            return keystroke;
 
         return KMIO_HANDLED;
     }
