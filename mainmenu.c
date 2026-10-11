@@ -1089,6 +1089,9 @@ vwm_window_menu_refresh(void)
         vk_box_update(panel->box);
         vk_widget_draw(VK_WIDGET(panel->box));
     }
+
+    /* Manage Desktop lists these same windows: keep it in step */
+    vwm_manage_windows_sync();
 }
 
 int

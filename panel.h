@@ -42,6 +42,12 @@ void    vwm_panel_update_taskcount(VWM_PANEL *panel);
 void    vwm_panel_update_clock(VWM_PANEL *panel);
 void    vwm_panel_set_status(const char *text);
 
+/* put the status bar back to what it shows when nothing else has a
+   claim on it: the window key help when the current desktop has a
+   window, the menu hint when it is empty.  every dialog calls this as
+   it closes. */
+void    vwm_panel_status_idle(void);
+
 /* re-pick the panel's UTF-8 / ASCII glyphs for the terminal the session
    is on now.  call after the terminal type changed (an adopt). */
 void    vwm_panel_refresh_glyphs(void);

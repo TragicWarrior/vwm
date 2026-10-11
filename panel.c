@@ -200,7 +200,7 @@ vwm_panel_init(vwm_t *vwm)
         vk_marquee_set_speed(vwm_panel->status_marquee, 3);
         vk_marquee_set_pause(vwm_panel->status_marquee, 50);
         vk_marquee_set_text(vwm_panel->status_marquee,
-            "Alt ~ Menu | Alt d Switch Desktop");
+            VWM_IDLE_HELP);
 
         vwm_panel->version_label = vk_label_create(version_len);
         vk_widget_set_colors(VK_WIDGET(vwm_panel->version_label),
@@ -447,6 +447,26 @@ vwm_panel_set_status(const char *text)
     if(vwm_panel == NULL) return;
 
     vk_marquee_set_text(vwm_panel->status_marquee, text);
+}
+
+/*
+    The status text for "nothing in particular is going on": the window
+    key help when the current desktop has a window on it, VWM_IDLE_HELP
+    when it is empty.  One place, so that startup, a closing dialog and
+    a closing window all leave the same text behind.
+*/
+void
+vwm_panel_status_idle(void)
+{
+    vwm_t   *vwm;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL) return;
+
+    if(vwm->deck != NULL && vk_deck_get_top(vwm->deck) != NULL)
+        vwm_panel_set_status(VWM_WINDOW_HELP);
+    else
+        vwm_panel_set_status(VWM_IDLE_HELP);
 }
 
 static int

@@ -12,4 +12,9 @@ int             vwm_manage_windows_mouse(MEVENT *mouse_event);
 void            vwm_manage_windows_handle_resize(void);
 vk_widget_t*    vwm_manage_windows_get_warning_popup(void);
 
+/* the windows on the desktop changed (one opened, closed, was minimized
+   or restored): bring the open dialog's list back in step.  Does
+   nothing when the dialog is closed. */
+void            vwm_manage_windows_sync(void);
+
 #endif

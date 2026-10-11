@@ -588,15 +588,9 @@ close_session(void)
     s_session = NULL;
 
     new_top = vk_deck_get_top(vwm->deck);
+    vwm_panel_status_idle();
     if(new_top != NULL)
-    {
-        vwm_panel_set_status(VWM_WINDOW_HELP);
         vk_window_update(VK_WINDOW(new_top));
-    }
-    else
-    {
-        vwm_panel_set_status("Press Alt ~ for Menu");
-    }
 
     vk_screen_refresh(vwm->screen);
 }
