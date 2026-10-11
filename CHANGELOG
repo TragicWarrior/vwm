@@ -1,3 +1,32 @@
+Version 8.1.10
+
+*  [Bryan Christ] Window-manager mode works again, and the last of the
+   simplification list.
+
+   -  Fixed: window-manager mode has been dead since 8.0.0.  Alt+w (and
+      VWM > Manage windows) did nothing, so the keys that move, resize,
+      cycle and close windows in that mode could not be reached.  The
+      block of the key handler that did all this was removed by
+      mistake along with the Teleport prompt.  It is back.
+   -  The Ctrl-arrow keys that resize in window-manager mode were
+      matched against fixed key numbers, which ncurses assigns
+      differently from version to version; they did not match on
+      current ncurses.  The code is now looked up from the sequence
+      the key sends, with the old numbers as a fallback.
+   -  The eight window move / resize functions (one per direction) are
+      two: vwm_window_nudge and vwm_window_grow.  (TODO S6)
+   -  Terminals: the wheel and Alt+PgUp / Alt+PgDn each had their own
+      copy of "move the scroll position, clamp it, repaint"; they share
+      vwmterm_scroll_by.  The six terminal kinds were registered by six
+      copies of one block and are now a table.  The selection's
+      start-before-end ordering, written out twice, is
+      vwmterm_selection_span.  (TODO S12)
+   -  Manage Apps, Hotkeys and Settings each exported five or six
+      functions handing out their popups so that the mouse code could
+      test them one by one.  Each now exports one hit test,
+      vwm_manage_*_hit_test, and seventeen accessors are gone, with one
+      in Manage Desktop that nothing called.  (TODO 13)
+
 Version 8.1.9
 
 *  [Bryan Christ] Manage Hotkeys and Manage Apps: less repeated code,

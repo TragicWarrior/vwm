@@ -299,77 +299,44 @@ vwm_default_WINDOW_CYCLE(void)
     vk_screen_refresh(vwm->screen);
 }
 
+/*
+    Window-manager mode, move: shift a window by (dx, dy) cells.  The
+    four arrow hotkeys each come here with one of the two set to -1 or
+    1.
+*/
 void
-vwm_default_WINDOW_MOVE_UP(vk_widget_t *widget)
+vwm_window_nudge(vk_widget_t *widget, int dx, int dy)
 {
     int     x, y;
 
     if(widget == NULL) return;
 
     vk_widget_get_position(widget, &x, &y);
-    vk_widget_move(widget, x, y - 1);
+    vk_widget_move(widget, x + dx, y + dy);
     vk_screen_refresh(vwm_get_instance()->screen);
 }
 
+/*
+    Window-manager mode, resize: change a window's size by (dw, dh)
+    cells.  The four grow / shrink hotkeys each come here with one of
+    the two set to -1 or 1.  A window is not shrunk below 3 cells in the
+    direction being shrunk: that is a border each side and one cell of
+    content.
+*/
 void
-vwm_default_WINDOW_MOVE_DOWN(vk_widget_t *widget)
-{
-    int     x, y;
-
-    if(widget == NULL) return;
-
-    vk_widget_get_position(widget, &x, &y);
-    vk_widget_move(widget, x, y + 1);
-    vk_screen_refresh(vwm_get_instance()->screen);
-}
-
-void
-vwm_default_WINDOW_MOVE_LEFT(vk_widget_t *widget)
-{
-    int     x, y;
-
-    if(widget == NULL) return;
-
-    vk_widget_get_position(widget, &x, &y);
-    vk_widget_move(widget, x - 1, y);
-    vk_screen_refresh(vwm_get_instance()->screen);
-}
-
-void
-vwm_default_WINDOW_MOVE_RIGHT(vk_widget_t *widget)
-{
-    int     x, y;
-
-    if(widget == NULL) return;
-
-    vk_widget_get_position(widget, &x, &y);
-    vk_widget_move(widget, x + 1, y);
-    vk_screen_refresh(vwm_get_instance()->screen);
-}
-
-void
-vwm_default_WINDOW_INCREASE_HEIGHT(vk_widget_t *widget)
+vwm_window_grow(vk_widget_t *widget, int dw, int dh)
 {
     int     width, height;
 
     if(widget == NULL) return;
 
     vk_widget_get_metrics(widget, &width, &height);
-    vk_widget_resize(widget, width, height + 1);
-    vk_window_update(VK_WINDOW(widget));
-    vk_screen_refresh(vwm_get_instance()->screen);
-}
 
-void
-vwm_default_WINDOW_DECREASE_HEIGHT(vk_widget_t *widget)
-{
-    int     width, height;
+    /* already as small as it goes that way */
+    if(dw < 0 && width <= 3) return;
+    if(dh < 0 && height <= 3) return;
 
-    if(widget == NULL) return;
-
-    vk_widget_get_metrics(widget, &width, &height);
-    if(height <= 3) return;
-    vk_widget_resize(widget, width, height - 1);
+    vk_widget_resize(widget, width + dw, height + dh);
     vk_window_update(VK_WINDOW(widget));
     vk_screen_refresh(vwm_get_instance()->screen);
 }
@@ -499,31 +466,4 @@ vwm_attention_is(vk_widget_t *widget)
 
     if(vwm == NULL || widget == NULL) return 0;
     return (vwm->attention == widget);
-}
-
-void
-vwm_default_WINDOW_INCREASE_WIDTH(vk_widget_t *widget)
-{
-    int     width, height;
-
-    if(widget == NULL) return;
-
-    vk_widget_get_metrics(widget, &width, &height);
-    vk_widget_resize(widget, width + 1, height);
-    vk_window_update(VK_WINDOW(widget));
-    vk_screen_refresh(vwm_get_instance()->screen);
-}
-
-void
-vwm_default_WINDOW_DECREASE_WIDTH(vk_widget_t *widget)
-{
-    int     width, height;
-
-    if(widget == NULL) return;
-
-    vk_widget_get_metrics(widget, &width, &height);
-    if(width <= 3) return;
-    vk_widget_resize(widget, width - 1, height);
-    vk_window_update(VK_WINDOW(widget));
-    vk_screen_refresh(vwm_get_instance()->screen);
 }

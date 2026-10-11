@@ -9,11 +9,8 @@ int     vwm_manage_hotkeys_open(vk_widget_t *widget, void *anything);
 void    vwm_manage_hotkeys_close(void);
 bool    vwm_manage_hotkeys_is_open(void);
 int     vwm_manage_hotkeys_mouse(MEVENT *mouse_event);
+/* the popup or dialog of this tool under screen cell (mx, my), or NULL */
+vk_widget_t *vwm_manage_hotkeys_hit_test(int mx, int my);
 void    vwm_manage_hotkeys_handle_resize(void);
-vk_widget_t *vwm_manage_hotkeys_get_load_popup(void);
-vk_widget_t *vwm_manage_hotkeys_get_confirm_popup(void);
-vk_widget_t *vwm_manage_hotkeys_get_error_popup(void);
-vk_widget_t *vwm_manage_hotkeys_get_saved_popup(void);
-vk_widget_t *vwm_manage_hotkeys_get_warning_popup(void);
 
 #endif

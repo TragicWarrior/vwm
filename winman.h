@@ -44,14 +44,10 @@ void    vwm_attention_set(vk_widget_t *widget);
 void    vwm_attention_clear(vk_widget_t *widget);
 int     vwm_attention_is(vk_widget_t *widget);
 
-void    vwm_default_WINDOW_MOVE_UP(vk_widget_t *widget);
-void    vwm_default_WINDOW_MOVE_DOWN(vk_widget_t *widget);
-void    vwm_default_WINDOW_MOVE_LEFT(vk_widget_t *widget);
-void    vwm_default_WINDOW_MOVE_RIGHT(vk_widget_t *widget);
-void    vwm_default_WINDOW_INCREASE_HEIGHT(vk_widget_t *widget);
-void    vwm_default_WINDOW_DECREASE_HEIGHT(vk_widget_t *widget);
-void    vwm_default_WINDOW_INCREASE_WIDTH(vk_widget_t *widget);
-void    vwm_default_WINDOW_DECREASE_WIDTH(vk_widget_t *widget);
+/* window-manager mode: move a window by (dx, dy) cells, or change its
+   size by (dw, dh) cells */
+void    vwm_window_nudge(vk_widget_t *widget, int dx, int dy);
+void    vwm_window_grow(vk_widget_t *widget, int dw, int dh);
 
 
 #endif

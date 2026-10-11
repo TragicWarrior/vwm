@@ -146,11 +146,35 @@ vwmterm_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
     }
 }
 
+/*
+    The kinds of terminal this module offers.  Each becomes its own
+    entry for vwm (found by `name`, shown as `title`); `flags` picks the
+    emulation libvterm runs and `fullscreen` a borderless terminal the
+    size of the screen.  The first is the default profile.
+*/
+static const struct
+{
+    const char  *name;
+    const char  *title;
+    uint32_t    flags;
+    bool        fullscreen;
+}
+vwmterm_kinds[] =
+{
+    { "vterm-color",      "VTerm (color)",      VTERM_FLAG_XTERM,     false },
+    { "vterm-vt100",      "VTerm (vt100)",      VTERM_FLAG_VT100,     false },
+    { "vterm-fullscreen", "VTerm (fullscreen)", VTERM_FLAG_XTERM,     true  },
+    { "vterm-xterm",      "VTerm (xterm)",      VTERM_FLAG_XTERM,     false },
+    { "vterm-xterm256",   "VTerm (xterm 256)",  VTERM_FLAG_XTERM_256, false },
+    { "vterm-truecolor",  "VTerm (truecolor)",  VTERM_FLAG_TRUECOLOR, false },
+};
+
 int
 vwm_mod_init(const char *modpath)
 {
     vwmterm_mod_t   *mod;
     void            *dynlib;
+    int             i;
 
     (void)modpath;
 
@@ -182,84 +206,27 @@ vwm_mod_init(const char *modpath)
         return -1;
     }
 
-    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
+    /* one module per kind of terminal: they share every hook and
+       differ in name, title, emulation and whether they fill the
+       screen */
+    for(i = 0; i < (int)(sizeof(vwmterm_kinds) / sizeof(vwmterm_kinds[0])); i++)
+    {
+        mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
+        if(mod == NULL) return -1;
 
-    VWM_MODULE(mod)->main = vwmterm_main;
-    VWM_MODULE(mod)->clone = vwmterm_module_clone;
-    VWM_MODULE(mod)->configure = vwmterm_module_configure;
-    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
-    vwm_module_set_name(VWM_MODULE(mod), "vterm-color");
-    vwm_module_set_title(VWM_MODULE(mod), "VTerm (color)");
-    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
-    mod->flags = VTERM_FLAG_XTERM;
+        VWM_MODULE(mod)->main = vwmterm_main;
+        VWM_MODULE(mod)->clone = vwmterm_module_clone;
+        VWM_MODULE(mod)->configure = vwmterm_module_configure;
+        VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
+        vwm_module_set_name(VWM_MODULE(mod), (char *)vwmterm_kinds[i].name);
+        vwm_module_set_title(VWM_MODULE(mod),
+            (char *)vwmterm_kinds[i].title);
+        vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
+        mod->fullscreen = vwmterm_kinds[i].fullscreen;
+        mod->flags = vwmterm_kinds[i].flags;
 
-	vwm_module_add(VWM_MODULE(mod));
-
-    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
-
-    VWM_MODULE(mod)->main = vwmterm_main;
-    VWM_MODULE(mod)->clone = vwmterm_module_clone;
-    VWM_MODULE(mod)->configure = vwmterm_module_configure;
-    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
-    vwm_module_set_name(VWM_MODULE(mod), "vterm-vt100");
-    vwm_module_set_title(VWM_MODULE(mod), "VTerm (vt100)");
-    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
-    mod->flags = VTERM_FLAG_VT100;
-
-	vwm_module_add(VWM_MODULE(mod));
-
-    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
-
-    VWM_MODULE(mod)->main = vwmterm_main;
-    VWM_MODULE(mod)->clone = vwmterm_module_clone;
-    VWM_MODULE(mod)->configure = vwmterm_module_configure;
-    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
-    vwm_module_set_name(VWM_MODULE(mod), "vterm-fullscreen");
-    vwm_module_set_title(VWM_MODULE(mod), "VTerm (fullscreen)");
-    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
-    mod->fullscreen = TRUE;
-    mod->flags = VTERM_FLAG_XTERM;
-
-	vwm_module_add(VWM_MODULE(mod));
-
-    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
-
-    VWM_MODULE(mod)->main = vwmterm_main;
-    VWM_MODULE(mod)->clone = vwmterm_module_clone;
-    VWM_MODULE(mod)->configure = vwmterm_module_configure;
-    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
-    vwm_module_set_name(VWM_MODULE(mod), "vterm-xterm");
-    vwm_module_set_title(VWM_MODULE(mod), "VTerm (xterm)");
-    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
-    mod->flags = VTERM_FLAG_XTERM;
-
-	vwm_module_add(VWM_MODULE(mod));
-
-    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
-
-    VWM_MODULE(mod)->main = vwmterm_main;
-    VWM_MODULE(mod)->clone = vwmterm_module_clone;
-    VWM_MODULE(mod)->configure = vwmterm_module_configure;
-    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
-    vwm_module_set_name(VWM_MODULE(mod), "vterm-xterm256");
-    vwm_module_set_title(VWM_MODULE(mod), "VTerm (xterm 256)");
-    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
-    mod->flags = VTERM_FLAG_XTERM_256;
-
-	vwm_module_add(VWM_MODULE(mod));
-
-    mod = (vwmterm_mod_t *)calloc(1, sizeof(vwmterm_mod_t));
-
-    VWM_MODULE(mod)->main = vwmterm_main;
-    VWM_MODULE(mod)->clone = vwmterm_module_clone;
-    VWM_MODULE(mod)->configure = vwmterm_module_configure;
-    VWM_MODULE(mod)->destroy = vwmterm_module_destroy;
-    vwm_module_set_name(VWM_MODULE(mod), "vterm-truecolor");
-    vwm_module_set_title(VWM_MODULE(mod), "VTerm (truecolor)");
-    vwm_module_set_type(VWM_MODULE(mod), VWM_MOD_TYPE_TOOL);
-    mod->flags = VTERM_FLAG_TRUECOLOR;
-
-	vwm_module_add(VWM_MODULE(mod));
+        vwm_module_add(VWM_MODULE(mod));
+    }
 
 	return 0;
 }

@@ -2509,41 +2509,29 @@ vwm_manage_apps_is_open(void)
     return (dialog_window != NULL);
 }
 
+/*
+    Which of this dialog's widgets is under the screen cell (mx, my):
+    one of its popups, the dialog itself, or NULL when the cell is
+    outside all of them.  The popups are listed topmost first.  This is
+    all the mouse classifier needs to know about the dialog's insides.
+*/
 vk_widget_t *
-vwm_manage_apps_get_edit_popup(void)
+vwm_manage_apps_hit_test(int mx, int my)
 {
-    return VK_WIDGET(edit_popup);
-}
+    vk_widget_t *layers[] =
+    {
+        (active_dropdown != NULL)
+            ? vk_dropdown_get_popup(active_dropdown) : NULL,
+        VK_WIDGET(confirm_popup),
+        VK_WIDGET(saved_popup),
+        VK_WIDGET(warning_popup),
+        VK_WIDGET(load_popup),
+        VK_WIDGET(edit_popup),
+        VK_WIDGET(dialog_window),
+    };
 
-vk_widget_t *
-vwm_manage_apps_get_dropdown_popup(void)
-{
-    if(active_dropdown == NULL) return NULL;
-    return vk_dropdown_get_popup(active_dropdown);
-}
-
-vk_widget_t *
-vwm_manage_apps_get_load_popup(void)
-{
-    return VK_WIDGET(load_popup);
-}
-
-vk_widget_t *
-vwm_manage_apps_get_warning_popup(void)
-{
-    return VK_WIDGET(warning_popup);
-}
-
-vk_widget_t *
-vwm_manage_apps_get_saved_popup(void)
-{
-    return VK_WIDGET(saved_popup);
-}
-
-vk_widget_t *
-vwm_manage_apps_get_confirm_popup(void)
-{
-    return VK_WIDGET(confirm_popup);
+    return vwm_layers_hit(layers,
+        (int)(sizeof(layers) / sizeof(layers[0])), mx, my);
 }
 
 void

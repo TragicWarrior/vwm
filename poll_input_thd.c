@@ -172,36 +172,24 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
         if(my == scr_h - 1) return ZONE_STATUS_BAR;
     }
 
+    /* an open manage dialog answers for itself and its popups: the
+       classifier only needs to know that one of them was hit */
     if(vwm->manage_apps_popup != NULL)
     {
-        MHIT(vwm_manage_apps_get_dropdown_popup(), ZONE_MANAGE_APPS);
-        MHIT(vwm_manage_apps_get_confirm_popup(),  ZONE_MANAGE_APPS);
-        MHIT(vwm_manage_apps_get_saved_popup(),    ZONE_MANAGE_APPS);
-        MHIT(vwm_manage_apps_get_warning_popup(),  ZONE_MANAGE_APPS);
-        MHIT(vwm_manage_apps_get_load_popup(),     ZONE_MANAGE_APPS);
-        MHIT(vwm_manage_apps_get_edit_popup(),     ZONE_MANAGE_APPS);
-        MHIT(VK_WIDGET(vwm->manage_apps_popup),    ZONE_MANAGE_APPS);
+        *hit_out = vwm_manage_apps_hit_test(mx, my);
+        if(*hit_out != NULL) return ZONE_MANAGE_APPS;
     }
 
     if(vwm->manage_hotkeys_popup != NULL)
     {
-        MHIT(vwm_manage_hotkeys_get_confirm_popup(), ZONE_MANAGE_HOTKEYS);
-        MHIT(vwm_manage_hotkeys_get_error_popup(),   ZONE_MANAGE_HOTKEYS);
-        MHIT(vwm_manage_hotkeys_get_saved_popup(),   ZONE_MANAGE_HOTKEYS);
-        MHIT(vwm_manage_hotkeys_get_warning_popup(), ZONE_MANAGE_HOTKEYS);
-        MHIT(vwm_manage_hotkeys_get_load_popup(),    ZONE_MANAGE_HOTKEYS);
-        MHIT(VK_WIDGET(vwm->manage_hotkeys_popup),   ZONE_MANAGE_HOTKEYS);
+        *hit_out = vwm_manage_hotkeys_hit_test(mx, my);
+        if(*hit_out != NULL) return ZONE_MANAGE_HOTKEYS;
     }
 
     if(vwm->manage_settings_popup != NULL)
     {
-        MHIT(vwm_manage_settings_get_confirm_popup(),      ZONE_MANAGE_SETTINGS);
-        MHIT(vwm_manage_settings_get_save_confirm_popup(), ZONE_MANAGE_SETTINGS);
-        MHIT(vwm_manage_settings_get_saved_popup(),        ZONE_MANAGE_SETTINGS);
-        MHIT(vwm_manage_settings_get_warning_popup(),      ZONE_MANAGE_SETTINGS);
-        MHIT(vwm_manage_settings_get_modify_popup(),       ZONE_MANAGE_SETTINGS);
-        MHIT(vwm_manage_settings_get_load_popup(),         ZONE_MANAGE_SETTINGS);
-        MHIT(VK_WIDGET(vwm->manage_settings_popup),        ZONE_MANAGE_SETTINGS);
+        *hit_out = vwm_manage_settings_hit_test(mx, my);
+        if(*hit_out != NULL) return ZONE_MANAGE_SETTINGS;
     }
 
     MHIT(VK_WIDGET(vwm->calendar_popup), ZONE_CALENDAR);
