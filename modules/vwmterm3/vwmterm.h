@@ -4,7 +4,7 @@
 #include <inttypes.h>
 
 #include <vdk.h>
-#include <vterm.h>
+#include <vtty.h>
 
 #include <ncursesw/curses.h>
 
@@ -14,7 +14,7 @@
 struct _vwmterm_data_s
 {
     vk_window_t     *window;
-    vterm_t         *vterm;
+    vtty_t          *vterm;
     vk_scroller_t   *scroller;
     char            title[64];
     unsigned int    state;

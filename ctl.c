@@ -16,7 +16,7 @@
 #include <sys/types.h>
 
 #include <vdk.h>
-#include <vterm.h>
+#include <vtty.h>
 
 #include "cJSON.h"
 #include "vwm.h"
@@ -637,7 +637,7 @@ ctl_json_bool(cJSON *req, const char *key, int *present)
     return 0;
 }
 
-static vterm_t *
+static vtty_t *
 ctl_widget_vterm(vk_widget_t *w)
 {
     vwmterm_data_t  *data;
@@ -1617,7 +1617,7 @@ op_launch_app(int fd, cJSON *req)
 /*
     xterm function-key sequences.  send-keys must write these bytes to
     the pty -- not ncurses KEY_F(n).  KEY_F(10) is 274 (0x0112); if
-    libvterm's keymap misses it, the 16-bit pack fallback emits
+    libvtty's keymap misses it, the 16-bit pack fallback emits
     0x12 0x01 and the child never sees F10.  Typed CSI \e[21~ works.
 */
 static const char *
@@ -1647,13 +1647,13 @@ ctl_fkey_seq(int fn)
 }
 
 static int
-ctl_write_bytes(vterm_t *vterm, const unsigned char *p, size_t n)
+ctl_write_bytes(vtty_t *vterm, const unsigned char *p, size_t n)
 {
     size_t  i;
 
     for(i = 0; i < n; i++)
     {
-        if(vterm_write_pipe(vterm, (uint32_t)p[i]) < 0)
+        if(vtty_write_pipe(vterm, (uint32_t)p[i]) < 0)
             return -1;
     }
 
@@ -1845,7 +1845,7 @@ op_send_keys(int fd, cJSON *req)
     int         present;
     uint32_t    id = ctl_json_u32(req, "id", &present);
     vk_widget_t *w;
-    vterm_t     *vterm;
+    vtty_t      *vterm;
     const char  *text;
     cJSON       *keys;
     int         do_type;
@@ -1893,7 +1893,7 @@ op_send_keys(int fd, cJSON *req)
         {
             for(i = 0; i < (int)len; i++)
             {
-                if(vterm_write_pipe(vterm,
+                if(vtty_write_pipe(vterm,
                     (uint32_t)(unsigned char)text[i]) < 0)
                 {
                     ctl_reply(fd, 0, NULL, "write failed");
@@ -1901,7 +1901,7 @@ op_send_keys(int fd, cJSON *req)
                 }
             }
         }
-        else if(vterm_write_data(vterm, text, len) < 0)
+        else if(vtty_write_data(vterm, text, len) < 0)
         {
             ctl_reply(fd, 0, NULL, "write failed");
             return;
@@ -1940,7 +1940,7 @@ op_send_keys(int fd, cJSON *req)
                     return;
                 }
             }
-            else if(vterm_write_pipe(vterm, key) < 0)
+            else if(vtty_write_pipe(vterm, key) < 0)
             {
                 ctl_reply(fd, 0, NULL, "write failed");
                 return;
@@ -1952,7 +1952,7 @@ op_send_keys(int fd, cJSON *req)
 
     if(do_enter)
     {
-        if(vterm_write_pipe(vterm, (uint32_t)'\r') < 0)
+        if(vtty_write_pipe(vterm, (uint32_t)'\r') < 0)
         {
             ctl_reply(fd, 0, NULL, "write failed");
             return;
@@ -2010,7 +2010,7 @@ ctl_txt_putc(struct ctl_txt *b, char c)
 }
 
 static void
-ctl_cells_free(vterm_cell_t **cells, int rows)
+ctl_cells_free(vtty_cell_t **cells, int rows)
 {
     int r;
 
@@ -2023,7 +2023,7 @@ ctl_cells_free(vterm_cell_t **cells, int rows)
 }
 
 static int
-ctl_cells_append(struct ctl_txt *b, vterm_cell_t **cells,
+ctl_cells_append(struct ctl_txt *b, vtty_cell_t **cells,
     int rows, int cols, int r0, int n)
 {
     int     r, c;
@@ -2086,10 +2086,10 @@ ctl_cells_append(struct ctl_txt *b, vterm_cell_t **cells,
 }
 
 static char *
-ctl_vterm_capture(vterm_t *vterm, int hist_lines, int *out_rows, int *out_cols)
+ctl_vterm_capture(vtty_t *vterm, int hist_lines, int *out_rows, int *out_cols)
 {
     struct ctl_txt  b;
-    vterm_cell_t    **cells;
+    vtty_cell_t     **cells;
     int             rows, cols;
     int             used;
     int             width, height;
@@ -2098,9 +2098,9 @@ ctl_vterm_capture(vterm_t *vterm, int hist_lines, int *out_rows, int *out_cols)
     int             alt;
 
     memset(&b, 0, sizeof(b));
-    vterm_get_size(vterm, &width, &height);
-    used = vterm_get_history_used(vterm);
-    alt = (vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE);
+    vtty_get_size(vterm, &width, &height);
+    used = vtty_get_history_used(vterm);
+    alt = (vtty_get_active_buffer(vterm) == VTTY_BUF_ALTERNATE);
 
     if(alt || hist_lines == 0)
         remaining = 0;
@@ -2114,7 +2114,7 @@ ctl_vterm_capture(vterm_t *vterm, int hist_lines, int *out_rows, int *out_cols)
     {
         int take;
 
-        cells = vterm_copy_scrollback(vterm, off, &rows, &cols);
+        cells = vtty_copy_scrollback(vterm, off, &rows, &cols);
         if(cells == NULL)
         {
             free(b.p);
@@ -2134,7 +2134,7 @@ ctl_vterm_capture(vterm_t *vterm, int hist_lines, int *out_rows, int *out_cols)
         off -= take;
     }
 
-    cells = vterm_copy_buffer(vterm, &rows, &cols);
+    cells = vtty_copy_buffer(vterm, &rows, &cols);
     if(cells == NULL)
     {
         free(b.p);
@@ -2200,7 +2200,7 @@ op_capture(int fd, cJSON *req)
     int         present;
     uint32_t    id = ctl_json_u32(req, "id", &present);
     vk_widget_t *w;
-    vterm_t     *vterm;
+    vtty_t      *vterm;
     const char  *path;
     char        *text;
     int         hist;
@@ -2239,8 +2239,8 @@ op_capture(int fd, cJSON *req)
         return;
     }
 
-    used = vterm_get_history_used(vterm);
-    alt = (vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE);
+    used = vtty_get_history_used(vterm);
+    alt = (vtty_get_active_buffer(vterm) == VTTY_BUF_ALTERNATE);
 
     if(path != NULL && path[0] != '\0')
     {

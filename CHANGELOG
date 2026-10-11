@@ -1,3 +1,23 @@
+Version 9.0.0
+
+*  [Bryan Christ] vwm builds against libvtty, the new name of libvterm.
+
+   -  libvterm was renamed libvtty in 11.0 to end a name collision with
+      an unrelated library.  Its header is now vtty.h, it links as
+      -lvtty, and its functions, types and macros start with vtty_ and
+      VTTY_.  vwm follows: it needs libvtty 11.0 or newer and no longer
+      builds against libvterm.
+   -  cmake/FindVTERM.cmake is replaced by cmake/FindVTTY.cmake, which
+      sets VTTY_LIBRARY and VTTY_INCLUDE_DIR.
+   -  The terminal module loads libvtty.so.
+   -  Nothing a user or a script sees is renamed.  The terminal profiles
+      (vterm-color, vterm-xterm256 and the rest), the VTerm window
+      titles, the "vterm" kind in vwm-msg replies and the settings file
+      are all unchanged.
+   -  To upgrade: install libvtty, remove the old libvterm by hand
+      (libvterm.so, libvterm.a, vterm.h, libvterm.pc), then build and
+      install vwm.
+
 Version 8.1.10
 
 *  [Bryan Christ] Window-manager mode works again, and the last of the

@@ -99,7 +99,7 @@ typedef struct
     int     type;
     bool    hidden;
     int     scrollback;     /* vterm history lines; 0 = vterm default */
-    bool    start_home;     /* true -> VTERM_FLAG_START_HOME at launch */
+    bool    start_home;     /* true -> VTTY_FLAG_START_HOME at launch */
     int     term_width;     /* terminal cols; default 80 (Manage Apps) */
     int     term_height;    /* terminal rows; default 25 (Manage Apps) */
 } manage_app_entry_t;

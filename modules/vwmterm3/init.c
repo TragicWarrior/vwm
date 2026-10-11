@@ -23,7 +23,7 @@
 #include <string.h>
 
 #include <vdk.h>
-#include <vterm.h>
+#include <vtty.h>
 
 #include "vwmterm.h"
 #include "events.h"
@@ -49,7 +49,7 @@ vwmterm_main(vwm_module_t *mod);
 static const int vwmterm_frame_reserved = 1;
 
 static short
-vwmterm_pair_selector(vterm_t *vterm, short fg, short bg)
+vwmterm_pair_selector(vtty_t *vterm, short fg, short bg)
 {
     (void)vterm;
     return vdk_color_pair(fg, bg);
@@ -73,7 +73,7 @@ vwmterm_scroll_info(vk_widget_t *source, int *content_h, int *content_w,
 {
     vwm_t           *vwm;
     vwmterm_data_t  *vwmterm_data;
-    vterm_t         *vterm;
+    vtty_t          *vterm;
     int             width, height;
     int             used;
     int             offset;
@@ -104,15 +104,15 @@ vwmterm_scroll_info(vk_widget_t *source, int *content_h, int *content_w,
 
     /* the alternate screen buffer (vim, less, myman, ...) has no scrollback --
        report an empty range so the bar shows a full, static thumb */
-    if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
+    if(vtty_get_active_buffer(vterm) == VTTY_BUF_ALTERNATE)
     {
         if(content_h != NULL) *content_h = 0;
         if(scroll_y != NULL) *scroll_y = 0;
         return;
     }
 
-    vterm_wnd_size(vterm, &width, &height);
-    used = vterm_get_history_used(vterm);
+    vtty_wnd_size(vterm, &width, &height);
+    used = vtty_get_history_used(vterm);
 
     /* the scroller's content is the scrollback (used rows) plus the live
        screen (height rows); the viewport is height.  scroll position 0 =
@@ -149,7 +149,7 @@ vwmterm_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
 /*
     The kinds of terminal this module offers.  Each becomes its own
     entry for vwm (found by `name`, shown as `title`); `flags` picks the
-    emulation libvterm runs and `fullscreen` a borderless terminal the
+    emulation libvtty runs and `fullscreen` a borderless terminal the
     size of the screen.  The first is the default profile.
 */
 static const struct
@@ -161,12 +161,12 @@ static const struct
 }
 vwmterm_kinds[] =
 {
-    { "vterm-color",      "VTerm (color)",      VTERM_FLAG_XTERM,     false },
-    { "vterm-vt100",      "VTerm (vt100)",      VTERM_FLAG_VT100,     false },
-    { "vterm-fullscreen", "VTerm (fullscreen)", VTERM_FLAG_XTERM,     true  },
-    { "vterm-xterm",      "VTerm (xterm)",      VTERM_FLAG_XTERM,     false },
-    { "vterm-xterm256",   "VTerm (xterm 256)",  VTERM_FLAG_XTERM_256, false },
-    { "vterm-truecolor",  "VTerm (truecolor)",  VTERM_FLAG_TRUECOLOR, false },
+    { "vterm-color",      "VTerm (color)",      VTTY_FLAG_XTERM,      false },
+    { "vterm-vt100",      "VTerm (vt100)",      VTTY_FLAG_VT100,      false },
+    { "vterm-fullscreen", "VTerm (fullscreen)", VTTY_FLAG_XTERM,      true  },
+    { "vterm-xterm",      "VTerm (xterm)",      VTTY_FLAG_XTERM,      false },
+    { "vterm-xterm256",   "VTerm (xterm 256)",  VTTY_FLAG_XTERM_256,  false },
+    { "vterm-truecolor",  "VTerm (truecolor)",  VTTY_FLAG_TRUECOLOR,  false },
 };
 
 int
@@ -199,10 +199,10 @@ vwm_mod_init(const char *modpath)
         return -1;
     }
 
-    dynlib = dlopen("libvterm.so", RTLD_LAZY | RTLD_GLOBAL);
+    dynlib = dlopen("libvtty.so", RTLD_LAZY | RTLD_GLOBAL);
     if(dynlib == NULL)
     {
-        fprintf(stderr, "[EE] Could not load libvterm.so\n\r");
+        fprintf(stderr, "[EE] Could not load libvtty.so\n\r");
         return -1;
     }
 
@@ -237,7 +237,7 @@ vwmterm_main(vwm_module_t *mod)
     vwm_t                   *vwm;
     vwmterm_mod_t           *vwmterm_mod;
     vwmterm_data_t          *vwmterm_data;
-    vterm_t                 *vterm;
+    vtty_t                  *vterm;
     vk_window_t             *window;
     vk_widget_t             *content;
 	int		      	        width, height;
@@ -274,31 +274,31 @@ vwmterm_main(vwm_module_t *mod)
         height = scr_height;
     }
 
-    vterm = vterm_alloc();
-    vterm_set_exec(vterm, vwmterm_mod->bin_path, vwmterm_mod->exec_args);
-    /* VTERM_FLAG_EXTMOUSE: vwm owns the real terminal's mouse (vk_kmio
+    vterm = vtty_alloc();
+    vtty_set_exec(vterm, vwmterm_mod->bin_path, vwmterm_mod->exec_args);
+    /* VTTY_FLAG_EXTMOUSE: vwm owns the real terminal's mouse (vk_kmio
        enables SGR tracking with raw escapes + mousemask(0) so it can parse
-       reports itself).  Without this, libvterm's mouse driver sees
+       reports itself).  Without this, libvtty's mouse driver sees
        has_mouse()==FALSE and seizes mousemask(ALL) when a child app (e.g.
        mc) enables mouse, re-cooking events and breaking vk_kmio's parser.
-       VTERM_FLAG_START_HOME (per-app, Manage Apps) chdirs the child into
+       VTTY_FLAG_START_HOME (per-app, Manage Apps) chdirs the child into
        $HOME before exec instead of inheriting the host cwd. */
     {
-        uint32_t flags = vwmterm_mod->flags | VTERM_FLAG_EXTMOUSE;
+        uint32_t flags = vwmterm_mod->flags | VTTY_FLAG_EXTMOUSE;
 
         if(mod->start_home)
-            flags |= VTERM_FLAG_START_HOME;
+            flags |= VTTY_FLAG_START_HOME;
 
-        vterm_init(vterm, width, height, flags);
+        vtty_init(vterm, width, height, flags);
     }
-    vterm_set_pair_selector(vterm, vwmterm_pair_selector);
-    vterm_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
+    vtty_set_pair_selector(vterm, vwmterm_pair_selector);
+    vtty_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
     vwmterm_bind_vterm(vterm);
 
     /* per-app scrollback override (Manage Apps); 0 keeps vterm's default
        history of 4x the terminal height */
     if(mod->scrollback > 0)
-        vterm_set_history_size(vterm, mod->scrollback);
+        vtty_set_history_size(vterm, mod->scrollback);
 
 
     char title[64] = "";
@@ -336,8 +336,8 @@ vwmterm_main(vwm_module_t *mod)
     wattron(vk_widget_get_canvas(content),
         COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLACK)));
 
-    vterm_wnd_set(vterm, vk_widget_get_canvas(content));
-    vterm_erase(vterm, -1, ' ');
+    vtty_wnd_set(vterm, vk_widget_get_canvas(content));
+    vtty_erase(vterm, -1, ' ');
 
     vk_window_set_child(window, content, VK_INHERIT_NONE);
     vk_object_set_kmio(VK_OBJECT(window), vwmterm_ON_KEYSTROKE);
@@ -364,7 +364,7 @@ vwmterm_main(vwm_module_t *mod)
     /*
         Register ON_RESIZE with vwmterm_data, not the raw vterm pointer.
         Capturing vterm here makes the handler's payload dangle as soon
-        as vterm_destroy runs in ON_CLOSE -- the very UAF that crashed
+        as vtty_destroy runs in ON_CLOSE -- the very UAF that crashed
         the active-buffer realloc.  Routing through vwmterm_data lets
         the handler read vwmterm_data->vterm fresh and bail when it is
         NULL (set by ON_CLOSE after destroy).
@@ -375,7 +375,7 @@ vwmterm_main(vwm_module_t *mod)
     /*
         ON_RECREATE fires after a teleport, when libviper rebuilds the
         widget's underlying ncurses WINDOW in the new SCREEN.  the cached
-        WINDOW pointer in libvterm is then dead -- rebind to the fresh
+        WINDOW pointer in libvtty is then dead -- rebind to the fresh
         canvas and force a full redraw.
     */
     vk_object_register_event(VK_OBJECT(window), VK_EVENT_ON_RECREATE,

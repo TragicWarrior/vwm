@@ -1,3 +1,12 @@
+2026-10-11
+
+vwm now builds on libvtty, which is libvterm under a new name.  The
+library was renamed to stop it clashing with an unrelated libvterm.
+Nothing about how vwm looks or behaves has changed, and your settings,
+terminal profiles and vwm-msg scripts work as before.  If you build
+vwm yourself, install libvtty 11.0 first and remove the old libvterm.
+
+
 2026-10-09
 
 A round of dialog fixes.  Loading a settings file now brings in its

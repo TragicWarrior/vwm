@@ -3,7 +3,7 @@ REQUIREMENTS (see VWM INSTALL file also)
 glib 2.8+
 libutil
 protothread
-libvterm
+libvtty
 libviper 1.2+
 vwm
 directory /usr/lib/vwm/modules

@@ -10,7 +10,7 @@
 
 #include <vdk.h>
 #include <vkmio.h>
-#include <vterm.h>
+#include <vtty.h>
 
 #include "vwmterm.h"
 #include "events.h"
@@ -50,7 +50,7 @@ static void     vwmterm_xclip_copy(const char *buf, size_t len, char selection);
 static void     vwmterm_host_clipboard_push(const char *buf, size_t len,
                     char selection);
 static void     vwmterm_clipboard_take(char *buf, size_t len, char selection);
-static void     vwmterm_vterm_hook(vterm_t *vterm, int event, void *anything);
+static void     vwmterm_vterm_hook(vtty_t *vterm, int event, void *anything);
 
 void
 vwmterm_init_keycodes(void)
@@ -196,27 +196,27 @@ vwmterm_clipboard_take(char *buf, size_t len, char selection)
 }
 
 void
-vwmterm_bind_vterm(vterm_t *vterm)
+vwmterm_bind_vterm(vtty_t *vterm)
 {
     if(vterm == NULL) return;
 
-    vterm_install_hook(vterm, vwmterm_vterm_hook);
-    vterm_set_event_mask(vterm, VTERM_MASK_CLIPBOARD);
+    vtty_install_hook(vterm, vwmterm_vterm_hook);
+    vtty_set_event_mask(vterm, VTTY_MASK_CLIPBOARD);
 }
 
 static void
-vwmterm_vterm_hook(vterm_t *vterm, int event, void *anything)
+vwmterm_vterm_hook(vtty_t *vterm, int event, void *anything)
 {
-    vterm_clipboard_t   *clip;
+    vtty_clipboard_t    *clip;
     char                *copy;
     char                sel;
 
     (void)vterm;
 
-    if(event != VTERM_EVENT_CLIPBOARD) return;
+    if(event != VTTY_EVENT_CLIPBOARD) return;
     if(anything == NULL) return;
 
-    clip = (vterm_clipboard_t *)anything;
+    clip = (vtty_clipboard_t *)anything;
     sel = (clip->selection == '\0') ? 'c' : clip->selection;
 
     if(clip->data == NULL || clip->len == 0)
@@ -237,13 +237,13 @@ vwmterm_vterm_hook(vterm_t *vterm, int event, void *anything)
     Toggle A_REVERSE on [cs, ce] of a rendered row without rewriting
     glyphs.  The old getcchar/setcchar/mvwadd_wch path destroyed
     double-width cells (emoji, CJK): the trail column is a blank
-    continuation that libvterm's painter skips, and rewriting it
+    continuation that libvtty's painter skips, and rewriting it
     orphaned the wide cchar and scrambled the rest of the line.  Box
     drawing and other non-ASCII also survived attribute-only changes
     more reliably than a full cchar round-trip.
 
     Wide glyphs: one mvwchgat covering both columns (same pattern as
-    libvterm's cursor paint), then skip the trail so we never touch it
+    libvtty's cursor paint), then skip the trail so we never touch it
     as a standalone cell.
 */
 static void
@@ -278,18 +278,18 @@ vwmterm_highlight_span(WINDOW *win, int row, int cs, int ce)
 }
 
 /*
-    The vterm's usable grid size.  vterm_wnd_size reports the attached canvas,
+    The vterm's usable grid size.  vtty_wnd_size reports the attached canvas,
     which on a bordered terminal is one column wider than the vterm grid -- that
     extra column holds the scrollbar.  Selection bounds and scrollbar
     hit-testing work in grid coordinates, so they use this rather than
-    vterm_wnd_size directly (the scrollbar then sits at exactly column *width).
+    vtty_wnd_size directly (the scrollbar then sits at exactly column *width).
 */
 static void
 vwmterm_grid_size(vwmterm_data_t *vwmterm_data, int *width, int *height)
 {
     int     w = 0, h = 0;
 
-    vterm_wnd_size(vwmterm_data->vterm, &w, &h);
+    vtty_wnd_size(vwmterm_data->vterm, &w, &h);
     if(vwmterm_data->scroller != NULL && w > 0)
         w -= 1;                             /* reserved scrollbar column */
 
@@ -334,7 +334,7 @@ vwmterm_selection_span(vwmterm_data_t *vwmterm_data,
 static void
 vwmterm_scroll_by(vwmterm_data_t *vwmterm_data, int lines)
 {
-    int used = vterm_get_history_used(vwmterm_data->vterm);
+    int used = vtty_get_history_used(vwmterm_data->vterm);
 
     vwmterm_data->scroll_offset += lines;
     if(vwmterm_data->scroll_offset > used)
@@ -352,14 +352,14 @@ static void
 vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
 {
     vwm_t       *vwm;
-    vterm_t     *vterm;
+    vtty_t      *vterm;
     WINDOW      *win;
     int         width, height;
     int         r1, c1, r2, c2;
 
     vwm = vwm_get_instance();
     vterm = vwmterm_data->vterm;
-    win = vterm_wnd_get(vterm);
+    win = vtty_wnd_get(vterm);
     vwmterm_grid_size(vwmterm_data, &width, &height);
 
     /* render at the current scroll position, not always the live screen --
@@ -384,8 +384,8 @@ vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
 static void
 vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
 {
-    vterm_t         *vterm;
-    vterm_cell_t    **cells;
+    vtty_t          *vterm;
+    vtty_cell_t     **cells;
     int             rows, cols;
     int             r1, c1, r2, c2;
     char            *buf;
@@ -398,10 +398,10 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
     /* copy from the same view the user sees: the composed scrollback matrix
        when scrolled back, else the live buffer */
     if(vwmterm_data->scroll_offset > 0)
-        cells = vterm_copy_scrollback(vterm, vwmterm_data->scroll_offset,
+        cells = vtty_copy_scrollback(vterm, vwmterm_data->scroll_offset,
                     &rows, &cols);
     else
-        cells = vterm_copy_buffer(vterm, &rows, &cols);
+        cells = vtty_copy_buffer(vterm, &rows, &cols);
     if(cells == NULL) return;
 
     vwmterm_selection_span(vwmterm_data, &r1, &c1, &r2, &c2);
@@ -445,7 +445,7 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
             wchar_t wch = cells[r][c].wch[0];
 
             /*
-                libvterm stores a blank continuation in the cell after a
+                libvtty stores a blank continuation in the cell after a
                 double-width glyph.  Skip it so copy doesn't inject a
                 spurious space (and so a selection that only covers the
                 trail half doesn't invent a character).
@@ -484,10 +484,10 @@ vwmterm_copy_selection(vwmterm_data_t *vwmterm_data)
 static void
 vwmterm_enter_selection(vwmterm_data_t *vwmterm_data)
 {
-    vterm_t *vterm = vwmterm_data->vterm;
+    vtty_t *vterm = vwmterm_data->vterm;
     int     col, row;
 
-    vterm_get_cursor_position(vterm, &col, &row);
+    vtty_get_cursor_position(vterm, &col, &row);
 
     vwmterm_data->frozen = 1;
     vwmterm_data->sel_anchor_row = row;
@@ -525,7 +525,7 @@ vwmterm_exit_selection(vwmterm_data_t *vwmterm_data)
 }
 
 static int
-vwmterm_write_mouse(vterm_t *vterm, vk_window_t *window, MEVENT *me)
+vwmterm_write_mouse(vtty_t *vterm, vk_window_t *window, MEVENT *me)
 {
     int win_x, win_y;
     MEVENT adjusted = *me;
@@ -534,7 +534,7 @@ vwmterm_write_mouse(vterm_t *vterm, vk_window_t *window, MEVENT *me)
     adjusted.x -= win_x;
     adjusted.y -= win_y;
 
-    return vterm_write_mouse_event(vterm, &adjusted);
+    return vtty_write_mouse_event(vterm, &adjusted);
 }
 
 /*
@@ -552,7 +552,7 @@ vwmterm_window_update(vwmterm_data_t *vwmterm_data)
 
 /*
     Render the vterm at the current scroll_offset.  scroll_offset is the
-    scroll-back distance in rows; libvterm's vterm_wnd_scrollback composes the
+    scroll-back distance in rows; libvtty's vtty_wnd_scrollback composes the
     newest N evicted rows above the head of the live screen -- so even less
     than one screenful of history shows, with the live buffer beneath it.
     scroll_offset 0 is the live buffer (drawn with the cursor).
@@ -560,16 +560,16 @@ vwmterm_window_update(vwmterm_data_t *vwmterm_data)
 static void
 vwmterm_scroll_render(vwmterm_data_t *vwmterm_data)
 {
-    vterm_t     *vterm = vwmterm_data->vterm;
+    vtty_t      *vterm = vwmterm_data->vterm;
 
     if(vwmterm_data->scroll_offset > 0)
     {
-        vterm_wnd_scrollback(vterm, vwmterm_data->scroll_offset,
-            VTERM_WND_RENDER_ALL);
+        vtty_wnd_scrollback(vterm, vwmterm_data->scroll_offset,
+            VTTY_WND_RENDER_ALL);
     }
     else
     {
-        vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
+        vtty_wnd_update(vterm, -1, 0, VTTY_WND_RENDER_ALL);
     }
 }
 
@@ -584,7 +584,7 @@ vwmterm_scroll_render(vwmterm_data_t *vwmterm_data)
 static void
 vwmterm_scrollbar_to(vwmterm_data_t *vwmterm_data, int row, int is_press)
 {
-    vterm_t     *vterm = vwmterm_data->vterm;
+    vtty_t      *vterm = vwmterm_data->vterm;
     vwm_t       *vwm;
     int         width, height;
     int         used;
@@ -592,9 +592,9 @@ vwmterm_scrollbar_to(vwmterm_data_t *vwmterm_data, int row, int is_press)
     int         new_offset;
 
     vwmterm_grid_size(vwmterm_data, &width, &height);
-    used = vterm_get_history_used(vterm);
+    used = vtty_get_history_used(vterm);
 
-    if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE) return;
+    if(vtty_get_active_buffer(vterm) == VTTY_BUF_ALTERNATE) return;
     if(used <= 0) return;                       /* nothing scrolled off yet */
 
     if(is_press && row <= 0)
@@ -660,7 +660,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
     vwm_t           *vwm;
     vk_window_t     *window;
     vwmterm_data_t  *vwmterm_data;
-    vterm_t         *vterm;
+    vtty_t          *vterm;
     int             width, height;
 
     window = VK_WINDOW(object);
@@ -794,7 +794,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
         if(me->bstate & BUTTON2_PRESSED)
         {
             if(clipboard != NULL && clipboard_len > 0)
-                vterm_write_data(vterm, clipboard, clipboard_len);
+                vtty_write_data(vterm, clipboard, clipboard_len);
             return KMIO_HANDLED;
         }
 
@@ -803,7 +803,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             if(vwmterm_write_mouse(vterm, window, me) > 0)
                 return KMIO_HANDLED;
 
-            if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
+            if(vtty_get_active_buffer(vterm) == VTTY_BUF_ALTERNATE)
                 return KMIO_HANDLED;
 
             vwmterm_scroll_by(vwmterm_data, VWMTERM_WHEEL_SCROLL_LINES);
@@ -816,7 +816,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
             if(vwmterm_write_mouse(vterm, window, me) > 0)
                 return KMIO_HANDLED;
 
-            if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
+            if(vtty_get_active_buffer(vterm) == VTTY_BUF_ALTERNATE)
                 return KMIO_HANDLED;
 
             /* already on the live screen: nothing to scroll toward */
@@ -902,7 +902,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
     if(keystroke == KEY_PASTE)
     {
         if(clipboard != NULL && clipboard_len > 0)
-            vterm_write_data(vterm, clipboard, clipboard_len);
+            vtty_write_data(vterm, clipboard, clipboard_len);
         return KMIO_HANDLED;
     }
 
@@ -912,7 +912,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
         const char  *pbuf = vk_kmio_get_paste(&plen);
 
         if(pbuf != NULL && plen > 0)
-            vterm_write_data(vterm, pbuf, plen);
+            vtty_write_data(vterm, pbuf, plen);
         return KMIO_HANDLED;
     }
 
@@ -920,7 +920,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 
     if(keystroke == key_alt_pgup)
     {
-        if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
+        if(vtty_get_active_buffer(vterm) == VTTY_BUF_ALTERNATE)
             return KMIO_HANDLED;
 
         /* a screenful at a time */
@@ -932,7 +932,7 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
 
     if(keystroke == key_alt_pgdn)
     {
-        if(vterm_get_active_buffer(vterm) == VTERM_BUF_ALTERNATE)
+        if(vtty_get_active_buffer(vterm) == VTTY_BUF_ALTERNATE)
             return KMIO_HANDLED;
 
         if(vwmterm_data->scroll_offset == 0) return KMIO_HANDLED;
@@ -946,12 +946,12 @@ vwmterm_ON_KEYSTROKE(vk_object_t *object, int32_t keystroke)
     if(vwmterm_data->scroll_offset > 0)
     {
         vwmterm_data->scroll_offset = 0;
-        vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
+        vtty_wnd_update(vterm, -1, 0, VTTY_WND_RENDER_ALL);
         vwmterm_window_update(vwmterm_data);
         vk_screen_refresh(vwm->screen);
     }
 
-    vterm_write_pipe(vterm, keystroke);
+    vtty_write_pipe(vterm, keystroke);
 
     return KMIO_HANDLED;
 }
@@ -986,7 +986,7 @@ int
 vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything)
 {
     vwmterm_data_t  *vwmterm_data;
-	vterm_t         *vterm;
+	vtty_t          *vterm;
     vk_widget_t     *content;
     unsigned int    width;
     unsigned int    height;
@@ -1012,16 +1012,16 @@ vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything)
        the remaining width-1, and the bar is re-fitted to the new height */
     if(vwmterm_data->scroller != NULL)
     {
-        vterm_resize(vterm, width - 1, height);
+        vtty_resize(vterm, width - 1, height);
         vk_widget_resize(VK_WIDGET(vwmterm_data->scroller), 1, height);
         vk_widget_move(VK_WIDGET(vwmterm_data->scroller), width - 1, 0);
     }
     else
     {
-        vterm_resize(vterm, width, height);
+        vtty_resize(vterm, width, height);
     }
 
-    vterm_wnd_update(vterm, -1, 0, 0);
+    vtty_wnd_update(vterm, -1, 0, 0);
 
 	return 0;
 }
@@ -1030,7 +1030,7 @@ vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything)
     fires when libviper rebuilds the WINDOW backing this widget -- happens
     after a teleport, where vk_screen_teleport tears down the old ncurses
     SCREEN, creates a new one, and calls vk_widget_recreate on every
-    surface widget.  the per-widget canvas WINDOW pointer libvterm cached
+    surface widget.  the per-widget canvas WINDOW pointer libvtty cached
     at init time is now dead; rebind it to the freshly-recreated canvas
     and force a full redraw.
 */
@@ -1038,7 +1038,7 @@ int
 vwmterm_ON_RECREATE(vk_object_t *object, int event, void *anything)
 {
     vwmterm_data_t  *vwmterm_data;
-    vterm_t         *vterm;
+    vtty_t          *vterm;
     vk_widget_t     *content;
     vwm_t           *vwm;
 
@@ -1053,7 +1053,7 @@ vwmterm_ON_RECREATE(vk_object_t *object, int event, void *anything)
     content = vk_window_get_child(VK_WINDOW(object));
     if(content == NULL) return 0;
 
-    vterm_wnd_set(vterm, vk_widget_get_canvas(content));
+    vtty_wnd_set(vterm, vk_widget_get_canvas(content));
 
     /* the teleport rebuilt the content's canvas; re-point the scroller at it
        and rebuild the scroller's own backing window (a plain widget's
@@ -1065,7 +1065,7 @@ vwmterm_ON_RECREATE(vk_object_t *object, int event, void *anything)
         vk_widget_recreate(VK_WIDGET(vwmterm_data->scroller));
     }
 
-    vterm_wnd_update(vterm, -1, 0, VTERM_WND_RENDER_ALL);
+    vtty_wnd_update(vterm, -1, 0, VTTY_WND_RENDER_ALL);
 
     vwm = vwm_get_instance();
     if(vwm != NULL)
@@ -1096,7 +1096,7 @@ vwmterm_ON_HANGUP(vk_object_t *object, int event, void *anything)
 
     if(vwmterm_data == NULL || vwmterm_data->vterm == NULL) return 0;
 
-    kill(vterm_get_pid(vwmterm_data->vterm), SIGHUP);
+    kill(vtty_get_pid(vwmterm_data->vterm), SIGHUP);
 
     return 0;
 }
@@ -1152,7 +1152,7 @@ vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything)
 
     if(vwmterm_data->vterm != NULL)
     {
-        child_pid = vterm_get_pid(vwmterm_data->vterm);
+        child_pid = vtty_get_pid(vwmterm_data->vterm);
 
         vwmterm_end_child(child_pid);
 
@@ -1160,11 +1160,11 @@ vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything)
             Invalidate any in-flight drag targeting this window before
             we free the vterm.  Otherwise the dangling pointer baked
             into the ON_RESIZE handler at registration would drive a
-            UAF inside vterm_buffer_realloc on the next mouse event.
+            UAF inside vtty_buffer_realloc on the next mouse event.
         */
         vwm_cancel_drag_for_widget(VK_WIDGET(vwmterm_data->window));
 
-        vterm_destroy(vwmterm_data->vterm);
+        vtty_destroy(vwmterm_data->vterm);
         vwmterm_data->vterm = NULL;
     }
 

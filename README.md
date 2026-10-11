@@ -4,7 +4,7 @@ vwm - virtual window manager for the terminal
 vwm runs inside a single terminal and presents a multi-desktop, mouse-aware
 window manager with embedded ncurses terminals, dropdown menus, and
 dialog-driven configuration.  It builds on libviper (VDK widgets) and
-libvterm.
+libvtty.
 
 FEATURES
 ========
@@ -63,7 +63,8 @@ REQUIREMENTS
 CMake
 ncursesw 5.4+
 libviper 10.0.0+ - https://github.com/TragicWarrior/libviper
-libvterm 10.9+ - https://github.com/TragicWarrior/libvterm
+libvtty 11.0+ - https://github.com/TragicWarrior/libvtty
+                 (named libvterm before 11.0)
 FreeType         (for screen capture; DejaVu Sans Mono is bundled)
                  cmake -DVWM_SCREENSHOT_FONT= / -DVWM_SCREENSHOT_FONT_BOLD=
                  to force a different TTF
@@ -114,7 +115,7 @@ make
 sudo make install
 
 On Linux the install ends by running ldconfig, so vwm finds a libviper or
-libvterm that was installed just before it.  A staged install (DESTDIR)
+libvtty that was installed just before it.  A staged install (DESTDIR)
 skips that step.
 
 CONFIGURATION

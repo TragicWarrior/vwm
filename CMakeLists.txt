@@ -26,7 +26,7 @@ find_package(Curses REQUIRED)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
-find_package(VTERM REQUIRED)
+find_package(VTTY REQUIRED)
 
 # use libviper source tree (headers + library not yet installed).
 # Defaults to a sibling checkout (../libviper); override with
@@ -58,6 +58,10 @@ include_directories(BEFORE
     ${LIBVIPER_SOURCE_DIR}/vkmio
     ${PROTOTHREAD_SOURCE_DIR})
 set(VDK_LIBRARY "${LIBVIPER_SOURCE_DIR}/libvdk.so")
+
+# vtty.h, wherever FindVTTY located it (a libvtty installed outside the
+# compiler's default search path, e.g. via CMAKE_PREFIX_PATH).
+include_directories(${VTTY_INCLUDE_DIR})
 
 # No GPM library: libviper 8.0.0 speaks the gpm daemon's protocol itself,
 # so the console mouse needs nothing at build time.
@@ -146,7 +150,7 @@ add_executable(vwm-msg
 # Pass -rdynamic so those globals make it in.
 set_target_properties(vwm PROPERTIES ENABLE_EXPORTS ON)
 
-target_link_libraries(vwm -lutil -lm -lrt ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTERM_LIBRARY}" ${FREETYPE_LIBRARIES})
+target_link_libraries(vwm -lutil -lm -lrt ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTTY_LIBRARY}" ${FREETYPE_LIBRARIES})
 target_include_directories(vwm PRIVATE ${FREETYPE_INCLUDE_DIRS})
 target_compile_definitions(vwm PRIVATE
     "VWM_FONTDIR=\"${CMAKE_INSTALL_FULL_DATADIR}/vwm/fonts\""
@@ -193,7 +197,7 @@ install (FILES
 
 # Refresh the dynamic linker's cache after installing.  vwm installs no
 # library the cache serves -- its modules go to lib/vwm/ and are loaded
-# by full path -- but the vwm binary needs libvdk.so.N and libvterm.so,
+# by full path -- but the vwm binary needs libvdk.so.N and libvtty.so,
 # and a library installed just before without ldconfig would leave the
 # freshly installed vwm unable to start ("cannot open shared object
 # file").  Running it here makes "make install" end with a vwm that
@@ -221,7 +225,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
                     message(WARNING
                         "ldconfig could not refresh the linker cache "
                         "(not root?).  Run 'sudo ldconfig' if vwm cannot "
-                        "find libvdk or libvterm.")
+                        "find libvdk or libvtty.")
                 endif()
             endif()
         endif()

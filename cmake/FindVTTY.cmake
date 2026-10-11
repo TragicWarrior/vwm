@@ -1,13 +1,13 @@
-# - try to find VIPER library
+# - try to find the libvtty library
 #
 # Cache Variables: (probably not for direct use in your scripts)
-#  VIPER_INCLUDE_DIR
-#  VIPER_LIBRARY
+#  VTTY_INCLUDE_DIR
+#  VTTY_LIBRARY
 #
 # Non-cache variables you might use in your CMakeLists.txt:
-#  VIPER_FOUND
-#  VIPER_INCLUDE_DIRS
-#  VIPER_LIBRARIES
+#  VTTY_FOUND
+#  VTTY_INCLUDE_DIRS
+#  VTTY_LIBRARIES
 #
 # Requires these CMake modules:
 #  FindPackageHandleStandardArgs (known included with CMake >=2.6.2)
@@ -22,21 +22,21 @@
 # (See accompanying file LICENSE_1_0.txt or copy at
 # http://www.boost.org/LICENSE_1_0.txt)
 
-find_library(VTERM_LIBRARY
-    NAMES vterm)
+find_library(VTTY_LIBRARY
+    NAMES vtty)
 
-find_path(VTERM_INCLUDE_DIR
-    NAMES vterm.h)
+find_path(VTTY_INCLUDE_DIR
+    NAMES vtty.h)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(VTERM
+find_package_handle_standard_args(VTTY
     DEFAULT_MSG
-    VTERM_LIBRARY
-    VTERM_INCLUDE_DIR)
+    VTTY_LIBRARY
+    VTTY_INCLUDE_DIR)
 
-if(VTERM_FOUND)
-    set(VTERM_LIBRARIES "${VTERM_LIBRARY}")
+if(VTTY_FOUND)
+    set(VTTY_LIBRARIES "${VTTY_LIBRARY}")
 
-    set(VTERM_INCLUDE_DIRS "${VTERM_INCLUDE_DIR}")
+    set(VTTY_INCLUDE_DIRS "${VTTY_INCLUDE_DIR}")
 endif()
 
