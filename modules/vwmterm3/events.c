@@ -1168,20 +1168,11 @@ vwmterm_ON_CLOSE(vk_object_t *object, int event, void *anything)
     vwmterm_data->state = VWMTERM_STATE_EXITING;
 
     /*
-        Tear down the scrollbar before the window goes away.  Nothing else
-        frees an attached scroller, so we must; detaching first clears
-        content->vscroller.  NULL for fullscreen vterms, which never got one.
+        The scroll bar stays attached and is destroyed with the window's
+        content (libviper 10: an attached scroller goes with its host).
+        Forget it here so that nothing drives it between now and then.
     */
-    if(vwmterm_data->scroller != NULL)
-    {
-        vk_widget_t *content = vk_window_get_child(vwmterm_data->window);
-
-        if(content != NULL)
-            vk_widget_detach_scroller(content, vwmterm_data->scroller);
-
-        vk_scroller_destroy(vwmterm_data->scroller);
-        vwmterm_data->scroller = NULL;
-    }
+    vwmterm_data->scroller = NULL;
 
     if(vwmterm_data->vterm != NULL)
     {

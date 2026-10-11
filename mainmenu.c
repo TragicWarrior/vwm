@@ -116,6 +116,141 @@ vwm_dropdown_kmio(vk_object_t *object, int32_t keystroke)
 static void
 open_dropdown(vwm_t *vwm, int idx);
 
+/*
+    The list every dropdown is made of: white on cyan, bold, with the
+    dropdown key handler.  `wrap` says whether Up on the first row goes
+    to the last.  The caller adds the items.
+*/
+static vk_listbox_t*
+menu_list_create(bool wrap)
+{
+    vk_listbox_t    *listbox;
+
+    listbox = vk_listbox_create(8, 10);
+    vk_widget_set_colors(VK_WIDGET(listbox), COLOR_WHITE, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(listbox), A_BOLD);
+    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_BLACK);
+    vk_listbox_set_highlight_attrs(listbox, A_BOLD);
+    vk_listbox_set_wrap(listbox, wrap);
+    vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
+
+    return listbox;
+}
+
+/* give a dropdown's list a scroll bar.  The list owns it from here on:
+   it is destroyed with the list. */
+static void
+menu_list_add_scroller(vk_listbox_t *listbox)
+{
+    vk_scroller_t   *scroller;
+
+    scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
+    vk_scroller_set_border_style(scroller, VK_BORDER_SINGLE);
+    vk_scroller_set_border_colors(scroller, COLOR_BLACK, COLOR_CYAN);
+    vk_widget_set_attrs(VK_WIDGET(scroller), A_BOLD);
+    vk_scroller_set_scroll_source(scroller, VK_WIDGET(listbox));
+    vk_scroller_set_scroll_info(scroller, vwm_menu_scroll_info);
+    vk_scroller_set_scroll_apply(scroller, vk_listbox_scroll_apply);
+    vk_widget_attach_scroller(VK_WIDGET(listbox), scroller);
+}
+
+/*
+    Work out the size a dropdown's list should be: as big as its items,
+    with room for a title of `title` (NULL: none) on the window around
+    it, but no wider than the screen less a margin and no taller than
+    three quarters of it.  Returns true when the list has more rows than
+    fit.  Used when a dropdown is built and again when the terminal
+    changes size, so the two cannot disagree.
+*/
+static bool
+menu_list_fit(vwm_t *vwm, vk_listbox_t *listbox, const char *title,
+    int *width, int *height)
+{
+    int     scr_width, scr_height;
+    bool    clipped;
+
+    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
+    scr_width -= 4;
+    scr_height = (scr_height * 3) / 4;
+
+    vk_listbox_get_metrics(listbox, width, height);
+    *width += 4;
+
+    /* vk_window centers the title and truncates it to (window width - 4);
+       window width is *width + 2, so the usable title span is
+       *width - 2.  Floor to strlen(title) + 2 or a short list (e.g.
+       "htop") clips the title's trailing space against the right frame. */
+    if(title != NULL && *width < (int)strlen(title) + 2)
+        *width = (int)strlen(title) + 2;
+
+    clipped = (*height > scr_height);
+    if(*width > scr_width) *width = scr_width;
+    if(*height > scr_height) *height = scr_height;
+
+    return clipped;
+}
+
+/*
+    Size a filled list to its items (see menu_list_fit) and put it in a
+    bordered window, titled `title` when that is not NULL.  The window
+    owns the list.  `clipped`, when not NULL, is told whether the list
+    had more rows than fit (the caller may then want a scroll bar).
+*/
+static vk_window_t*
+menu_window_create(vwm_t *vwm, vk_listbox_t *listbox, const char *title,
+    bool *clipped)
+{
+    vk_window_t     *window;
+    int             max_width = 0;
+    int             max_height = 0;
+    bool            over;
+
+    vk_listbox_update(listbox);
+    over = menu_list_fit(vwm, listbox, title, &max_width, &max_height);
+    if(clipped != NULL) *clipped = over;
+
+    vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
+
+    window = vk_window_create(max_width + 2, max_height + 2);
+    if(title != NULL) vk_window_set_title(window, (char *)title);
+    vk_window_set_border_style(window, VK_BORDER_SINGLE);
+    vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
+    vk_window_set_border_attrs(window, A_BOLD);
+    vk_window_set_child(window, VK_WIDGET(listbox), VK_INHERIT_NONE);
+
+    return window;
+}
+
+/*
+    Put the menu away: close the dropdown (and the Apps submenu with
+    it), and take the focus off the menu bar.  Does no harm when no
+    dropdown is open.
+*/
+static void
+menu_dismiss(vwm_t *vwm)
+{
+    vwm_menubar_close_dropdown();
+    vk_menubar_set_focused(vwm->menubar, false);
+    vk_menubar_update(vwm->menubar);
+}
+
+/* Left / Right walk the menu bar.  Returns true when `keystroke` was
+   one of the two and has been acted on. */
+static bool
+menubar_step(vwm_t *vwm, int32_t keystroke)
+{
+    if(keystroke == KEY_LEFT)
+        vk_menubar_set_prev(vwm->menubar);
+    else if(keystroke == KEY_RIGHT)
+        vk_menubar_set_next(vwm->menubar);
+    else
+        return false;
+
+    vk_menubar_update(vwm->menubar);
+
+    return true;
+}
+
 /* the apps of one category, styled like the Apps dropdown */
 static vk_window_t*
 create_category_menu(vwm_t *vwm, int type)
@@ -124,23 +259,10 @@ create_category_menu(vwm_t *vwm, int type)
     vk_window_t     *window;
     vwm_module_t    *vwm_module = NULL;
     char            buf[NAME_MAX];
-    int             max_width = 0;
-    int             max_height = 0;
-    int             scr_width, scr_height;
     bool            scroll;
 
-    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
-    scr_width -= 4;
-    scr_height = (scr_height * 3) / 4;
-
-    listbox = vk_listbox_create(8, 10);
-    vk_widget_set_colors(VK_WIDGET(listbox), COLOR_WHITE, COLOR_CYAN);
-    vk_widget_set_attrs(VK_WIDGET(listbox), A_BOLD);
-    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_BLACK);
-    vk_listbox_set_highlight_attrs(listbox, A_BOLD);
+    listbox = menu_list_create(FALSE);
     vk_listbox_set_unfocused(listbox, COLOR_WHITE, COLOR_CYAN);
-    vk_listbox_set_wrap(listbox, FALSE);
-    vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
 
     do
     {
@@ -155,61 +277,18 @@ create_category_menu(vwm_t *vwm, int type)
     }
     while(vwm_module != NULL);
 
-    vk_listbox_update(listbox);
-    vk_listbox_get_metrics(listbox, &max_width, &max_height);
-    max_width += 4;
-    scroll = max_height > scr_height;
-    if(max_width > scr_width) max_width = scr_width;
-    if(max_height > scr_height) max_height = scr_height;
+    window = menu_window_create(vwm, listbox, NULL, &scroll);
 
-    vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
-
-    window = vk_window_create(max_width + 2, max_height + 2);
-    vk_window_set_border_style(window, VK_BORDER_SINGLE);
-    vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
-    vk_window_set_border_attrs(window, A_BOLD);
-    vk_window_set_child(window, VK_WIDGET(listbox), VK_INHERIT_NONE);
-
-    if(scroll)
-    {
-        vk_scroller_t *scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
-        vk_scroller_set_border_style(scroller, VK_BORDER_SINGLE);
-        vk_scroller_set_border_colors(scroller, COLOR_BLACK, COLOR_CYAN);
-        vk_widget_set_attrs(VK_WIDGET(scroller), A_BOLD);
-        vk_scroller_set_scroll_source(scroller, VK_WIDGET(listbox));
-        vk_scroller_set_scroll_info(scroller, vwm_menu_scroll_info);
-        vk_scroller_set_scroll_apply(scroller, vk_listbox_scroll_apply);
-        vk_widget_attach_scroller(VK_WIDGET(listbox), scroller);
-    }
+    /* a scroll bar only when the apps do not all fit */
+    if(scroll) menu_list_add_scroller(listbox);
 
     return window;
-}
-
-/*
-    Free the scroll bar of a dropdown's list, if it has one.  A scroller
-    attached to a widget is not owned by it -- destroying the list
-    leaves the scroller behind -- so every path that tears a dropdown
-    down calls this first, while the list is still valid.
-*/
-static void
-vwm_menu_free_scroller(vk_listbox_t *listbox)
-{
-    vk_scroller_t   *scroller;
-
-    if(listbox == NULL) return;
-
-    scroller = vk_widget_get_vscroller(VK_WIDGET(listbox));
-    if(scroller == NULL) return;
-
-    vk_widget_detach_scroller(VK_WIDGET(listbox), scroller);
-    vk_scroller_destroy(scroller);
 }
 
 static void
 apps_submenu_close(void)
 {
     vwm_t           *vwm;
-    vk_listbox_t    *listbox;
 
     if(g_sub == NULL) return;
 
@@ -217,10 +296,8 @@ apps_submenu_close(void)
     vk_screen_detach_widget(vwm->screen,
         vk_screen_get_active_surface(vwm->screen), VK_WIDGET(g_sub));
 
-    listbox = VK_LISTBOX(vk_window_get_child(g_sub));
-    vwm_menu_free_scroller(listbox);
-    vk_window_set_child(g_sub, NULL, VK_INHERIT_NONE);
-    vk_listbox_destroy(listbox);
+    /* the window takes its list along, and the list its scroll bar
+       (libviper 10: a container owns what it holds) */
     vk_window_destroy(g_sub);
 
     g_sub = NULL;
@@ -312,8 +389,37 @@ vwm_menubar_get_submenu(void)
     return g_sub;
 }
 
+/*
+    After a terminal resize: give the open dropdown the size it would
+    be built with on the new screen.  (This used to be worked out
+    separately, without the padding the builders add, so a dropdown
+    that had been through a resize came back four columns narrow and
+    clipped its longer rows.)
+*/
+void
+vwm_menubar_refit_dropdown(void)
+{
+    vwm_t           *vwm = vwm_get_instance();
+    vk_window_t     *menu = vwm->menu;
+    vk_listbox_t    *listbox;
+    int             width = 0;
+    int             height = 0;
+
+    if(menu == NULL) return;
+
+    listbox = VK_LISTBOX(vk_window_get_child(menu));
+    menu_list_fit(vwm, listbox, vk_window_get_title(menu), &width, &height);
+
+    vk_widget_resize(VK_WIDGET(listbox), width, height);
+    vk_widget_resize(VK_WIDGET(menu), width + 2, height + 2);
+
+    vk_listbox_update(listbox);
+    vk_window_update(menu);
+}
+
 /* after a terminal resize: close the submenu and reopen it beside the
-   highlighted category (the dropdown itself was resized by the caller) */
+   highlighted category (the dropdown itself is resized first, by
+   vwm_menubar_refit_dropdown) */
 void
 vwm_menubar_refresh_submenu(void)
 {
@@ -385,44 +491,14 @@ vwm_reload_apps(vk_widget_t *widget, void *anything)
     return 0;
 }
 
+/* a menu-bar item was chosen: open its dropdown.  `anything` is the
+   item's position on the bar (0 Apps, 1 VWM, 2 Windows). */
 static int
-vwm_file_menu_activate(vk_widget_t *widget, void *anything)
+vwm_menu_activate(vk_widget_t *widget, void *anything)
 {
-    vwm_t   *vwm;
-
     (void)widget;
-    (void)anything;
 
-    vwm = vwm_get_instance();
-    open_dropdown(vwm, 1);
-
-    return 0;
-}
-
-static int
-vwm_apps_menu_activate(vk_widget_t *widget, void *anything)
-{
-    vwm_t   *vwm;
-
-    (void)widget;
-    (void)anything;
-
-    vwm = vwm_get_instance();
-    open_dropdown(vwm, 0);
-
-    return 0;
-}
-
-static int
-vwm_minimized_menu_activate(vk_widget_t *widget, void *anything)
-{
-    vwm_t   *vwm;
-
-    (void)widget;
-    (void)anything;
-
-    vwm = vwm_get_instance();
-    open_dropdown(vwm, 2);
+    open_dropdown(vwm_get_instance(), (int)(intptr_t)anything);
 
     return 0;
 }
@@ -465,22 +541,8 @@ static vk_window_t*
 create_file_dropdown(vwm_t *vwm)
 {
     vk_listbox_t    *listbox;
-    vk_window_t     *window;
-    int             max_width = 0;
-    int             max_height = 0;
-    int             scr_width, scr_height;
 
-    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
-    scr_width -= 4;
-    scr_height = (scr_height * 3) / 4;
-
-    listbox = vk_listbox_create(8, 10);
-    vk_widget_set_colors(VK_WIDGET(listbox), COLOR_WHITE, COLOR_CYAN);
-    vk_widget_set_attrs(VK_WIDGET(listbox), A_BOLD);
-    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_BLACK);
-    vk_listbox_set_highlight_attrs(listbox, A_BOLD);
-    vk_listbox_set_wrap(listbox, TRUE);
-    vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
+    listbox = menu_list_create(TRUE);
 
     vk_listbox_add_item(listbox, "Manage windows (Alt w)",
         vwm_toggle_winman, NULL);
@@ -512,22 +574,7 @@ create_file_dropdown(vwm_t *vwm)
     vk_listbox_add_separator(listbox, VK_SEPARATOR_SINGLE);
     vk_listbox_add_item(listbox, "Exit", vwm_exit, NULL);
 
-    vk_listbox_update(listbox);
-    vk_listbox_get_metrics(listbox, &max_width, &max_height);
-    max_width += 4;
-    if(max_width > scr_width) max_width = scr_width;
-    if(max_height > scr_height) max_height = scr_height;
-
-    vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
-
-    window = vk_window_create(max_width + 2, max_height + 2);
-    vk_window_set_title(window, " VWM ");
-    vk_window_set_border_style(window, VK_BORDER_SINGLE);
-    vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
-    vk_window_set_border_attrs(window, A_BOLD);
-    vk_window_set_child(window, VK_WIDGET(listbox), VK_INHERIT_NONE);
-
-    return window;
+    return menu_window_create(vwm, listbox, " VWM ", NULL);
 }
 
 static vk_window_t*
@@ -537,23 +584,10 @@ create_apps_dropdown(vwm_t *vwm)
     vk_window_t     *window;
     vwm_module_t    *vwm_module;
     char            buf[NAME_MAX];
-    int             max_width = 0;
-    int             max_height = 0;
-    int             scr_width, scr_height;
     bool            category_found;
     int             i;
 
-    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
-    scr_width -= 4;
-    scr_height = (scr_height * 3) / 4;
-
-    listbox = vk_listbox_create(8, 10);
-    vk_widget_set_colors(VK_WIDGET(listbox), COLOR_WHITE, COLOR_CYAN);
-    vk_widget_set_attrs(VK_WIDGET(listbox), A_BOLD);
-    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_BLACK);
-    vk_listbox_set_highlight_attrs(listbox, A_BOLD);
-    vk_listbox_set_wrap(listbox, FALSE);
-    vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
+    listbox = menu_list_create(FALSE);
 
     /* one row per category that has at least one visible app */
     g_cat_count = 0;
@@ -583,31 +617,10 @@ create_apps_dropdown(vwm_t *vwm)
     }
     vk_listbox_set_unfocused(listbox, COLOR_WHITE, COLOR_BLUE);
 
-    vk_listbox_update(listbox);
-    vk_listbox_get_metrics(listbox, &max_width, &max_height);
-    max_width += 4;
-    if(max_width > scr_width) max_width = scr_width;
-    if(max_height > scr_height) max_height = scr_height;
+    window = menu_window_create(vwm, listbox, " Apps ", NULL);
 
-    vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
-
-    window = vk_window_create(max_width + 2, max_height + 2);
-    vk_window_set_title(window, " Apps ");
-    vk_window_set_border_style(window, VK_BORDER_SINGLE);
-    vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
-    vk_window_set_border_attrs(window, A_BOLD);
-    vk_window_set_child(window, VK_WIDGET(listbox), VK_INHERIT_NONE);
-
-    {
-        vk_scroller_t *scroller = vk_scroller_create(VK_SCROLLBAR_VERTICAL);
-        vk_scroller_set_border_style(scroller, VK_BORDER_SINGLE);
-        vk_scroller_set_border_colors(scroller, COLOR_BLACK, COLOR_CYAN);
-        vk_widget_set_attrs(VK_WIDGET(scroller), A_BOLD);
-        vk_scroller_set_scroll_source(scroller, VK_WIDGET(listbox));
-        vk_scroller_set_scroll_info(scroller, vwm_menu_scroll_info);
-        vk_scroller_set_scroll_apply(scroller, vk_listbox_scroll_apply);
-        vk_widget_attach_scroller(VK_WIDGET(listbox), scroller);
-    }
+    /* the Apps dropdown always carries a scroll bar */
+    menu_list_add_scroller(listbox);
 
     return window;
 }
@@ -670,29 +683,14 @@ static vk_window_t*
 create_windows_dropdown(vwm_t *vwm)
 {
     vk_listbox_t    *listbox;
-    vk_window_t     *window;
     vk_widget_t     *w;
     const char      *title;
     const char      *mark;
-    const char      *caption = " Windows ";
     char            buf[NAME_MAX];
-    int             max_width = 0;
-    int             max_height = 0;
-    int             scr_width, scr_height;
     int             count, i;
     int             shown = 0;
 
-    getmaxyx(vk_screen_get_window(vwm->screen), scr_height, scr_width);
-    scr_width -= 4;
-    scr_height = (scr_height * 3) / 4;
-
-    listbox = vk_listbox_create(8, 10);
-    vk_widget_set_colors(VK_WIDGET(listbox), COLOR_WHITE, COLOR_CYAN);
-    vk_widget_set_attrs(VK_WIDGET(listbox), A_BOLD);
-    vk_listbox_set_highlight(listbox, COLOR_WHITE, COLOR_BLACK);
-    vk_listbox_set_highlight_attrs(listbox, A_BOLD);
-    vk_listbox_set_wrap(listbox, TRUE);
-    vk_object_set_kmio(VK_OBJECT(listbox), vwm_dropdown_kmio);
+    listbox = menu_list_create(TRUE);
 
     /* List every window on the current desktop's deck -- visible and
        minimized alike.  Selecting one raises it to the top (and unhides it if
@@ -726,28 +724,7 @@ create_windows_dropdown(vwm_t *vwm)
     if(shown == 0)
         vk_listbox_add_item(listbox, "(none)", NULL, NULL);
 
-    vk_listbox_update(listbox);
-    vk_listbox_get_metrics(listbox, &max_width, &max_height);
-    max_width += 4;
-    /* vk_window centers the caption and truncates it to (window width - 4);
-       window width is max_width + 2, so the usable title span is max_width - 2.
-       Floor to strlen(caption) + 2 or a short app list (e.g. "htop") clips the
-       caption's trailing space against the right frame. */
-    if(max_width < (int)strlen(caption) + 2)
-        max_width = (int)strlen(caption) + 2;
-    if(max_width > scr_width) max_width = scr_width;
-    if(max_height > scr_height) max_height = scr_height;
-
-    vk_widget_resize(VK_WIDGET(listbox), max_width, max_height);
-
-    window = vk_window_create(max_width + 2, max_height + 2);
-    vk_window_set_title(window, caption);
-    vk_window_set_border_style(window, VK_BORDER_SINGLE);
-    vk_window_set_border_colors(window, COLOR_WHITE, COLOR_CYAN);
-    vk_window_set_border_attrs(window, A_BOLD);
-    vk_window_set_child(window, VK_WIDGET(listbox), VK_INHERIT_NONE);
-
-    return window;
+    return menu_window_create(vwm, listbox, " Windows ", NULL);
 }
 
 static void
@@ -813,9 +790,7 @@ apps_submenu_mouse(vwm_t *vwm, MEVENT *mouse_event)
         {
             vk_listbox_set_curr(listbox, row);
             vk_listbox_exec_curr(listbox);
-            vwm_menubar_close_dropdown();
-            vk_menubar_set_focused(vwm->menubar, false);
-            vk_menubar_update(vwm->menubar);
+            menu_dismiss(vwm);
         }
         return 0;
     }
@@ -922,9 +897,7 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
         {
             vk_listbox_set_curr(listbox, row);
             vk_listbox_exec_curr(listbox);
-            vwm_menubar_close_dropdown();
-            vk_menubar_set_focused(vwm->menubar, false);
-            vk_menubar_update(vwm->menubar);
+            menu_dismiss(vwm);
         }
         return 0;
     }
@@ -997,12 +970,13 @@ vwm_menubar_init(void)
 
     vwm = vwm_get_instance();
 
+    /* each item carries its own position: see vwm_menu_activate */
     vk_menubar_add_item(vwm->menubar, "Apps",
-        vwm_apps_menu_activate, NULL);
+        vwm_menu_activate, (void *)(intptr_t)0);
     vk_menubar_add_item(vwm->menubar, "VWM",
-        vwm_file_menu_activate, NULL);
+        vwm_menu_activate, (void *)(intptr_t)1);
     vk_menubar_add_item(vwm->menubar, "(0) Windows",
-        vwm_minimized_menu_activate, NULL);
+        vwm_menu_activate, (void *)(intptr_t)2);
 
     vk_object_register_event(VK_OBJECT(vwm->menubar),
         VK_EVENT_ON_SELECT, vwm_menubar_on_select, NULL);
@@ -1101,18 +1075,10 @@ vwm_menubar_hotkey(void)
 
     vwm = vwm_get_instance();
 
-    if(vwm->menu != NULL)
+    /* a second press puts the menu away, dropdown or bare bar alike */
+    if(vwm->menu != NULL || vk_menubar_get_focused(vwm->menubar))
     {
-        vwm_menubar_close_dropdown();
-        vk_menubar_set_focused(vwm->menubar, false);
-        vk_menubar_update(vwm->menubar);
-        return 0;
-    }
-
-    if(vk_menubar_get_focused(vwm->menubar))
-    {
-        vk_menubar_set_focused(vwm->menubar, false);
-        vk_menubar_update(vwm->menubar);
+        menu_dismiss(vwm);
         return 0;
     }
 
@@ -1128,7 +1094,6 @@ vwm_menubar_close_dropdown(void)
 {
     vwm_t           *vwm;
     vk_window_t     *menu;
-    vk_listbox_t    *listbox;
 
     vwm = vwm_get_instance();
     menu = vwm->menu;
@@ -1140,16 +1105,8 @@ vwm_menubar_close_dropdown(void)
     vk_screen_detach_widget(vwm->screen,
         vk_screen_get_active_surface(vwm->screen), VK_WIDGET(menu));
 
-    listbox = VK_LISTBOX(vk_window_get_child(menu));
-
-    /* the Apps dropdown has a scroll bar; the others do not */
-    vwm_menu_free_scroller(listbox);
-
-    /* detach the child while both are still valid: otherwise the window
-       dtor list_del()s a freed listbox node and corrupts the heap */
-    vk_window_set_child(menu, NULL, VK_INHERIT_NONE);
-
-    vk_listbox_destroy(listbox);
+    /* the window takes its list along, and the list its scroll bar
+       (the Apps dropdown has one; the others do not) */
     vk_window_destroy(menu);
 
     vwm->menu = NULL;
@@ -1174,9 +1131,7 @@ vwm_menubar_ON_KEYSTROKE(int32_t keystroke)
 
         if(keystroke == vwm->hotkey_menu)
         {
-            vwm_menubar_close_dropdown();
-            vk_menubar_set_focused(vwm->menubar, false);
-            vk_menubar_update(vwm->menubar);
+            menu_dismiss(vwm);
             return KMIO_HANDLED;
         }
 
@@ -1193,9 +1148,7 @@ vwm_menubar_ON_KEYSTROKE(int32_t keystroke)
 
         if(keystroke == KEY_CRLF && retval == 0)
         {
-            vwm_menubar_close_dropdown();
-            vk_menubar_set_focused(vwm->menubar, false);
-            vk_menubar_update(vwm->menubar);
+            menu_dismiss(vwm);
             return KMIO_HANDLED;
         }
 
@@ -1224,33 +1177,17 @@ vwm_menubar_ON_KEYSTROKE(int32_t keystroke)
 
         if(keystroke == vwm->hotkey_menu || keystroke == 27)
         {
-            vwm_menubar_close_dropdown();
-            vk_menubar_set_focused(vwm->menubar, false);
-            vk_menubar_update(vwm->menubar);
+            menu_dismiss(vwm);
             return KMIO_HANDLED;
         }
 
-        if(keystroke == KEY_LEFT)
-        {
-            vk_menubar_set_prev(vwm->menubar);
-            vk_menubar_update(vwm->menubar);
-            return KMIO_HANDLED;
-        }
-
-        if(keystroke == KEY_RIGHT)
-        {
-            vk_menubar_set_next(vwm->menubar);
-            vk_menubar_update(vwm->menubar);
-            return KMIO_HANDLED;
-        }
+        if(menubar_step(vwm, keystroke)) return KMIO_HANDLED;
 
         retval = vk_object_push_keystroke(VK_OBJECT(menu), keystroke);
 
         if(keystroke == KEY_CRLF && retval == 0)
         {
-            vwm_menubar_close_dropdown();
-            vk_menubar_set_focused(vwm->menubar, false);
-            vk_menubar_update(vwm->menubar);
+            menu_dismiss(vwm);
             return KMIO_HANDLED;
         }
 
@@ -1269,24 +1206,11 @@ vwm_menubar_ON_KEYSTROKE(int32_t keystroke)
     {
         if(keystroke == 27)
         {
-            vk_menubar_set_focused(vwm->menubar, false);
-            vk_menubar_update(vwm->menubar);
+            menu_dismiss(vwm);
             return KMIO_HANDLED;
         }
 
-        if(keystroke == KEY_LEFT)
-        {
-            vk_menubar_set_prev(vwm->menubar);
-            vk_menubar_update(vwm->menubar);
-            return KMIO_HANDLED;
-        }
-
-        if(keystroke == KEY_RIGHT)
-        {
-            vk_menubar_set_next(vwm->menubar);
-            vk_menubar_update(vwm->menubar);
-            return KMIO_HANDLED;
-        }
+        if(menubar_step(vwm, keystroke)) return KMIO_HANDLED;
 
         if(keystroke == KEY_CRLF || keystroke == ' ' || keystroke == KEY_DOWN)
         {
