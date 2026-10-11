@@ -214,7 +214,7 @@ vwm_screensaver_input(int32_t keystroke, MEVENT *mouse_event)
     The saver window is created VK_STATE_NORESIZE so the user can't resize it,
     so clear that just for this programmatic resize.  The content child is
     resized first so the window's VK_EVENT_ON_RESIZE handler (vwmterm) reads the
-    NEW interior and hands it to vterm_resize() -- libvterm then TIOCSWINSZ +
+    NEW interior and hands it to vtty_resize() -- libvtty then TIOCSWINSZ +
     SIGWINCHes the locked program, which repaints itself at the new size.  Only
     the overlay is touched; the hidden desktop below is never repainted, so the
     lock is never broken by a resize.

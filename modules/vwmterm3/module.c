@@ -3,7 +3,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include <vterm.h>
+#include <vtty.h>
 
 #include "module.h"
 

@@ -24,7 +24,7 @@
 #include <sys/types.h>
 
 #include <vdk.h>
-#include <vterm.h>
+#include <vtty.h>
 
 #include "vwmterm.h"
 #include "events.h"
@@ -40,7 +40,7 @@
     give each vterm more throughput per turn at the cost of interleaving
     with other tasks; 4 is the sweet spot for typical console apps.
 
-    each chunk only parses (vterm_read_pipe updates the cell grid).  the
+    each chunk only parses (vtty_read_pipe updates the cell grid).  the
     offscreen WINDOW is painted once after the drain, not per chunk --
     intermediate paints would be overwritten before the user-visible
     composite (E2).
@@ -68,7 +68,7 @@ vwmterm_wake_sync(vwmterm_data_t *vwmterm_data, int want)
     {
         if(vwmterm_data->wake_fd >= 0) return;
 
-        fd = vterm_get_pty_fd(vwmterm_data->vterm);
+        fd = vtty_get_pty_fd(vwmterm_data->vterm);
         if(fd < 0) return;
 
         if(vwm_sched_wake_fd_add(sched, fd,
@@ -102,7 +102,7 @@ pt_t vwmterm_thd(void * const env)
 {
     vwm_t               *vwm;
     vk_window_t         *window;
-    vterm_t             *vterm;
+    vtty_t              *vterm;
     ssize_t             bytes_read = 0;
     int                 i;
     int                 got_data;
@@ -140,7 +140,7 @@ pt_t vwmterm_thd(void * const env)
             /* timeout 0: take what is there and return.  The waiting
                is the scheduler's job: its ppoll() watches this pty
                (registered just above) along with everything else. */
-            bytes_read = vterm_read_pipe(vterm, 0);
+            bytes_read = vtty_read_pipe(vterm, 0);
             if(bytes_read <= 0) break;
 
             got_data = 1;
@@ -156,18 +156,18 @@ pt_t vwmterm_thd(void * const env)
         /*
             one cell->WINDOW paint for every chunk parsed this turn.
             dirty bits accumulate across the drain; a single
-            vterm_wnd_update (or scrollback full-render) covers them.
+            vtty_wnd_update (or scrollback full-render) covers them.
         */
         if(got_data)
         {
             if(vwmterm_data->scroll_offset > 0)
             {
-                vterm_wnd_scrollback(vterm, vwmterm_data->scroll_offset,
-                    VTERM_WND_RENDER_ALL);
+                vtty_wnd_scrollback(vterm, vwmterm_data->scroll_offset,
+                    VTTY_WND_RENDER_ALL);
             }
             else
             {
-                vterm_wnd_update(vterm, -1, 0, 0);
+                vtty_wnd_update(vterm, -1, 0, 0);
             }
         }
 
@@ -185,7 +185,7 @@ pt_t vwmterm_thd(void * const env)
             }
 
             /* the pty is drained: wait until the child writes again.
-               (vterm_read_pipe also reaps the child, so the heartbeat's
+               (vtty_read_pipe also reaps the child, so the heartbeat's
                periodic wake is what notices a program that exited
                without closing the pty.) */
             vwm_sched_wait(ctx_vwmterm);
@@ -212,7 +212,7 @@ pt_t vwmterm_thd(void * const env)
     }
 
     if(vwmterm_data->vterm != NULL)
-        vterm_destroy(vwmterm_data->vterm);
+        vtty_destroy(vwmterm_data->vterm);
 
     free(vwmterm_data);
     free(ctx_vwmterm);

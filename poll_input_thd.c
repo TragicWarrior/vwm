@@ -64,10 +64,10 @@ static void (*scroll_drag_cb)(vk_widget_t *widget, int mx, int my) = NULL;
 
 /*
     Cancel any active drag if its target widget matches.  Called from
-    vwmterm_ON_CLOSE before vterm_destroy: without this, a queued mouse
+    vwmterm_ON_CLOSE before vtty_destroy: without this, a queued mouse
     event would drive vk_widget_resize on a window whose vterm was
     just freed, and the dangling vterm pointer captured by the
-    ON_RESIZE handler would fault inside vterm_buffer_realloc.
+    ON_RESIZE handler would fault inside vtty_buffer_realloc.
 */
 void
 vwm_cancel_drag_for_widget(vk_widget_t *widget)
@@ -904,7 +904,7 @@ vwm_poll_input(void * const env)
                     fall-through keystrokes (no menubar / panel / dialog
                     handled them; no popup is open) are pushed to the
                     deck-top widget -- in practice almost always a
-                    vwmterm.  The keystroke goes through libvterm into
+                    vwmterm.  The keystroke goes through libvtty into
                     the PTY; the visible change is the child's echo,
                     which pt_thread picks up a millisecond later and
                     refreshes from its side.  Refreshing here too would

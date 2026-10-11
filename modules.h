@@ -61,11 +61,11 @@ struct _vwm_module_s
 
     /* Per-app vterm scrollback override, in lines (Manage Apps).  0 means
        inherit the vterm default (4x the terminal height); a positive
-       value is applied via vterm_set_history_size at launch. */
+       value is applied via vtty_set_history_size at launch. */
     int                     scrollback;
 
     /* Per-app start directory (Manage Apps).  false (default) leaves the
-       child in the host process cwd; true sets VTERM_FLAG_START_HOME so
+       child in the host process cwd; true sets VTTY_FLAG_START_HOME so
        the child chdirs to $HOME before exec. */
     bool                    start_home;
 
