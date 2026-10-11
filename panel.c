@@ -573,7 +573,6 @@ vwm_calendar_close(void)
 {
     vwm_t           *vwm;
     vk_window_t     *popup;
-    vk_calendar_t   *calendar;
 
     vwm = vwm_get_instance();
     popup = vwm->calendar_popup;
@@ -583,13 +582,8 @@ vwm_calendar_close(void)
     vk_screen_detach_widget(vwm->screen,
         vk_screen_get_active_surface(vwm->screen), VK_WIDGET(popup));
 
-    calendar = VK_CALENDAR(vk_window_get_child(popup));
-
-    /* detach the child while both are still valid: otherwise the window
-       dtor list_del()s a freed calendar node and corrupts the heap */
-    vk_window_set_child(popup, NULL, VK_INHERIT_NONE);
-
-    vk_calendar_destroy(calendar);
+    /* the window takes the calendar in it along (libviper 10: a
+       container owns what it holds) */
     vk_window_destroy(popup);
 
     vwm->calendar_popup = NULL;

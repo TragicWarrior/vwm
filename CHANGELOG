@@ -1,3 +1,33 @@
+Version 8.1.8
+
+*  [Bryan Christ] Menus: less code, and one resize fix.
+
+   -  Closing a dropdown, the Apps submenu or the calendar popup took
+      the widgets apart by hand: free the scroll bar, unhook the child,
+      destroy the child, destroy the window.  Since libviper 10 a
+      window owns what it holds and a widget its scroll bar, so each
+      is now one vk_window_destroy.  vwm_menu_free_scroller is gone.
+      A terminal no longer destroys its own scroll bar on close; it
+      goes with the window.  (TODO S16)
+   -  The four dropdown builders (VWM, Apps, a category's apps,
+      Windows) each set up the same list, did the same sizing and made
+      the same bordered window, and two built the same scroll bar.
+      They now share menu_list_create, menu_window_create and
+      menu_list_add_scroller.  (TODO S9)
+   -  "Close the dropdown and take the focus off the bar" was written
+      out in eight places and is now menu_dismiss; the Left / Right
+      walk along the bar, written twice, is menubar_step; the three
+      menu-bar callbacks that differed only in a number are one
+      vwm_menu_activate.  (TODO S9)
+   -  Fixed: a dropdown that was open while the terminal changed size
+      came back four columns narrow, clipping its longer rows
+      ("Developm", "Messagin").  The resize worked the size out again
+      by itself and left out the padding the builders add.  Building
+      and resizing now share menu_list_fit.
+   -  A dropdown's title is now never clipped by a list narrower than
+      it.  Only the Windows dropdown guarded against that before; the
+      VWM and Apps lists were always wide enough in practice.
+
 Version 8.1.7
 
 *  [Bryan Christ] Three small fixes around Manage Desktop and the
