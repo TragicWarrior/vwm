@@ -16,7 +16,13 @@ struct _vwmterm_data_s
     vk_window_t     *window;
     vtty_t          *vterm;
     vk_scroller_t   *scroller;
-    char            title[64];
+    char            app_title[64];  /* the app's own name, a space each side */
+    char            osc_title[128]; /* what the program asked for (OSC 0 / 2),
+                                       cleaned of control characters; "" when
+                                       it has set none or has given it back */
+    char            title[256];     /* the title the window shows outside
+                                       selection mode: the app's name, then
+                                       the program's title if there is room */
     unsigned int    state;
     int             redraw_pending;
     int             scroll_offset;

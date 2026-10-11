@@ -1,3 +1,33 @@
+Version 9.1.0
+
+*  [Bryan Christ] A terminal window shows the title its program sets.
+
+   -  A program that names its window (the xterm sequences OSC 0 and
+      OSC 2: shells, editors, ssh, most full-screen tools) now has that
+      name shown to the right of the app's own, as in
+      " Claude Code: fixing the tests ".  Before, the title a program
+      asked for went nowhere.
+   -  The program's part is cut to what the border has room for, with
+      "..." where it was cut, and refitted when the window changes
+      width.  On a window too narrow for it the app's name stands
+      alone.  A program that sets an empty title gets the app's name
+      back.  Control characters in a title are left out.
+   -  "vwm-msg list-windows", the Windows menu and Manage Desktop show
+      the same title the border does.  Scripts that matched a window by
+      an exact title should match on how it starts instead: a shell
+      whose prompt sets the title makes it
+      " <app>: user@host: dir ".
+   -  Needs libvtty 11.2, which reports the title; the build stops
+      with a message saying so on anything older.
+   -  Fixed: a double-width character (CJK, some emoji) on a window's
+      top border was repeated along the rest of the border, over the
+      buttons.  The focus colouring read each border cell out and wrote
+      it back, which split such a character in two.  It now changes the
+      cells' colours only.  Titles could not carry such characters
+      before, so this was not reachable.
+   -  Manage Desktop no longer cuts a long title by bytes, which could
+      split a multi-byte character; the list clips by screen column.
+
 Version 9.0.0
 
 *  [Bryan Christ] vwm builds against libvtty, the new name of libvterm.

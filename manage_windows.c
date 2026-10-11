@@ -206,7 +206,11 @@ rebuild_listbox(void)
     int             i;
     vk_widget_t     *w;
     const char      *title;
-    char            label[INTERIOR_WIDTH];
+    /* room for the longest title a window can carry (an app's name plus
+       the title its program set); the list clips what does not fit, by
+       screen column, so a multi-byte character is never cut in half
+       here */
+    char            label[320];
 
     vwm = vwm_get_instance();
     if(vwm == NULL || vwm->deck == NULL)
