@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.1.8.  Items are located by file and
+Last pruned 2026-10-09 against 8.1.9.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -91,12 +91,6 @@ behind.  What vwm still holds when it exits is left to the OS.
 
 Line counts are rough estimates from the original pass.
 
-[ ] S4.  manage_hotkeys: an offsetof table for the 14-field
-         load / apply / has_changes triplication (~40); scroll twins
-         (~22).  (review 2026-06)
-[ ] S5.  manage_apps: KEY_UP / KEY_DOWN nav duplicated; dropdown-zone
-         table; a dead include and dead output params (~40).
-         (review 2026-06)
 [ ] S6.  winman: WINDOW_MOVE_* / WINDOW_RESIZE_* siblings -> two bodies
          (~48).  (review 2026-06)
 [ ] S12. vwmterm3: the wheel-down, Alt+PgDn and drain-task render

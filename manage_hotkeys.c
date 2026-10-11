@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
@@ -38,30 +39,59 @@ enum
     CAT_NAV
 };
 
+/*
+    One row per hotkey: what the dialog calls it, its default, the group
+    it is listed under, its name in the config file, and where vwm keeps
+    the live value (the offset of its field in vwm_t).  The offset is
+    what lets loading, applying and comparing all be one loop over this
+    table instead of a line per hotkey in each.
+*/
 static const struct
 {
     const char  *label;
     int32_t     default_value;
     int         category;
     const char  *config_path;
+    size_t      offset;
 }
 hotkey_defs[NUM_HOTKEYS] =
 {
-    { "Main Menu",        (27 | (96 << 8)),   CAT_MENU,  "menu" },
-    { "Toggle WM",        (27 | (119 << 8)),  CAT_WM,    "wm" },
-    { "Close Window",     17,                 CAT_WM,    "close" },
-    { "Cycle Windows",    9,                  CAT_WM,    "cycle" },
-    { "Move Up",          KEY_UP,             CAT_WM,    "move_up" },
-    { "Move Down",        KEY_DOWN,           CAT_WM,    "move_down" },
-    { "Move Left",        KEY_LEFT,           CAT_WM,    "move_left" },
-    { "Move Right",       KEY_RIGHT,          CAT_WM,    "move_right" },
-    { "Increase Height",  '+',                CAT_WM,    "grow_h" },
-    { "Decrease Height",  '-',                CAT_WM,    "shrink_h" },
-    { "Increase Width",   '>',                CAT_WM,    "grow_w" },
-    { "Decrease Width",   '<',                CAT_WM,    "shrink_w" },
-    { "Switch Desktop",   (27 | (100 << 8)),  CAT_NAV,   "desktop" },
-    { "Detach",           28,                 CAT_NAV,   "detach" },
+    { "Main Menu",       (27 | (96 << 8)),   CAT_MENU,  "menu",       
+        offsetof(vwm_t, hotkey_menu) },
+    { "Toggle WM",       (27 | (119 << 8)),  CAT_WM,    "wm",         
+        offsetof(vwm_t, hotkey_wm) },
+    { "Close Window",    17,                 CAT_WM,    "close",      
+        offsetof(vwm_t, hotkey_close) },
+    { "Cycle Windows",   9,                  CAT_WM,    "cycle",      
+        offsetof(vwm_t, hotkey_cycle) },
+    { "Move Up",         KEY_UP,             CAT_WM,    "move_up",    
+        offsetof(vwm_t, hotkey_move_up) },
+    { "Move Down",       KEY_DOWN,           CAT_WM,    "move_down",  
+        offsetof(vwm_t, hotkey_move_down) },
+    { "Move Left",       KEY_LEFT,           CAT_WM,    "move_left",  
+        offsetof(vwm_t, hotkey_move_left) },
+    { "Move Right",      KEY_RIGHT,          CAT_WM,    "move_right", 
+        offsetof(vwm_t, hotkey_move_right) },
+    { "Increase Height", '+',                CAT_WM,    "grow_h",     
+        offsetof(vwm_t, hotkey_grow_h) },
+    { "Decrease Height", '-',                CAT_WM,    "shrink_h",   
+        offsetof(vwm_t, hotkey_shrink_h) },
+    { "Increase Width",  '>',                CAT_WM,    "grow_w",     
+        offsetof(vwm_t, hotkey_grow_w) },
+    { "Decrease Width",  '<',                CAT_WM,    "shrink_w",   
+        offsetof(vwm_t, hotkey_shrink_w) },
+    { "Switch Desktop",  (27 | (100 << 8)),  CAT_NAV,   "desktop",    
+        offsetof(vwm_t, hotkey_desktop) },
+    { "Detach",          28,                 CAT_NAV,   "detach",     
+        offsetof(vwm_t, hotkey_detach) },
 };
+
+/* the live value of hotkey `i`, inside `vwm` */
+static int32_t *
+hotkey_field(vwm_t *vwm, int i)
+{
+    return (int32_t *)((char *)vwm + hotkey_defs[i].offset);
+}
 
 enum
 {
@@ -223,42 +253,24 @@ lb_index_to_entry(int lb_idx)
 
 /* ── model / vwm sync ──────────────────────────────────────── */
 
+/* the dialog's working copy takes the values vwm is using */
 static void
 model_load_from_vwm(vwm_t *vwm)
 {
-    model->values[0]  = vwm->hotkey_menu;
-    model->values[1]  = vwm->hotkey_wm;
-    model->values[2]  = vwm->hotkey_close;
-    model->values[3]  = vwm->hotkey_cycle;
-    model->values[4]  = vwm->hotkey_move_up;
-    model->values[5]  = vwm->hotkey_move_down;
-    model->values[6]  = vwm->hotkey_move_left;
-    model->values[7]  = vwm->hotkey_move_right;
-    model->values[8]  = vwm->hotkey_grow_h;
-    model->values[9]  = vwm->hotkey_shrink_h;
-    model->values[10] = vwm->hotkey_grow_w;
-    model->values[11] = vwm->hotkey_shrink_w;
-    model->values[12] = vwm->hotkey_desktop;
-    model->values[13] = vwm->hotkey_detach;
+    int i;
+
+    for(i = 0; i < NUM_HOTKEYS; i++)
+        model->values[i] = *hotkey_field(vwm, i);
 }
 
+/* vwm takes the dialog's working copy */
 static void
 model_apply_to_vwm(vwm_t *vwm)
 {
-    vwm->hotkey_menu       = model->values[0];
-    vwm->hotkey_wm         = model->values[1];
-    vwm->hotkey_close      = model->values[2];
-    vwm->hotkey_cycle      = model->values[3];
-    vwm->hotkey_move_up    = model->values[4];
-    vwm->hotkey_move_down  = model->values[5];
-    vwm->hotkey_move_left  = model->values[6];
-    vwm->hotkey_move_right = model->values[7];
-    vwm->hotkey_grow_h     = model->values[8];
-    vwm->hotkey_shrink_h   = model->values[9];
-    vwm->hotkey_grow_w     = model->values[10];
-    vwm->hotkey_shrink_w   = model->values[11];
-    vwm->hotkey_desktop    = model->values[12];
-    vwm->hotkey_detach     = model->values[13];
+    int i;
+
+    for(i = 0; i < NUM_HOTKEYS; i++)
+        *hotkey_field(vwm, i) = model->values[i];
 }
 
 static void
@@ -528,25 +540,17 @@ check_duplicates(char *errbuf, int errlen)
 
 /* ── dirty check ───────────────────────────────────────────── */
 
+/* does the working copy differ from what vwm is using? */
 static bool
 has_changes(void)
 {
-    vwm_t *vwm = vwm_get_instance();
+    vwm_t   *vwm = vwm_get_instance();
+    int     i;
 
-    if(model->values[0]  != vwm->hotkey_menu)       return true;
-    if(model->values[1]  != vwm->hotkey_wm)          return true;
-    if(model->values[2]  != vwm->hotkey_close)       return true;
-    if(model->values[3]  != vwm->hotkey_cycle)       return true;
-    if(model->values[4]  != vwm->hotkey_move_up)     return true;
-    if(model->values[5]  != vwm->hotkey_move_down)   return true;
-    if(model->values[6]  != vwm->hotkey_move_left)   return true;
-    if(model->values[7]  != vwm->hotkey_move_right)  return true;
-    if(model->values[8]  != vwm->hotkey_grow_h)      return true;
-    if(model->values[9]  != vwm->hotkey_shrink_h)    return true;
-    if(model->values[10] != vwm->hotkey_grow_w)      return true;
-    if(model->values[11] != vwm->hotkey_shrink_w)    return true;
-    if(model->values[12] != vwm->hotkey_desktop)     return true;
-    if(model->values[13] != vwm->hotkey_detach)      return true;
+    for(i = 0; i < NUM_HOTKEYS; i++)
+    {
+        if(model->values[i] != *hotkey_field(vwm, i)) return true;
+    }
 
     return false;
 }
@@ -870,34 +874,57 @@ on_close(void)
 
 /* ── keyboard handler ──────────────────────────────────────── */
 
+/*
+    Move the list's highlight one row up (dir < 0) or down, and note
+    which hotkey it is now on.  The arrow keys and the mouse wheel both
+    come here.
+*/
+static void
+hotkey_list_step(int dir)
+{
+    int entry;
+
+    if(dir < 0)
+        vk_listbox_set_prev(hotkey_listbox);
+    else
+        vk_listbox_set_next(hotkey_listbox);
+    vk_listbox_update(hotkey_listbox);
+
+    /* a separator row maps to no hotkey: keep the old selection */
+    entry = lb_index_to_entry(vk_listbox_get_curr(hotkey_listbox));
+    if(entry >= 0) model->selected = entry;
+}
+
 static int
 handle_hotkey_list_keys(int32_t keystroke)
 {
-    int new_sel;
-    int entry;
-
     switch(keystroke)
     {
         case KEY_UP:
-            vk_listbox_set_prev(hotkey_listbox);
-            vk_listbox_update(hotkey_listbox);
-
-            new_sel = vk_listbox_get_curr(hotkey_listbox);
-            entry = lb_index_to_entry(new_sel);
-            if(entry >= 0) model->selected = entry;
+            hotkey_list_step(-1);
             return 0;
 
         case KEY_DOWN:
-            vk_listbox_set_next(hotkey_listbox);
-            vk_listbox_update(hotkey_listbox);
-
-            new_sel = vk_listbox_get_curr(hotkey_listbox);
-            entry = lb_index_to_entry(new_sel);
-            if(entry >= 0) model->selected = entry;
+            hotkey_list_step(1);
             return 0;
     }
 
     return -1;
+}
+
+/* do what the button of focus zone `zone` does; the keyboard and the
+   mouse both come here */
+static void
+button_activate(int zone)
+{
+    switch(zone)
+    {
+        case FOCUS_BTN_MODIFY:  on_modify();    break;
+        case FOCUS_BTN_RESET:   on_reset();     break;
+        case FOCUS_BTN_SAVE:    on_save();      break;
+        case FOCUS_BTN_LOAD:    on_load();      break;
+        case FOCUS_BTN_CLOSE:   on_close();     break;
+    }
 }
 
 static int
@@ -906,14 +933,7 @@ handle_button_keys(int32_t keystroke)
     if(keystroke != KEY_CRLF && keystroke != ' ')
         return -1;
 
-    switch(model->focus_zone)
-    {
-        case FOCUS_BTN_MODIFY:    on_modify();      break;
-        case FOCUS_BTN_RESET:   on_reset();     break;
-        case FOCUS_BTN_SAVE:    on_save();      break;
-        case FOCUS_BTN_LOAD:    on_load();      break;
-        case FOCUS_BTN_CLOSE:  on_close();    break;
-    }
+    button_activate(model->focus_zone);
 
     return 0;
 }
@@ -1415,18 +1435,13 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
             /* -1 extra for the sunken-relief frame's top border */
             list_y = ly - input_h - 1;
 
-            if(bs & BUTTON4_PRESSED)
+            /* the wheel walks the file list, one row a notch */
+            if(bs & (BUTTON4_PRESSED | BUTTON5_PRESSED))
             {
-                vk_listbox_set_prev(file_list);
-                vk_listbox_update(file_list);
-                vk_filedialog_update(load_filedialog);
-                refresh_load_popup();
-                return 0;
-            }
-
-            if(bs & BUTTON5_PRESSED)
-            {
-                vk_listbox_set_next(file_list);
+                if(bs & BUTTON4_PRESSED)
+                    vk_listbox_set_prev(file_list);
+                else
+                    vk_listbox_set_next(file_list);
                 vk_listbox_update(file_list);
                 vk_filedialog_update(load_filedialog);
                 refresh_load_popup();
@@ -1531,28 +1546,10 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
 
     frame_h = INTERIOR_HEIGHT - 3;
 
-    if(bs & BUTTON4_PRESSED)
+    /* the wheel walks the list, one row a notch */
+    if(bs & (BUTTON4_PRESSED | BUTTON5_PRESSED))
     {
-        vk_listbox_set_prev(hotkey_listbox);
-        vk_listbox_update(hotkey_listbox);
-
-        int entry = lb_index_to_entry(
-            vk_listbox_get_curr(hotkey_listbox));
-        if(entry >= 0) model->selected = entry;
-
-        model->focus_zone = FOCUS_HOTKEY_LIST;
-        refresh_dialog();
-        return 0;
-    }
-
-    if(bs & BUTTON5_PRESSED)
-    {
-        vk_listbox_set_next(hotkey_listbox);
-        vk_listbox_update(hotkey_listbox);
-
-        int entry = lb_index_to_entry(
-            vk_listbox_get_curr(hotkey_listbox));
-        if(entry >= 0) model->selected = entry;
+        hotkey_list_step((bs & BUTTON4_PRESSED) ? -1 : 1);
 
         model->focus_zone = FOCUS_HOTKEY_LIST;
         refresh_dialog();
@@ -1622,14 +1619,7 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
             model->focus_zone = zone;
             refresh_dialog();
 
-            switch(zone)
-            {
-                case FOCUS_BTN_MODIFY:    on_modify();      break;
-                case FOCUS_BTN_RESET:   on_reset();     break;
-                case FOCUS_BTN_SAVE:    on_save();      break;
-                case FOCUS_BTN_LOAD:    on_load();      break;
-                case FOCUS_BTN_CLOSE:  on_close();    break;
-            }
+            button_activate(zone);
         }
 
         return 0;
