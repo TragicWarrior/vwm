@@ -18,6 +18,7 @@
  *----------------------------------------------------------------------*/
 
 #include <string.h>
+#include <wchar.h>
 #include <inttypes.h>
 
 #include <vdk.h>
@@ -33,6 +34,38 @@
 #include "bkgd.h"
 #include "panel.h"
 
+/*
+    Give one cell of a window's border the colour pair `pair` and the
+    attributes `extra`, keeping its glyph and whether it is drawn from
+    the alternate character set.  Only the attributes are changed: the
+    cell is not read out and written back, because doing that to one
+    half of a double-width character (a CJK or emoji character in a
+    title) leaves the other half orphaned, and ncurses then repeats the
+    character along the rest of the row.  Returns the number of cells
+    the character occupies, 1 or 2, so the caller can step past it.
+*/
+static int
+vwm_border_recolor(WINDOW *canvas, int row, int col, attr_t extra, short pair)
+{
+    cchar_t     cc;
+    wchar_t     wch[CCHARW_MAX];
+    attr_t      attrs;
+    short       dummy;
+    int         cells = 1;
+
+    if(mvwin_wch(canvas, row, col, &cc) == ERR) return 1;
+
+    getcchar(&cc, wch, &attrs, &dummy, NULL);
+
+    /* a double-width character: recolour both of its cells in one go */
+    if(wch[0] > 0x7F && wcwidth(wch[0]) == 2) cells = 2;
+
+    mvwchgat(canvas, row, col, cells, (attrs & A_ALTCHARSET) | extra,
+        pair, NULL);
+
+    return cells;
+}
+
 void
 vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
 {
@@ -47,8 +80,6 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
     attr_t      extra;
     cchar_t     cc;
     wchar_t     wch[CCHARW_MAX];
-    attr_t      attrs;
-    short       dummy;
     int         row, col;
     int         close_col, min_col;
     int         reserved;
@@ -90,30 +121,19 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
         vk_window_set_border_colors(window, COLOR_BLACK, COLOR_CYAN);
     }
 
-    for(col = 0; col < x; col++)
-    {
-        mvwin_wch(canvas, 0, col, &cc);
-        getcchar(&cc, wch, &attrs, &dummy, NULL);
-        setcchar(&cc, wch, (attrs & A_ALTCHARSET) | extra, pair, NULL);
-        mvwadd_wch(canvas, 0, col, &cc);
+    /* top and bottom rows.  A title can hold double-width characters,
+       which take two cells: step over both at once */
+    for(col = 0; col < x; )
+        col += vwm_border_recolor(canvas, 0, col, extra, pair);
 
-        mvwin_wch(canvas, y - 1, col, &cc);
-        getcchar(&cc, wch, &attrs, &dummy, NULL);
-        setcchar(&cc, wch, (attrs & A_ALTCHARSET) | extra, pair, NULL);
-        mvwadd_wch(canvas, y - 1, col, &cc);
-    }
+    for(col = 0; col < x; )
+        col += vwm_border_recolor(canvas, y - 1, col, extra, pair);
 
+    /* the two sides */
     for(row = 1; row < y - 1; row++)
     {
-        mvwin_wch(canvas, row, 0, &cc);
-        getcchar(&cc, wch, &attrs, &dummy, NULL);
-        setcchar(&cc, wch, (attrs & A_ALTCHARSET) | extra, pair, NULL);
-        mvwadd_wch(canvas, row, 0, &cc);
-
-        mvwin_wch(canvas, row, x - 1, &cc);
-        getcchar(&cc, wch, &attrs, &dummy, NULL);
-        setcchar(&cc, wch, (attrs & A_ALTCHARSET) | extra, pair, NULL);
-        mvwadd_wch(canvas, row, x - 1, &cc);
+        vwm_border_recolor(canvas, row, 0, extra, pair);
+        vwm_border_recolor(canvas, row, x - 1, extra, pair);
     }
 
     wattron(canvas, COLOR_PAIR(pair) | extra);

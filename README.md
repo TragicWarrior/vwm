@@ -63,7 +63,7 @@ REQUIREMENTS
 CMake
 ncursesw 5.4+
 libviper 10.0.0+ - https://github.com/TragicWarrior/libviper
-libvtty 11.0+ - https://github.com/TragicWarrior/libvtty
+libvtty 11.2+ - https://github.com/TragicWarrior/libvtty
                  (named libvterm before 11.0)
 FreeType         (for screen capture; DejaVu Sans Mono is bundled)
                  cmake -DVWM_SCREENSHOT_FONT= / -DVWM_SCREENSHOT_FONT_BOLD=

@@ -349,7 +349,14 @@ vwmterm_main(vwm_module_t *mod)
 
     vwmterm_data->window = window;
     vwmterm_data->vterm = vterm;
-    memcpy(vwmterm_data->title, title, sizeof(vwmterm_data->title));
+    /* the window starts out titled with the app's name alone; a program
+       that sets a title of its own adds to it (see vwmterm_title_apply).
+       libvtty reports that through its hook, which is handed the vterm
+       and finds this terminal through the vterm's user pointer. */
+    snprintf(vwmterm_data->app_title, sizeof(vwmterm_data->app_title),
+        "%s", title);
+    snprintf(vwmterm_data->title, sizeof(vwmterm_data->title), "%s", title);
+    vtty_set_userptr(vterm, (void *)vwmterm_data);
     vwmterm_data->state = VWMTERM_STATE_RUNNING;
 
     vk_widget_set_userptr(VK_WIDGET(window), (void *)vwmterm_data);

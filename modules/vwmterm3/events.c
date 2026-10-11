@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
@@ -21,6 +22,12 @@
 #include "../../panel.h"
 #include "../../poll_input_thd.h"
 #include "../../winman.h"
+#include "../../manage_windows.h"
+
+/* the title event this module relies on arrived in libvtty 11.2 */
+#ifndef VTTY_MASK_TITLE
+#error "vwm needs libvtty 11.2 or newer (VTTY_EVENT_TITLE)"
+#endif
 
 #define KEY_ENTER_CR    13
 #define KEY_ENTER_LF    10
@@ -201,7 +208,184 @@ vwmterm_bind_vterm(vtty_t *vterm)
     if(vterm == NULL) return;
 
     vtty_install_hook(vterm, vwmterm_vterm_hook);
-    vtty_set_event_mask(vterm, VTTY_MASK_CLIPBOARD);
+    vtty_set_event_mask(vterm, VTTY_MASK_CLIPBOARD | VTTY_MASK_TITLE);
+}
+
+/*
+    Copy `src` into `dst` as text fit for a window border: control
+    characters and bytes that are not valid in the locale's encoding are
+    left out, and copying stops before the text would be wider than
+    `max_cols` screen columns or longer than `dst_sz - 1` bytes.  A
+    character is never split.  Returns the columns used; `*cut` (when
+    not NULL) is set when something had to be left off the end.
+*/
+static int
+vwmterm_title_copy(const char *src, char *dst, size_t dst_sz, int max_cols,
+    bool *cut)
+{
+    mbstate_t   state;
+    wchar_t     wc;
+    size_t      used = 0;
+    size_t      left = strlen(src);
+    size_t      n;
+    int         cols = 0;
+    int         w;
+
+    memset(&state, 0, sizeof(state));
+    if(cut != NULL) *cut = false;
+    if(dst_sz == 0) return 0;
+    dst[0] = '\0';
+
+    while(left > 0)
+    {
+        n = mbrtowc(&wc, src, left, &state);
+
+        /* not a character in this encoding: skip the byte and resync */
+        if(n == (size_t)-1 || n == (size_t)-2 || n == 0)
+        {
+            memset(&state, 0, sizeof(state));
+            src++;
+            left--;
+            continue;
+        }
+
+        w = wcwidth(wc);
+
+        /* a control character (no width to speak of) is dropped */
+        if(w < 0)
+        {
+            src += n;
+            left -= n;
+            continue;
+        }
+
+        /* no room for this one: stop here, on a character boundary */
+        if(cols + w > max_cols || used + n > dst_sz - 1)
+        {
+            if(cut != NULL) *cut = true;
+            break;
+        }
+
+        memcpy(dst + used, src, n);
+        used += n;
+        cols += w;
+        src += n;
+        left -= n;
+    }
+
+    dst[used] = '\0';
+
+    return cols;
+}
+
+/* columns of the top border kept clear of the title: the corners, and
+   the minimize / close buttons on the right.  The title is centered,
+   so the same room is left on the left. */
+#define VWMTERM_TITLE_KEEP_CLEAR    18
+
+/* the least room worth showing a program's title in; with less, the
+   app's name stands alone */
+#define VWMTERM_TITLE_MIN_COLS      4
+
+/*
+    Work out the title this terminal's window should show and put it
+    there: the app's name and, to its right, the title the program has
+    set for itself --
+
+        " Claude Code: fixing the tests "
+
+    The program's part is cut to what the border has room for, with
+    "..." to show it was cut, and is left off altogether when there is
+    hardly any room.  Called when the program changes its title and
+    when the window changes width.  In selection mode the border shows
+    the selection prompt; the new title is kept for when that ends.
+*/
+static void
+vwmterm_title_apply(vwmterm_data_t *vwmterm_data)
+{
+    char    name[sizeof(vwmterm_data->app_title)];
+    char    part[sizeof(vwmterm_data->osc_title)];
+    char    title[sizeof(vwmterm_data->title)];
+    size_t  len;
+    bool    cut = false;
+    int     width, height;
+    int     room;
+    int     name_cols;
+
+    if(vwmterm_data == NULL || vwmterm_data->window == NULL) return;
+
+    /* a fullscreen terminal has no border and so no title */
+    if(vwmterm_data->app_title[0] == '\0') return;
+
+    /* the app's name without the space each side it is stored with */
+    snprintf(name, sizeof(name), "%s", vwmterm_data->app_title + 1);
+    len = strlen(name);
+    if(len > 0 && name[len - 1] == ' ') name[len - 1] = '\0';
+
+    vk_widget_get_metrics(VK_WIDGET(vwmterm_data->window), &width, &height);
+    name_cols = (int)mbstowcs(NULL, name, 0);
+    if(name_cols < 0) name_cols = (int)strlen(name);
+
+    /* columns left for the program's title after " name: " and the
+       closing space */
+    room = width - VWMTERM_TITLE_KEEP_CLEAR - name_cols - 4;
+
+    part[0] = '\0';
+    if(vwmterm_data->osc_title[0] != '\0' && room >= VWMTERM_TITLE_MIN_COLS)
+    {
+        vwmterm_title_copy(vwmterm_data->osc_title, part, sizeof(part),
+            room, &cut);
+
+        /* it did not all fit: make room for the dots and say so */
+        if(cut)
+        {
+            vwmterm_title_copy(vwmterm_data->osc_title, part,
+                sizeof(part) - 3, room - 3, NULL);
+            strcat(part, "...");
+        }
+    }
+
+    if(part[0] != '\0')
+        snprintf(title, sizeof(title), " %s: %s ", name, part);
+    else
+        snprintf(title, sizeof(title), "%s", vwmterm_data->app_title);
+
+    /* nothing changed: leave the window alone */
+    if(strcmp(title, vwmterm_data->title) == 0) return;
+
+    snprintf(vwmterm_data->title, sizeof(vwmterm_data->title), "%s", title);
+
+    /* frozen: selection mode owns the border until it ends, and puts
+       vwmterm_data->title back itself */
+    if(vwmterm_data->frozen == 0)
+        vk_window_set_title(vwmterm_data->window, vwmterm_data->title);
+
+    /* painted with the terminal's next update */
+    vwmterm_data->redraw_pending = 1;
+
+    /* Manage Desktop lists windows by title: keep an open one in step */
+    vwm_manage_windows_sync();
+}
+
+/*
+    The program in this terminal set its window title (OSC 0 or OSC 2),
+    or gave it back with an empty one.  libvtty only reports a real
+    change.  Keep a cleaned copy and re-work the window's title.
+*/
+static void
+vwmterm_title_changed(vtty_t *vterm, const char *osc_title)
+{
+    vwmterm_data_t  *vwmterm_data;
+
+    vwmterm_data = (vwmterm_data_t *)vtty_get_userptr(vterm);
+    if(vwmterm_data == NULL) return;
+
+    /* any width will do here: this copy is only cleaned, not fitted */
+    vwmterm_title_copy((osc_title != NULL) ? osc_title : "",
+        vwmterm_data->osc_title, sizeof(vwmterm_data->osc_title),
+        (int)sizeof(vwmterm_data->osc_title), NULL);
+
+    vwmterm_title_apply(vwmterm_data);
 }
 
 static void
@@ -211,7 +395,12 @@ vwmterm_vterm_hook(vtty_t *vterm, int event, void *anything)
     char                *copy;
     char                sel;
 
-    (void)vterm;
+    /* the program named its window: `anything` is the new title */
+    if(event == VTTY_EVENT_TITLE)
+    {
+        vwmterm_title_changed(vterm, (const char *)anything);
+        return;
+    }
 
     if(event != VTTY_EVENT_CLIPBOARD) return;
     if(anything == NULL) return;
@@ -1022,6 +1211,10 @@ vwmterm_ON_RESIZE(vk_object_t *object, int event, void *anything)
     }
 
     vtty_wnd_update(vterm, -1, 0, 0);
+
+    /* a wider or narrower border has room for more or less of the
+       program's title */
+    vwmterm_title_apply(vwmterm_data);
 
 	return 0;
 }
