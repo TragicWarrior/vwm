@@ -1,3 +1,39 @@
+Version 9.3.0
+
+*  [Bryan Christ] The screen can be published for a viewer.
+
+   This is the session's half of a remote view: a second program on
+   the same host (reached over ssh) showing what is on this screen in
+   a terminal of its own, without the session moving there.  The
+   viewer itself is not part of this release.
+
+   -  New control op "view".  The reply gives the path of a file that
+      holds the composed screen as libviper cells (character, RGB
+      colours, bold / underline) and the screen's size.  The connection
+      is then kept: each byte vwm sends on it means "the file has
+      changed", and the viewer closing it is how it leaves.
+   -  While at least one viewer is connected, vwm brings the file up to
+      date at most twenty times a second and writes only the rows that
+      changed.  With no viewer connected none of it runs and there is
+      no file.
+   -  Nothing waits for a viewer.  What vwm sends one is a single byte,
+      never blocking, dropped if the viewer has not read the last; the
+      screen's contents go through the file, which the viewer reads for
+      itself.  A viewer that is slow or stuck cannot hold the screen
+      up.
+   -  The file is written in place with ordinary writes and read with
+      ordinary reads; nothing is mapped into memory.  A counter in its
+      header, odd while rows are being written, lets a reader tell a
+      whole screen from half of two.  Its writer and its reader are
+      both in viewfile.c, so vwm and a viewer cannot disagree about the
+      layout.  libviper supplies only the cells.
+   -  The file is in $XDG_RUNTIME_DIR (else ~/.config/vwm), readable by
+      its owner alone, and removed when the last viewer leaves or the
+      session ends.  Up to four viewers at once.  It works the same
+      when the session is detached.
+   -  "ping" reports how many viewers are connected ("viewers").
+   -  vwm's first headless test, test_viewfile, run by ctest.
+
 Version 9.2.0
 
 *  [Bryan Christ] More than one session: --sid.

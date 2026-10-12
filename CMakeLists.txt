@@ -137,6 +137,8 @@ add_executable(vwm
     screenshot_png.c
     screenshot_ui.c
     ctl.c
+    view.c
+    viewfile.c
     attach.c
     session.c
     )
@@ -165,6 +167,14 @@ if(VWM_SCREENSHOT_FONT_BOLD)
     target_compile_definitions(vwm PRIVATE
         "VWM_SCREENSHOT_FONT_BOLD=\"${VWM_SCREENSHOT_FONT_BOLD}\"")
 endif()
+
+# Headless tests: each is a program that exits 0 when its checks pass.
+# Run them with `ctest` (or `make test`); they need no terminal.
+enable_testing()
+
+add_executable(test_viewfile test/test_viewfile.c viewfile.c)
+target_link_libraries(test_viewfile ${CURSES_LIBRARIES} "${VDK_LIBRARY}")
+add_test(NAME test_viewfile COMMAND test_viewfile)
 
 # "make core" builds the window manager and the terminal module.
 # "make" / "make all" additionally builds print and hostname-font modules.
