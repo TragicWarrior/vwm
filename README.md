@@ -78,7 +78,9 @@ CONTROL SOCKET
 ==============
 
 The running vwm listens on $VWM_CONTROL_SOCK (default
-~/.config/vwm/control.sock).  Only the same uid can connect.  From any
+~/.config/vwm/control.sock; a session started with --sid ID listens on
+control-ID.sock beside it, and vwm-msg --sid ID finds it there).  Only
+the same uid can connect.  From any
 shell -- including one inside a vwmterm -- run vwm-msg:
 
     vwm-msg ping
@@ -162,6 +164,20 @@ went.  vwm-resume run from a terminal inside vwm is refused.
 To end the session, run vwm-stop from any terminal, attached or not:
 every program in it is hung up as if its terminal had closed, and the
 terminal vwm was on is put back.
+
+MORE THAN ONE SESSION.  A session can be given a name when it is
+started, and several can then run side by side:
+
+    vwm --sid work           start the session called "work"
+    vwm-resume --sid work    bring that one to this terminal
+    vwm-stop --sid work      end that one
+    vwm-msg --sid work ping  talk to that one
+
+An id is letters, digits, '-' and '_', up to 32 of them.  With no --sid
+the commands mean the default session, whose id is 0, so everything
+above works as before.  Inside a session they mean that session: a
+terminal in "work" reaches "work" with plain vwm-msg, and needs --sid
+only to reach another.  All sessions share one settings file.
 
 Started from something that is not a terminal (a script, a service),
 vwm brings the session up 80x25 with nothing attached, ready for

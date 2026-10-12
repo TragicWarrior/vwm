@@ -1,3 +1,27 @@
+Version 9.2.0
+
+*  [Bryan Christ] More than one session: --sid.
+
+   -  "vwm --sid ID" starts a session with a name, beside any other
+      that is running.  "vwm-resume --sid ID", "vwm-stop --sid ID" and
+      "vwm-msg --sid ID <op>" act on that one.  An id is letters,
+      digits, '-' and '_', up to 32 of them.
+   -  With no --sid everything means the default session, id 0, exactly
+      as before; "--sid 0" names it outright.
+   -  Inside a session the commands mean that session without being
+      told: a session has always passed its control socket's path to
+      the programs it runs.  An explicit --sid wins over that, which is
+      how a terminal in one session reaches another.
+   -  A session is still nothing more than its control socket.  The
+      default's is ~/.config/vwm/control.sock; a named one's is
+      control-ID.sock beside it.  --sid sets VWM_CONTROL_SOCK to that
+      path and everything else carries on as it did (session.c).
+   -  The messages that tell you what to type include the id: "vwm:
+      detached ... vwm-resume --sid work returns to it".
+   -  vwm-resume and vwm-stop now refuse an argument they do not know
+      and answer --help.  They used to ignore arguments.
+   -  All sessions share one settings file.
+
 Version 9.1.1
 
 *  [Bryan Christ] Screenshots are drawn from libviper's portable cells.

@@ -4,7 +4,7 @@ vwm TODO
 One list of open work.  Finished and obsolete items are removed, not
 ticked; the CHANGELOG is the record of what was done.
 
-Last pruned 2026-10-09 against 8.1.10.  Items are located by file and
+Last pruned 2026-10-09 against 8.1.10; enhancements added at 9.2.0.  Items are located by file and
 function rather than line number, which drifts.  The IDs (D4, S6, ...)
 are kept from the reviews the items came from, so old notes and commit
 messages that cite them still resolve; gaps in the numbering are items
@@ -16,6 +16,7 @@ Each item says where it came from:
     valgrind 2026-06   valgrind --leak-check=full, 2026-06-17
     review 2026-07     the four-agent review of 2026-07-02
     noticed 2026-10    seen while fixing other items, October 2026
+    noted 2026-10      an enhancement suggested in passing, October 2026
 
 Marked "(not re-checked)" where the 2026-10-09 prune did not confirm the
 item by reading the code; everything else was confirmed still present.
@@ -99,7 +100,38 @@ Decided against (would trade simplicity for a negligible gain):
     iteration contract
 
 
-5. KNOWN ISSUES OUTSIDE VWM
+5. POSSIBLE ENHANCEMENTS
+------------------------
+
+Not defects and not promised: things that would follow naturally from
+what is there.
+
+Named sessions (--sid, 9.2.0):
+
+[ ] N1.  List the sessions  (noted 2026-10)
+         There is no way to ask which sessions exist.  Something like
+         "vwm-msg sessions": look for control*.sock in ~/.config/vwm,
+         ping each, report the ones that answer with their id, pid and
+         whether a terminal is attached.
+
+[ ] N2.  Show which session this is  (noted 2026-10)
+         Two sessions look the same.  Put the id beside the version in
+         the status bar for a session other than the default, and have
+         "ping" report it.
+
+[ ] N3.  Settings per session  (noted 2026-10)
+         Every session reads and saves the same config.json.  Saving
+         Settings, Hotkeys or Apps in one overwrites it for all, and
+         the others do not see the change until they restart.  Either
+         a settings file per id, or sessions noticing that the file
+         changed.  The larger of these four; only if it is wanted.
+
+[ ] N4.  The viewer takes --sid  (noted 2026-10)
+         When vwm-view exists it should choose its session the way
+         vwm-resume does.
+
+
+6. KNOWN ISSUES OUTSIDE VWM
 ---------------------------
 
 Carried over from the old BUGS file.  Not re-tested; the report is many

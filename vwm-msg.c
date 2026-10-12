@@ -9,6 +9,7 @@
 #include <sys/un.h>
 
 #include "attach.h"
+#include "session.h"
 
 static void
 usage(FILE *fp)
@@ -48,7 +49,10 @@ usage(FILE *fp)
         "      $TERM) and wait there until it leaves: detached, moved to\n"
         "      another terminal, or ended.  This is what vwm-resume runs\n"
         "\n"
-        "Talks to VWM_CONTROL_SOCK, else ~/.config/vwm/control.sock.\n");
+        "Talks to VWM_CONTROL_SOCK, else ~/.config/vwm/control.sock.\n"
+        "\n"
+        "vwm-msg --sid ID <op> ...  talks to the session started with\n"
+        "vwm --sid ID instead (ID 0 is the default session).\n");
 }
 
 static void
@@ -370,6 +374,11 @@ main(int argc, char **argv)
 {
     char    req[8192];
     const char *op;
+
+    /* "--sid ID" ahead of the op picks the session to talk to.  only
+       there: further along, an argument is the op's own (text to be
+       typed into a window may well begin with dashes) */
+    if(vwm_session_args(&argc, argv, 1, "vwm-msg") != 0) return 1;
 
     if(argc < 2)
     {

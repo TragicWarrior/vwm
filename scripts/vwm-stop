@@ -12,6 +12,9 @@
 # SIGTERM, then SIGKILL.  The exit status is 0 when no session is left
 # running.
 #
+# Usage: vwm-stop [--sid ID]
+#   --sid ID   the session started with vwm --sid ID (default: 0)
+#
 # Environment:
 #   VWM_MSG   path to vwm-msg   (default: vwm-msg, from PATH)
 
@@ -37,6 +40,56 @@ fi
 # --- helpers --------------------------------------------------------
 
 # wait up to $2 tenths of a second for process $1 to go; 0 if it went
+# Which session: "--sid ID" (or --sid=ID) picks the one started with
+# vwm --sid ID.  With none, the default session -- or the one this
+# terminal is inside of, since a session passes its own to what it
+# runs.  The id is checked by vwm-msg, which is handed it.
+sid=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --sid)
+            if [ $# -lt 2 ]; then
+                echo "vwm-stop: --sid needs a session id" >&2
+                exit 1
+            fi
+            sid=$2
+            shift 2
+            ;;
+        --sid=*)
+            sid=${1#--sid=}
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: vwm-stop [--sid ID]"
+            echo "End the running vwm session, from any terminal."
+            exit 0
+            ;;
+        *)
+            echo "vwm-stop: unknown argument '$1'" >&2
+            echo "Usage: vwm-stop [--sid ID]" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# vwm-msg for the chosen session
+msg() {
+    if [ -n "$sid" ]; then
+        "$VWM_MSG" --sid "$sid" "$@"
+    else
+        "$VWM_MSG" "$@"
+    fi
+}
+
+# how to name the session in a message, and in a command to suggest
+if [ -n "$sid" ]; then
+    which="vwm session '$sid'"
+    opt=" --sid $sid"
+else
+    which="vwm session"
+    opt=""
+fi
+
 wait_gone() {
     n=0
     while kill -0 "$1" 2>/dev/null; do
@@ -48,12 +101,12 @@ wait_gone() {
 }
 
 # --- is there a session? --------------------------------------------
-ping=$("$VWM_MSG" ping 2>/dev/null) || ping=""
+ping=$(msg ping 2>/dev/null) || ping=""
 
 case "$ping" in
     *'"ok":true'*) ;;
     *)
-        echo "No vwm session is running."
+        echo "No $which is running."
         exit 0
         ;;
 esac
@@ -63,7 +116,7 @@ esac
 pid=$(printf '%s' "$ping" | sed -n 's/.*"pid":\([0-9][0-9]*\).*/\1/p')
 
 # --- ask nicely -----------------------------------------------------
-"$VWM_MSG" stop >/dev/null 2>&1 || true
+msg stop >/dev/null 2>&1 || true
 
 if [ -z "$pid" ]; then
     # a vwm too old to say who it is: it was asked, and that is all

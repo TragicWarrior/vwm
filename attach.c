@@ -11,6 +11,7 @@
 #include <sys/un.h>
 
 #include "attach.h"
+#include "session.h"
 
 /* the longest line the session sends this client */
 #define VWM_ATTACH_LINE     512
@@ -155,6 +156,7 @@ vwm_attach_run(const char *sock, const char *tty, const char *term)
     char            req[VWM_ATTACH_LINE];
     char            line[VWM_ATTACH_LINE];
     char            word[128];
+    char            hint[VWM_SESSION_SID_MAX + 16];
     int             tty_fd;
     int             fd;
 
@@ -259,17 +261,21 @@ vwm_attach_run(const char *sock, const char *tty, const char *term)
     if(have_saved) tcsetattr(tty_fd, TCSANOW, &saved);
     if(tty_fd >= 0) close(tty_fd);
 
+    /* the commands as they have to be typed for this session */
+    vwm_session_hint(hint, sizeof(hint));
+
     if(strcmp(word, "detached") == 0)
     {
         printf("vwm: detached.  The session is still running:"
-            " vwm-resume returns to it, vwm-stop ends it.\n");
+            " vwm-resume%s returns to it, vwm-stop%s ends it.\n",
+            hint, hint);
         return 0;
     }
 
     if(strcmp(word, "moved") == 0)
     {
         printf("vwm: the session moved to another terminal."
-            "  vwm-resume brings it back here.\n");
+            "  vwm-resume%s brings it back here.\n", hint);
         return 0;
     }
 
