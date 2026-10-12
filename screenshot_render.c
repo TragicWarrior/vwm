@@ -8,68 +8,24 @@
 
 #include "screenshot_priv.h"
 
-/* ── color palette ──────────────────────────────────────────────────────
-    ncurses color indices are mapped to RGB through a fixed internal table
-    modelled on the standard xterm 256-color palette.  this keeps output
-    deterministic regardless of terminal quirks.  Colors redefined at run
-    time with init_color() (e.g. truecolor maps) are not reflected here;
-    the base 8/16 ANSI colors that vwm actually uses are covered exactly.
-*/
-
+/* an RGB colour as the image holds it.  A cell's colours arrive as
+   0x00RRGGBB, already final: the palette lookup, reverse video and dim
+   are all done by libviper's decode (vdk_cells_read_row), so nothing
+   here consults ncurses. */
 typedef struct { uint8_t r, g, b; } rgb8_t;
 
-static rgb8_t   s_palette[256];
-static int      s_palette_ready = 0;
-
-static const rgb8_t s_ansi16[16] =
-{
-    {   0,   0,   0 }, { 205,   0,   0 }, {   0, 205,   0 }, { 205, 205,   0 },
-    {   0,   0, 238 }, { 205,   0, 205 }, {   0, 205, 205 }, { 229, 229, 229 },
-    { 127, 127, 127 }, { 255,   0,   0 }, {   0, 255,   0 }, { 255, 255,   0 },
-    {  92,  92, 255 }, { 255,   0, 255 }, {   0, 255, 255 }, { 255, 255, 255 }
-};
-
-static void
-palette_init(void)
-{
-    static const int cube[6] = { 0, 95, 135, 175, 215, 255 };
-    int i, r, g, b;
-
-    if(s_palette_ready) return;
-
-    for(i = 0; i < 16; i++)
-        s_palette[i] = s_ansi16[i];
-
-    i = 16;
-    for(r = 0; r < 6; r++)
-        for(g = 0; g < 6; g++)
-            for(b = 0; b < 6; b++)
-            {
-                s_palette[i].r = (uint8_t)cube[r];
-                s_palette[i].g = (uint8_t)cube[g];
-                s_palette[i].b = (uint8_t)cube[b];
-                i++;
-            }
-
-    for(i = 0; i < 24; i++)
-    {
-        int v = 8 + i * 10;
-        s_palette[232 + i].r = (uint8_t)v;
-        s_palette[232 + i].g = (uint8_t)v;
-        s_palette[232 + i].b = (uint8_t)v;
-    }
-
-    s_palette_ready = 1;
-}
-
+/* unpack a cell's 0x00RRGGBB colour */
 static rgb8_t
-color_to_rgb(short idx, rgb8_t dflt)
+cell_rgb(uint32_t rgb)
 {
-    if(idx < 0 || idx >= 256) return dflt;
-    return s_palette[idx];
-}
+    rgb8_t  c;
 
-/* ── pixel helpers ─────────────────────────────────────────────────────── */
+    c.r = (uint8_t)VDK_CELL_R(rgb);
+    c.g = (uint8_t)VDK_CELL_G(rgb);
+    c.b = (uint8_t)VDK_CELL_B(rgb);
+
+    return c;
+}
 
 static void
 fill_rect(uint8_t *img, int W, int H, int x0, int y0, int w, int h, rgb8_t c)
@@ -166,8 +122,6 @@ vwmscrshot_render(const scrshot_grid_t *grid, const scrshot_cfg_t *cfg,
     if(grid->cells == NULL || grid->rows <= 0 || grid->cols <= 0)
         return VWM_SHOT_ERR_ALLOC;
 
-    palette_init();
-
     if(FT_Init_FreeType(&lib) != 0) { rc = VWM_SHOT_ERR_FONT; goto done; }
 
     if(FT_New_Face(lib, cfg->font_path, 0, &face) != 0)
@@ -223,43 +177,34 @@ vwmscrshot_render(const scrshot_grid_t *grid, const scrshot_cfg_t *cfg,
     {
         for(col = 0; col < grid->cols; col++)
         {
-            const scrshot_cell_t    *cell = &grid->cells[row * grid->cols + col];
-            int                     cx = col * cell_w;
-            int                     cy = row * cell_h;
-            short                   pf = -1, pb = -1;
-            rgb8_t                  fg, bg, swap;
+            const vdk_cell_t    *cell = &grid->cells[row * grid->cols + col];
+            int                 cx = col * cell_w;
+            int                 cy = row * cell_h;
+            int                 span = cell_w;
+            int                 bold_cell;
+            rgb8_t              fg, bg;
 
-            if(pair_content(cell->pair, &pf, &pb) != OK) { pf = -1; pb = -1; }
+            /* the second half of a double-width character: its first
+               half drew both cells */
+            if(cell->flags & VDK_CELL_WIDE_TAIL) continue;
 
-            fg = color_to_rgb(pf, s_palette[7]);
-            bg = color_to_rgb(pb, s_palette[0]);
+            /* a double-width character covers this cell and the next */
+            if(cell->flags & VDK_CELL_WIDE) span = cell_w * 2;
 
-            /* (a) reverse video swaps fg/bg */
-            if(cell->attrs & A_REVERSE)
-            {
-                swap = fg;
-                fg = bg;
-                bg = swap;
-            }
-
-            /* (f) dim blends fg toward bg at 50% */
-            if(cell->attrs & A_DIM)
-            {
-                fg.r = (uint8_t)((fg.r + bg.r) / 2);
-                fg.g = (uint8_t)((fg.g + bg.g) / 2);
-                fg.b = (uint8_t)((fg.b + bg.b) / 2);
-            }
+            /* (a) the colours, final as they come */
+            fg = cell_rgb(cell->fg);
+            bg = cell_rgb(cell->bg);
+            bold_cell = (cell->attrs & VDK_CELL_BOLD) ? 1 : 0;
 
             /* (b) fill the cell with the background */
-            fill_rect(img, img_w, img_h, cx, cy, cell_w, cell_h, bg);
+            fill_rect(img, img_w, img_h, cx, cy, span, cell_h, bg);
 
             /* (c,d) render the glyph (blanks need no glyph) */
-            if(cell->wch != L' ' && cell->wch != 0)
+            if(cell->ch != ' ' && cell->ch != 0)
             {
-                FT_Face use = ((cell->attrs & A_BOLD) && bold != NULL)
-                    ? bold : face;
+                FT_Face use = (bold_cell && bold != NULL) ? bold : face;
 
-                if(FT_Load_Char(use, (FT_ULong)cell->wch,
+                if(FT_Load_Char(use, (FT_ULong)cell->ch,
                     FT_LOAD_RENDER) == 0)
                 {
                     int gx = cx + use->glyph->bitmap_left;
@@ -269,7 +214,7 @@ vwmscrshot_render(const scrshot_grid_t *grid, const scrshot_cfg_t *cfg,
                         gx, gy, fg);
 
                     /* emulate bold by double-striking 1px to the right */
-                    if((cell->attrs & A_BOLD) && bold == NULL)
+                    if(bold_cell && bold == NULL)
                         blit_glyph(img, img_w, img_h, &use->glyph->bitmap,
                             gx + 1, gy, fg);
                 }
@@ -277,9 +222,9 @@ vwmscrshot_render(const scrshot_grid_t *grid, const scrshot_cfg_t *cfg,
             }
 
             /* (e) underline: 1px line near the bottom of the cell */
-            if(cell->attrs & A_UNDERLINE)
+            if(cell->attrs & VDK_CELL_UNDERLINE)
                 draw_hline(img, img_w, img_h, cx, cy + cell_h - 2,
-                    cell_w, fg);
+                    span, fg);
         }
     }
 

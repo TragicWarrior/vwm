@@ -6,22 +6,22 @@
 
 #include <ncursesw/curses.h>
 
+#include <vdk.h>
+
 #include "screenshot.h"
 
-/* one decoded terminal cell */
-typedef struct
-{
-    wchar_t wch;
-    attr_t  attrs;
-    short   pair;
-}
-scrshot_cell_t;
+/* the portable cell a screenshot is drawn from arrived in libviper 10.1 */
+#ifndef VDK_CELL_BOLD
+#error "vwm needs libviper 10.1.0 or newer (vdk_cells_read_row)"
+#endif
 
+/* a screenshot is drawn from libviper's portable cells (vdk_cell_t): the
+   same description of a canvas that anything else showing it would use */
 typedef struct
 {
-    int             rows;
-    int             cols;
-    scrshot_cell_t  *cells;
+    int         rows;
+    int         cols;
+    vdk_cell_t  *cells;
 }
 scrshot_grid_t;
 
