@@ -82,7 +82,7 @@ vwm_clock_driver(void * const env)
             {
                 vwm->attention_hold = 0;
                 vwm->attention_phase = !vwm->attention_phase;
-                vk_window_update(VK_WINDOW(vwm->attention));
+                vk_window_redraw(VK_WINDOW(vwm->attention));
             }
         }
         vk_screen_refresh(vwm->screen);

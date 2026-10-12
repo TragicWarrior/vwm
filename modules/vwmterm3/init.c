@@ -141,8 +141,8 @@ vwmterm_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
 
     if(vwmterm_data != NULL && vwmterm_data->scroller != NULL)
     {
-        if(vk_scroller_update(vwmterm_data->scroller) > 0)
-            vk_widget_draw(VK_WIDGET(vwmterm_data->scroller));
+        if(vk_scroller_redraw(vwmterm_data->scroller) > 0)
+            vk_widget_blit(VK_WIDGET(vwmterm_data->scroller));
     }
 }
 
@@ -415,8 +415,8 @@ vwmterm_main(vwm_module_t *mod)
 
         /* pre-draw so the bar is present on the first composite, before any
            child output triggers a repaint */
-        if(vk_scroller_update(vwmterm_data->scroller) > 0)
-            vk_widget_draw(VK_WIDGET(vwmterm_data->scroller));
+        if(vk_scroller_redraw(vwmterm_data->scroller) > 0)
+            vk_widget_blit(VK_WIDGET(vwmterm_data->scroller));
 
         /* decorate now that the scroller exists -- vwmterm_decorate redraws
            the bar on every window paint so its colour tracks focus */

@@ -123,8 +123,8 @@ vwm_panel_refresh_glyphs(void)
 
     vwm_panel_apply_glyphs(vwm_panel);
 
-    vk_box_update(vwm_panel->box);
-    vk_box_update(vwm_panel->status_box);
+    vk_box_redraw(vwm_panel->box);
+    vk_box_redraw(vwm_panel->status_box);
 }
 
 void
@@ -187,14 +187,14 @@ vwm_panel_init(vwm_t *vwm)
         vk_label_t *pad = vk_label_create(1);
         vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_CYAN);
         vk_label_set_text(pad, " ");
-        vk_label_update(pad);
+        vk_label_redraw(pad);
         vk_box_set_widget(vwm_panel->box, 5, VK_WIDGET(pad), VK_INHERIT_NONE);
     }
 
     vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm_panel->box));
 
-    vk_box_update(vwm_panel->box);
-    vk_widget_draw(VK_WIDGET(vwm_panel->box));
+    vk_box_redraw(vwm_panel->box);
+    vk_widget_blit(VK_WIDGET(vwm_panel->box));
 
     {
         char version_str[32];
@@ -213,7 +213,7 @@ vwm_panel_init(vwm_t *vwm)
             vk_label_t *pad = vk_label_create(1);
             vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_WHITE);
             vk_label_set_text(pad, " ");
-            vk_label_update(pad);
+            vk_label_redraw(pad);
             vk_box_set_widget(vwm_panel->status_box, 0, VK_WIDGET(pad), VK_INHERIT_NONE);
         }
 
@@ -232,7 +232,7 @@ vwm_panel_init(vwm_t *vwm)
         vk_widget_set_colors(VK_WIDGET(vwm_panel->version_label),
             COLOR_BLACK, COLOR_CYAN);
         vk_label_set_text(vwm_panel->version_label, version_str);
-        vk_label_update(vwm_panel->version_label);
+        vk_label_redraw(vwm_panel->version_label);
 
         vk_box_set_widget(vwm_panel->status_box, 1,
             VK_WIDGET(vwm_panel->status_marquee), VK_INHERIT_NONE);
@@ -243,8 +243,8 @@ vwm_panel_init(vwm_t *vwm)
         vk_screen_attach_widget(vwm->screen, 0,
             VK_WIDGET(vwm_panel->status_box));
 
-        vk_box_update(vwm_panel->status_box);
-        vk_widget_draw(VK_WIDGET(vwm_panel->status_box));
+        vk_box_redraw(vwm_panel->status_box);
+        vk_widget_blit(VK_WIDGET(vwm_panel->status_box));
     }
 }
 
@@ -266,7 +266,7 @@ vwm_desktop_prompt_show(void)
 
     vwm_menubar_close_dropdown();
     vk_menubar_set_focused(vwm->menubar, false);
-    vk_menubar_update(vwm->menubar);
+    vk_menubar_redraw(vwm->menubar);
     vwm_calendar_close();
 
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
@@ -286,7 +286,7 @@ vwm_desktop_prompt_show(void)
     vk_widget_set_colors(VK_WIDGET(prompt), COLOR_WHITE, COLOR_BLUE);
     vk_widget_set_attrs(VK_WIDGET(prompt), A_BOLD);
     vk_label_set_text(prompt, text);
-    vk_label_update(prompt);
+    vk_label_redraw(prompt);
 
     surface = vk_screen_get_active_surface(vwm->screen);
     vk_screen_detach_widget(vwm->screen, surface,
@@ -316,7 +316,7 @@ vwm_desktop_prompt_close(void)
 
     vk_screen_attach_widget(vwm->screen, surface,
         VK_WIDGET(vwm_panel->box));
-    vk_box_update(vwm_panel->box);
+    vk_box_redraw(vwm_panel->box);
 }
 
 int
@@ -442,11 +442,11 @@ vwm_panel_ON_TERM_RESIZED(VWM_PANEL *vwm_panel)
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
 
     vk_widget_resize(VK_WIDGET(vwm_panel->box), max_x, 1);
-    vk_box_update(vwm_panel->box);
+    vk_box_redraw(vwm_panel->box);
 
     vk_widget_resize(VK_WIDGET(vwm_panel->status_box), max_x, 1);
     vk_widget_move(VK_WIDGET(vwm_panel->status_box), 0, max_y - 1);
-    vk_box_update(vwm_panel->status_box);
+    vk_box_redraw(vwm_panel->status_box);
 
     vwm_calendar_close();
 
@@ -472,10 +472,10 @@ vwm_panel_ON_CLOCK_TICK(VWM_PANEL *vwm_panel)
         vwm_panel_update_clock(vwm_panel);
     }
 
-    vk_box_update(vwm_panel->box);
+    vk_box_redraw(vwm_panel->box);
 
     vk_marquee_run(vwm_panel->status_marquee);
-    vk_box_update(vwm_panel->status_box);
+    vk_box_redraw(vwm_panel->status_box);
 }
 
 void
@@ -495,7 +495,7 @@ vwm_panel_update_taskcount(VWM_PANEL *panel)
     snprintf(buf, sizeof(buf), " %2d ", n);
 
     vk_label_set_text(panel->task_label, buf);
-    vk_label_update(panel->task_label);
+    vk_label_redraw(panel->task_label);
 }
 
 void
@@ -514,7 +514,7 @@ vwm_panel_update_clock(VWM_PANEL *panel)
         local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
 
     vk_label_set_text(panel->clock_label, buf);
-    vk_label_update(panel->clock_label);
+    vk_label_redraw(panel->clock_label);
 }
 
 void
@@ -571,12 +571,12 @@ vwm_calendar_kmio(vk_object_t *object, int32_t keystroke)
             return -1;
     }
 
-    vk_calendar_update(calendar);
+    vk_calendar_redraw(calendar);
 
     {
         vwm_t *vwm = vwm_get_instance();
         if(vwm->calendar_popup != NULL)
-            vk_window_update(vwm->calendar_popup);
+            vk_window_redraw(vwm->calendar_popup);
     }
 
     return 0;
@@ -640,8 +640,8 @@ vwm_calendar_toggle(void)
         vk_screen_attach_widget(vwm->screen,
             vk_screen_get_active_surface(vwm->screen), VK_WIDGET(window));
 
-        vk_calendar_update(calendar);
-        vk_window_update(window);
+        vk_calendar_redraw(calendar);
+        vk_window_redraw(window);
 
         vwm->calendar_popup = window;
     }

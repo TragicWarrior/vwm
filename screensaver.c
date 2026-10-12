@@ -154,7 +154,7 @@ screensaver_start(void)
     }
 
     vk_widget_move(VK_WIDGET(window), 0, 0);
-    vk_window_update(window);
+    vk_window_redraw(window);
     vk_screen_refresh(vwm->screen);
 }
 
@@ -244,5 +244,5 @@ vwm_screensaver_resize(void)
 
     vk_widget_set_state(VK_WIDGET(s_window), state);
 
-    vk_window_update(s_window);
+    vk_window_redraw(s_window);
 }

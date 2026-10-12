@@ -88,7 +88,7 @@ Inside the tool's focus-update function (`update_dropdown_highlights`,
 
 ```c
 vk_listbox_set_focused(lb, model->focus_zone == FOCUS_LIST);
-vk_listbox_update(lb);
+vk_listbox_redraw(lb);
 ```
 
 The default at creation is focused (BLACK/RED), so legacy code that
@@ -127,7 +127,7 @@ Fill the client area before updating:
 ```c
 vk_widget_fill(VK_WIDGET(client),
     ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
-vk_box_update(client);
+vk_box_redraw(client);
 ```
 
 ## Input / Info Popups
@@ -153,7 +153,7 @@ Fill the client area before updating:
 ```c
 vk_widget_fill(VK_WIDGET(client),
     ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
-vk_box_update(client);
+vk_box_redraw(client);
 ```
 
 ## File Dialogs (Load / Save)
@@ -270,7 +270,7 @@ vk_button_release(VK_BUTTON(ok));
 vk_widget_set_colors(ok,
     focus == OK ? COLOR_YELLOW : COLOR_WHITE, COLOR_BLUE);
 vk_widget_set_attrs(ok, A_BOLD);
-vk_button_update(VK_BUTTON(ok));
+vk_button_redraw(VK_BUTTON(ok));
 ```
 
 When the mouse interacts with the list or path, reset focus back to the
@@ -281,13 +281,13 @@ browser so a subsequent Tab stays consistent.
 The filedialog is a nested box, so it must be re-rendered on its own
 *before* the enclosing box/popup blits it (see *Client Area Pattern*).
 After any change — navigation, selection, or focus — call
-`vk_filedialog_update(fd)` first, or the dialog stays stale/blank and
+`vk_filedialog_redraw(fd)` first, or the dialog stays stale/blank and
 clicks appear to do nothing:
 
 ```c
-vk_filedialog_update(fd);     /* re-render the nested filedialog */
-vk_box_update(client);        /* parent only copies fd's composer */
-vk_popup_update(popup);       /* (or vk_window_update) */
+vk_filedialog_redraw(fd);     /* re-render the nested filedialog */
+vk_box_redraw(client);        /* parent only copies fd's composer */
+vk_popup_redraw(popup);       /* (or vk_window_redraw) */
 vk_screen_refresh(vwm->screen);
 ```
 
@@ -303,13 +303,13 @@ vk_screen_refresh(vwm->screen);
 ## Client Area Pattern
 
 VDK popup client areas require explicit fill and box update before
-`vk_popup_update`, otherwise the background renders black. Always
+`vk_popup_redraw`, otherwise the background renders black. Always
 follow this sequence:
 
 ```c
 vk_widget_fill(VK_WIDGET(client), ' ' | COLOR_PAIR(...));
-vk_box_update(client);
-vk_popup_update(popup);
+vk_box_redraw(client);
+vk_popup_redraw(popup);
 vk_screen_refresh(vwm->screen);
 ```
 
@@ -322,20 +322,20 @@ red/white theme.  Calling `vk_widget_set_colors` afterwards updates
 the widget's stored colors but does **not** repaint what's already in
 the canvas.
 
-Always finish a label setup with `vk_label_update`:
+Always finish a label setup with `vk_label_redraw`:
 
 ```c
 label = vk_label_create(width);
 vk_label_set_justify(label, VK_JUSTIFY_CENTER);   /* if applicable */
 vk_label_set_text(label, msg);
 vk_widget_set_colors(VK_WIDGET(label), fg, bg);
-vk_label_update(label);                           /* required */
+vk_label_redraw(label);                           /* required */
 ```
 
 Symptom when this is forgotten: label text renders as the default
 (typically invisible, e.g. black on black inside a red Warning popup).
 Surrounding fills and box/popup updates won't fix it — only
-`vk_label_update` repaints the label's own canvas with the new colors.
+`vk_label_redraw` repaints the label's own canvas with the new colors.
 
 ## VDK Resize Bug Workaround
 
