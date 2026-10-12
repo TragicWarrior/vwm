@@ -1,3 +1,24 @@
+Version 9.1.1
+
+*  [Bryan Christ] Screenshots are drawn from libviper's portable cells.
+
+   -  libviper 10.1 can read any canvas back as cells that mean
+      something outside the process: the character as Unicode, both
+      colours as RGB, reverse and dim already worked into the colours
+      (vdk_cells_read_row).  The screenshot's capture is now a loop
+      over that, and its renderer draws the colours it is given
+      without asking ncurses anything.  The line-drawing table, the
+      palette and the per-cell decode that vwm carried are gone.
+   -  A screenshot of ordinary content is the same, pixel for pixel,
+      as before.
+   -  Fixed, as a result: a double-width character (CJK, some emoji)
+      was drawn once in each of its two cells; it is drawn once across
+      both.  A colour a program had redefined was drawn as the standard
+      palette's colour of that number; it is drawn as redefined.  A
+      colour pair numbered above 32767 was misread.
+   -  Needs libviper 10.1.0; the build stops with a message saying so
+      on anything older.
+
 Version 9.1.0
 
 *  [Bryan Christ] A terminal window shows the title its program sets.
