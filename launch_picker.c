@@ -101,8 +101,8 @@ launch_picker_redraw(void)
 
     if(picker == NULL) return;
 
-    vk_filedialog_update(picker_fd);
-    vk_popup_update(picker);
+    vk_filedialog_redraw(picker_fd);
+    vk_popup_redraw(picker);
     vk_screen_refresh(vwm->screen);
 }
 
@@ -387,6 +387,6 @@ vwm_launch_picker_open(vwm_module_t *module)
        vk_window-specific function on it. */
     vwm->tool_window = (vk_window_t *)picker;
 
-    vk_popup_update(picker);
+    vk_popup_redraw(picker);
     vk_screen_refresh(vwm->screen);
 }

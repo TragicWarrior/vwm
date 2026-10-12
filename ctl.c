@@ -1315,7 +1315,7 @@ op_resize(int fd, cJSON *req)
     ctl_clamp_metrics(w, &ww, &wh);
 
     vk_widget_resize(w, ww, wh);
-    vk_window_update(VK_WINDOW(w));
+    vk_window_redraw(VK_WINDOW(w));
     vk_screen_refresh(vwm_get_instance()->screen);
     ctl_reply(fd, 1, NULL, NULL);
 }

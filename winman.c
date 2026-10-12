@@ -67,7 +67,7 @@ vwm_default_VWM_STOP(void)
     VK_EVENT_ON_FINALIZE handler, registered on every deck.  The deck's
     membership or stacking just changed, so repaint each member's decoration.
     A window's decorator recolors it from vk_deck_get_top(), so a plain
-    vk_window_update() per member is all it takes to keep the focus borders
+    vk_window_redraw() per member is all it takes to keep the focus borders
     correct -- no call site has to demote the old top and promote the new one
     by hand.  Decoration ONLY: this never calls vk_screen_refresh(); the
     operation that changed the deck owns the single refresh.
@@ -88,7 +88,7 @@ vwm_on_deck_finalize(vk_object_t *object, int event, void *anything)
     for(i = 0; i < n; i++)
     {
         vk_widget_t *w = vk_deck_get_widget(deck, i);
-        if(w != NULL) vk_window_update(VK_WINDOW(w));
+        if(w != NULL) vk_window_redraw(VK_WINDOW(w));
     }
 
     return 0;
@@ -244,7 +244,7 @@ vwm_fit_window_onscreen(vk_widget_t *widget, int scr_w, int scr_h)
     if(nw != ww || nh != wh)
     {
         vk_widget_resize(widget, nw, nh);
-        vk_window_update(VK_WINDOW(widget));   /* re-render the frame at the
+        vk_window_redraw(VK_WINDOW(widget));   /* re-render the frame at the
                                                   new size, like the resize
                                                   hotkeys do */
     }
@@ -337,7 +337,7 @@ vwm_window_grow(vk_widget_t *widget, int dw, int dh)
     if(dh < 0 && height <= 3) return;
 
     vk_widget_resize(widget, width + dw, height + dh);
-    vk_window_update(VK_WINDOW(widget));
+    vk_window_redraw(VK_WINDOW(widget));
     vk_screen_refresh(vwm_get_instance()->screen);
 }
 
@@ -455,7 +455,7 @@ vwm_attention_set(vk_widget_t *widget)
     vwm->attention_phase = 1;
     vwm->attention_hold = 0;
 
-    vk_window_update(VK_WINDOW(widget));
+    vk_window_redraw(VK_WINDOW(widget));
     vk_screen_refresh(vwm->screen);
 }
 

@@ -737,7 +737,7 @@ rebuild_listbox(void)
         vk_listbox_add_item(settings_listbox, display, NULL, NULL);
     }
 
-    vk_listbox_update(settings_listbox);
+    vk_listbox_redraw(settings_listbox);
 }
 
 /* ── value cycling for dropdown settings ──────────────────── */
@@ -912,7 +912,7 @@ cycle_value(int setting_idx, int direction)
     model->dirty = true;
     rebuild_listbox();
     vk_listbox_set_curr(settings_listbox, model->selected);
-    vk_listbox_update(settings_listbox);
+    vk_listbox_redraw(settings_listbox);
     refresh_dialog();
 }
 
@@ -961,7 +961,7 @@ update_modify_preview(void)
 
     vk_widget_set_colors(VK_WIDGET(modify_preview), fg, bg);
     vk_label_set_text(modify_preview, " Sample ");
-    vk_label_update(modify_preview);
+    vk_label_redraw(modify_preview);
 }
 
 /* highlight the label of the swatch Tab is currently on */
@@ -973,14 +973,14 @@ update_modify_color_labels(void)
         vk_widget_set_colors(VK_WIDGET(modify_fg_label),
             modify_color_active == 0 ? COLOR_YELLOW : COLOR_WHITE,
             COLOR_BLUE);
-        vk_label_update(modify_fg_label);
+        vk_label_redraw(modify_fg_label);
     }
     if(modify_bg_label != NULL)
     {
         vk_widget_set_colors(VK_WIDGET(modify_bg_label),
             modify_color_active == 1 ? COLOR_YELLOW : COLOR_WHITE,
             COLOR_BLUE);
-        vk_label_update(modify_bg_label);
+        vk_label_redraw(modify_bg_label);
     }
 }
 
@@ -1104,7 +1104,7 @@ modify_popup_apply(void)
     modify_popup_close();
     rebuild_listbox();
     vk_listbox_set_curr(settings_listbox, model->selected);
-    vk_listbox_update(settings_listbox);
+    vk_listbox_redraw(settings_listbox);
     refresh_dialog();
 }
 
@@ -1137,7 +1137,7 @@ update_modify_button_highlights(void)
             vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
         }
 
-        vk_button_update(btn);
+        vk_button_redraw(btn);
     }
 }
 
@@ -1160,7 +1160,7 @@ update_modify_input_highlight(void)
         vk_input_show_cursor(modify_input, false);
     }
 
-    vk_input_update(modify_input);
+    vk_input_redraw(modify_input);
 }
 
 static void
@@ -1170,21 +1170,21 @@ refresh_modify_popup(void)
 
     if(modify_popup == NULL) return;
 
-    /* COLOR popups nest boxes; vk_box_update composites only one level
+    /* COLOR popups nest boxes; vk_box_redraw composites only one level
        per call, so rebuild bottom-up (leaf groups -> pickers/preview ->
        client) before the client itself. */
     if(modify_pickers != NULL)
     {
-        vk_box_update(modify_fg_group);
-        vk_box_update(modify_bg_group);
-        vk_box_update(modify_pickers);
-        vk_box_update(modify_preview_row);
+        vk_box_redraw(modify_fg_group);
+        vk_box_redraw(modify_bg_group);
+        vk_box_redraw(modify_pickers);
+        vk_box_redraw(modify_preview_row);
     }
 
     if(modify_client != NULL)
-        vk_box_update(modify_client);
+        vk_box_redraw(modify_client);
 
-    vk_popup_update(modify_popup);
+    vk_popup_redraw(modify_popup);
 
     vwm = vwm_get_instance();
     vk_screen_refresh(vwm->screen);
@@ -1265,7 +1265,7 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
             if(keystroke == KEY_UP)
             {
                 vk_listbox_set_prev(modify_listbox);
-                vk_listbox_update(modify_listbox);
+                vk_listbox_redraw(modify_listbox);
                 refresh_modify_popup();
                 return 0;
             }
@@ -1273,7 +1273,7 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
             if(keystroke == KEY_DOWN)
             {
                 vk_listbox_set_next(modify_listbox);
-                vk_listbox_update(modify_listbox);
+                vk_listbox_redraw(modify_listbox);
                 refresh_modify_popup();
                 return 0;
             }
@@ -1297,7 +1297,7 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
             }
             /* arrow keys move the highlight inside the active swatch */
             vk_object_push_keystroke(VK_OBJECT(active), keystroke);
-            vk_color_update(active);
+            vk_color_redraw(active);
             update_modify_preview();
             refresh_modify_popup();
             return 0;
@@ -1314,7 +1314,7 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
             if(keystroke == KEY_LEFT)
             {
                 vk_input_move_cursor(modify_input, -1);
-                vk_input_update(modify_input);
+                vk_input_redraw(modify_input);
                 refresh_modify_popup();
                 return 0;
             }
@@ -1322,7 +1322,7 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
             if(keystroke == KEY_RIGHT)
             {
                 vk_input_move_cursor(modify_input, 1);
-                vk_input_update(modify_input);
+                vk_input_redraw(modify_input);
                 refresh_modify_popup();
                 return 0;
             }
@@ -1330,7 +1330,7 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
             if(keystroke == KEY_BACKSPACE || keystroke == 127)
             {
                 vk_input_backspace(modify_input);
-                vk_input_update(modify_input);
+                vk_input_redraw(modify_input);
                 refresh_modify_popup();
                 return 0;
             }
@@ -1338,7 +1338,7 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
             if(keystroke == KEY_DC)
             {
                 vk_input_delete(modify_input);
-                vk_input_update(modify_input);
+                vk_input_redraw(modify_input);
                 refresh_modify_popup();
                 return 0;
             }
@@ -1356,7 +1356,7 @@ modify_popup_kmio(vk_object_t *object, int32_t keystroke)
                 if(accept)
                 {
                     vk_input_insert_char(modify_input, keystroke);
-                    vk_input_update(modify_input);
+                    vk_input_redraw(modify_input);
                     refresh_modify_popup();
                     return 0;
                 }
@@ -1510,7 +1510,7 @@ modify_popup_open(int setting_idx)
         }
 
         vk_listbox_set_curr(modify_listbox, sel_idx);
-        vk_listbox_update(modify_listbox);
+        vk_listbox_redraw(modify_listbox);
 
         vk_popup_set_client(modify_popup, VK_WIDGET(modify_listbox));
     }
@@ -1548,7 +1548,7 @@ modify_popup_open(int setting_idx)
             vk_label_set_text(lbl, prompt);
         }
         vk_widget_set_colors(VK_WIDGET(lbl), COLOR_WHITE, COLOR_BLUE);
-        vk_label_update(lbl);
+        vk_label_redraw(lbl);
         vk_box_set_widget(modify_client, 0, VK_WIDGET(lbl), VK_INHERIT_NONE);
 
         modify_input = vk_input_create(popup_w - 4);
@@ -1558,7 +1558,7 @@ modify_popup_open(int setting_idx)
         vk_input_set_text(modify_input,
             model->values[setting_idx]);
         vk_input_show_cursor(modify_input, true);
-        vk_input_update(modify_input);
+        vk_input_redraw(modify_input);
         vk_box_set_widget(modify_client, 1, VK_WIDGET(modify_input), VK_INHERIT_NONE);
 
         vk_popup_set_client(modify_popup, VK_WIDGET(modify_client));
@@ -1588,7 +1588,7 @@ modify_popup_open(int setting_idx)
         vk_label_set_text(modify_fg_label, "Foreground");
         vk_widget_set_colors(VK_WIDGET(modify_fg_label),
             COLOR_YELLOW, COLOR_BLUE);
-        vk_label_update(modify_fg_label);
+        vk_label_redraw(modify_fg_label);
 
         modify_color_fg = vk_color_create(COLOR_SWATCH_W, COLOR_SWATCH_H,
             8, 2, VK_BORDER_SINGLE);
@@ -1597,7 +1597,7 @@ modify_popup_open(int setting_idx)
         vk_color_set_focus_colors(modify_color_fg, COLOR_YELLOW, COLOR_BLUE);
         vk_color_set_focus_attrs(modify_color_fg, A_BOLD);
         vk_color_set_selected(modify_color_fg, (short)fg_idx);
-        vk_color_update(modify_color_fg);
+        vk_color_redraw(modify_color_fg);
 
         /* background: label over an 8x2 swatch */
         modify_bg_label = vk_label_create(COLOR_SWATCH_W);
@@ -1605,7 +1605,7 @@ modify_popup_open(int setting_idx)
         vk_label_set_text(modify_bg_label, "Background");
         vk_widget_set_colors(VK_WIDGET(modify_bg_label),
             COLOR_WHITE, COLOR_BLUE);
-        vk_label_update(modify_bg_label);
+        vk_label_redraw(modify_bg_label);
 
         modify_color_bg = vk_color_create(COLOR_SWATCH_W, COLOR_SWATCH_H,
             8, 2, VK_BORDER_SINGLE);
@@ -1614,7 +1614,7 @@ modify_popup_open(int setting_idx)
         vk_color_set_focus_colors(modify_color_bg, COLOR_YELLOW, COLOR_BLUE);
         vk_color_set_focus_attrs(modify_color_bg, A_BOLD);
         vk_color_set_selected(modify_color_bg, (short)bg_idx);
-        vk_color_update(modify_color_bg);
+        vk_color_redraw(modify_color_bg);
 
         /* live preview of the chosen fg-on-bg */
         modify_preview = vk_label_create(12);
@@ -1622,7 +1622,7 @@ modify_popup_open(int setting_idx)
         vk_label_set_text(modify_preview, " Sample ");
         vk_widget_set_colors(VK_WIDGET(modify_preview),
             (short)fg_idx, (short)bg_idx);
-        vk_label_update(modify_preview);
+        vk_label_redraw(modify_preview);
 
         modify_color_active = 0;
 
@@ -1692,7 +1692,7 @@ modify_popup_open(int setting_idx)
             vk_box_set_widget(modify_client, 0, VK_WIDGET(pickers), VK_INHERIT_NONE);
             vk_box_set_widget(modify_client, 1, VK_WIDGET(preview_row), VK_INHERIT_NONE);
 
-            /* vk_box_update does NOT recurse into nested boxes -- canvases
+            /* vk_box_redraw does NOT recurse into nested boxes -- canvases
                only composite one level up per update.  Keep handles to the
                inner boxes so refresh_modify_popup can rebuild the tree
                bottom-up after a swatch/preview change. */
@@ -1764,7 +1764,7 @@ update_button_highlights(void)
         }
 
         vk_button_release(buttons[btn_indices[i]]);
-        vk_button_update(buttons[btn_indices[i]]);
+        vk_button_redraw(buttons[btn_indices[i]]);
     }
 
     if(model->focus_zone == FOCUS_LIST)
@@ -1780,9 +1780,9 @@ update_button_highlights(void)
 
     vk_listbox_set_focused(settings_listbox,
         model->focus_zone == FOCUS_LIST);
-    vk_listbox_update(settings_listbox);
+    vk_listbox_redraw(settings_listbox);
 
-    vk_frame_update(listbox_frame);
+    vk_frame_redraw(listbox_frame);
 }
 
 static void
@@ -1790,13 +1790,13 @@ refresh_dialog(void)
 {
     vwm_t *vwm = vwm_get_instance();
 
-    vk_listbox_update(settings_listbox);
-    vk_scroller_update(listbox_scroller);
-    vk_frame_update(listbox_frame);
+    vk_listbox_redraw(settings_listbox);
+    vk_scroller_redraw(listbox_scroller);
+    vk_frame_redraw(listbox_frame);
     update_button_highlights();
-    vk_box_update(button_hbox);
-    vk_box_update(main_vbox);
-    vk_window_update(dialog_window);
+    vk_box_redraw(button_hbox);
+    vk_box_redraw(main_vbox);
+    vk_window_redraw(dialog_window);
     vk_screen_refresh(vwm->screen);
 }
 
@@ -1897,7 +1897,7 @@ two_button_kmio(vk_popup_t **popup, int *active, int32_t keystroke,
         *active = (*active + 1) % vk_popup_get_button_count(*popup);
 
         vwm_popup_buttons_paint(*popup, *active);
-        vk_popup_update(*popup);
+        vk_popup_redraw(*popup);
         vk_screen_refresh(vwm->screen);
         return 0;
     }
@@ -2002,7 +2002,7 @@ save_confirm_popup_show(void)
         vk_label_set_text(line1, "Save current settings?");
         vk_widget_set_colors(VK_WIDGET(line1),
             COLOR_RED, COLOR_WHITE);
-        vk_label_update(line1);
+        vk_label_redraw(line1);
         vk_box_set_widget(client, 1, VK_WIDGET(line1), VK_INHERIT_NONE);
 
         vk_label_t *line2 = vk_label_create(popup_w - 2);
@@ -2010,7 +2010,7 @@ save_confirm_popup_show(void)
         vk_label_set_text(line2, "Changes will take effect now.");
         vk_widget_set_colors(VK_WIDGET(line2),
             COLOR_RED, COLOR_WHITE);
-        vk_label_update(line2);
+        vk_label_redraw(line2);
         vk_box_set_widget(client, 2, VK_WIDGET(line2), VK_INHERIT_NONE);
 
         vk_filler_t *bot_pad = vk_filler_create();
@@ -2047,8 +2047,8 @@ save_confirm_popup_show(void)
 
     vk_widget_fill(VK_WIDGET(client),
         ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
-    vk_box_update(client);
-    vk_popup_update(save_confirm_popup);
+    vk_box_redraw(client);
+    vk_popup_redraw(save_confirm_popup);
     vk_screen_refresh(vwm->screen);
 }
 
@@ -2112,7 +2112,7 @@ load_popup_ok(void)
     if(NUM_SETTINGS > 0)
     {
         vk_listbox_set_curr(settings_listbox, 0);
-        vk_listbox_update(settings_listbox);
+        vk_listbox_redraw(settings_listbox);
     }
 
     refresh_dialog();
@@ -2130,7 +2130,7 @@ load_popup_kmio(vk_object_t *object, int32_t keystroke)
     }
 
     vk_object_push_keystroke(VK_OBJECT(load_filedialog), keystroke);
-    vk_filedialog_update(load_filedialog);
+    vk_filedialog_redraw(load_filedialog);
 
     if(keystroke == KEY_CRLF)
     {
@@ -2158,8 +2158,8 @@ refresh_load_popup(void)
 
     if(load_popup == NULL) return;
 
-    vk_filedialog_update(load_filedialog);
-    vk_popup_update(load_popup);
+    vk_filedialog_redraw(load_filedialog);
+    vk_popup_redraw(load_popup);
 
     vwm = vwm_get_instance();
     vk_screen_refresh(vwm->screen);
@@ -2303,7 +2303,7 @@ manage_settings_kmio(vk_object_t *object, int32_t keystroke)
             {
                 model->selected--;
                 vk_listbox_set_curr(settings_listbox, model->selected);
-                vk_listbox_update(settings_listbox);
+                vk_listbox_redraw(settings_listbox);
                 refresh_dialog();
             }
             return 0;
@@ -2315,7 +2315,7 @@ manage_settings_kmio(vk_object_t *object, int32_t keystroke)
             {
                 model->selected++;
                 vk_listbox_set_curr(settings_listbox, model->selected);
-                vk_listbox_update(settings_listbox);
+                vk_listbox_redraw(settings_listbox);
                 refresh_dialog();
             }
             return 0;
@@ -2461,7 +2461,7 @@ build_dialog(void)
 
     model->selected = 0;
     vk_listbox_set_curr(settings_listbox, 0);
-    vk_listbox_update(settings_listbox);
+    vk_listbox_redraw(settings_listbox);
 
     update_button_highlights();
 
@@ -2799,7 +2799,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
             if(bs & BUTTON4_PRESSED)
             {
                 vk_listbox_set_prev(modify_listbox);
-                vk_listbox_update(modify_listbox);
+                vk_listbox_redraw(modify_listbox);
                 refresh_modify_popup();
                 return 0;
             }
@@ -2807,7 +2807,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
             if(bs & BUTTON5_PRESSED)
             {
                 vk_listbox_set_next(modify_listbox);
-                vk_listbox_update(modify_listbox);
+                vk_listbox_redraw(modify_listbox);
                 refresh_modify_popup();
                 return 0;
             }
@@ -2833,7 +2833,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
                 if(clicked >= 0 && clicked < count)
                 {
                     vk_listbox_set_curr(modify_listbox, clicked);
-                    vk_listbox_update(modify_listbox);
+                    vk_listbox_redraw(modify_listbox);
                     refresh_modify_popup();
                 }
             }
@@ -2877,7 +2877,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
                         if(col < 0) col = 0;
                         if(col > 7) col = 7;
                         vk_color_set_selected(sb, (short)(srow * 8 + col));
-                        vk_color_update(sb);
+                        vk_color_redraw(sb);
                         update_modify_color_labels();
                         update_modify_preview();
                         refresh_modify_popup();
@@ -2916,7 +2916,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
         if(ly < input_h)
         {
             vk_object_push_keystroke(VK_OBJECT(load_filedialog), '/');
-            vk_filedialog_update(load_filedialog);
+            vk_filedialog_redraw(load_filedialog);
             refresh_load_popup();
             return 0;
         }
@@ -2950,8 +2950,8 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
             if(bs & BUTTON4_PRESSED)
             {
                 vk_listbox_set_prev(file_list);
-                vk_listbox_update(file_list);
-                vk_filedialog_update(load_filedialog);
+                vk_listbox_redraw(file_list);
+                vk_filedialog_redraw(load_filedialog);
                 refresh_load_popup();
                 return 0;
             }
@@ -2959,8 +2959,8 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
             if(bs & BUTTON5_PRESSED)
             {
                 vk_listbox_set_next(file_list);
-                vk_listbox_update(file_list);
-                vk_filedialog_update(load_filedialog);
+                vk_listbox_redraw(file_list);
+                vk_filedialog_redraw(load_filedialog);
                 refresh_load_popup();
                 return 0;
             }
@@ -2995,15 +2995,15 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
                     load_last_click_item = clicked;
 
                     vk_listbox_set_curr(file_list, clicked);
-                    vk_listbox_update(file_list);
-                    vk_filedialog_update(load_filedialog);
+                    vk_listbox_redraw(file_list);
+                    vk_filedialog_redraw(load_filedialog);
                     refresh_load_popup();
 
                     if(is_dblclick)
                     {
                         vk_object_push_keystroke(
                             VK_OBJECT(load_filedialog), KEY_CRLF);
-                        vk_filedialog_update(load_filedialog);
+                        vk_filedialog_redraw(load_filedialog);
 
                         const char *sel =
                             vk_filedialog_get_selected(load_filedialog);
@@ -3050,7 +3050,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
                     model->selected--;
                     model->focus_zone = FOCUS_LIST;
                     vk_listbox_set_curr(settings_listbox, model->selected);
-                    vk_listbox_update(settings_listbox);
+                    vk_listbox_redraw(settings_listbox);
                     refresh_dialog();
                 }
                 return 0;
@@ -3063,7 +3063,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
                     model->selected++;
                     model->focus_zone = FOCUS_LIST;
                     vk_listbox_set_curr(settings_listbox, model->selected);
-                    vk_listbox_update(settings_listbox);
+                    vk_listbox_redraw(settings_listbox);
                     refresh_dialog();
                 }
                 return 0;

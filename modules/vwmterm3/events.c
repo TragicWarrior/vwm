@@ -736,7 +736,7 @@ vwmterm_write_mouse(vtty_t *vterm, vk_window_t *window, MEVENT *me)
 void
 vwmterm_window_update(vwmterm_data_t *vwmterm_data)
 {
-    vk_window_update(vwmterm_data->window);
+    vk_window_redraw(vwmterm_data->window);
 }
 
 /*

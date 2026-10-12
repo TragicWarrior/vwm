@@ -1,3 +1,16 @@
+Version 9.3.1
+
+*  [Bryan Christ] Uses libviper 11's names.
+
+   libviper 11 renamed two operations: painting a widget's canvas is
+   "redraw" (was "update") and copying the canvas to the screen is
+   "blit" (was "draw").  vwm now calls vk_<type>_redraw() and
+   vk_widget_blit() throughout.  The old names were still accepted, so
+   nothing changes in how vwm behaves.
+
+   Needs libviper 11.0.0 (libvdk.so.11).  STYLE_GUIDE.md uses the new
+   names in its examples.
+
 Version 9.3.0
 
 *  [Bryan Christ] The screen can be published for a viewer.
