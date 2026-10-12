@@ -13,6 +13,9 @@
 #
 # If no session is running, start one with vwm.
 #
+# Usage: vwm-resume [--sid ID]
+#   --sid ID   the session started with vwm --sid ID (default: 0)
+#
 # Detach key while attached:  Ctrl-\
 #
 # Environment:
@@ -34,6 +37,56 @@ else
 fi
 
 # --- what is this terminal? -----------------------------------------
+# Which session: "--sid ID" (or --sid=ID) picks the one started with
+# vwm --sid ID.  With none, the default session -- or the one this
+# terminal is inside of, since a session passes its own to what it
+# runs.  The id is checked by vwm-msg, which is handed it.
+sid=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --sid)
+            if [ $# -lt 2 ]; then
+                echo "vwm-resume: --sid needs a session id" >&2
+                exit 1
+            fi
+            sid=$2
+            shift 2
+            ;;
+        --sid=*)
+            sid=${1#--sid=}
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: vwm-resume [--sid ID]"
+            echo "Bring the running vwm session to this terminal."
+            exit 0
+            ;;
+        *)
+            echo "vwm-resume: unknown argument '$1'" >&2
+            echo "Usage: vwm-resume [--sid ID]" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# vwm-msg for the chosen session
+msg() {
+    if [ -n "$sid" ]; then
+        "$VWM_MSG" --sid "$sid" "$@"
+    else
+        "$VWM_MSG" "$@"
+    fi
+}
+
+# how to name the session in a message, and in a command to suggest
+if [ -n "$sid" ]; then
+    which="vwm session '$sid'"
+    opt=" --sid $sid"
+else
+    which="vwm session"
+    opt=""
+fi
+
 here=$(tty 2>/dev/null) || here=""
 case "$here" in
     /dev/*) ;;
@@ -44,9 +97,9 @@ case "$here" in
 esac
 
 # --- is there a session? --------------------------------------------
-if ! "$VWM_MSG" ping >/dev/null 2>&1; then
-    echo "No vwm session is running."
-    echo "Start one with:  vwm"
+if ! msg ping >/dev/null 2>&1; then
+    echo "No $which is running."
+    echo "Start one with:  vwm$opt"
     exit 1
 fi
 
@@ -54,4 +107,9 @@ fi
 # vwm-msg attach asks the session over and then waits, holding this
 # terminal for it, until the session leaves; it says why and sees that
 # the terminal is left in order.
+# exec, so that the waiting client is this terminal's foreground job
+if [ -n "$sid" ]; then
+    exec "$VWM_MSG" --sid "$sid" attach --tty "$here" --term "${TERM:-}"
+fi
+
 exec "$VWM_MSG" attach --tty "$here" --term "${TERM:-}"

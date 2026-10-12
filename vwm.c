@@ -47,6 +47,7 @@
 #include "vwm.h"
 #include "private.h"
 #include "bkgd.h"
+#include "session.h"
 #include "mainmenu.h"
 #include "panel.h"
 #include "modules.h"
@@ -134,12 +135,22 @@ int main(int argc,char **argv)
                     "vwm-stop ends it.\n\n"
                     "  -h, --help             show this help and exit\n"
                     "  -V, --version          show version and exit\n"
+                    "      --sid ID           start the session named ID "
+                    "(default: 0);\n"
+                    "                         vwm-resume --sid ID and "
+                    "vwm-stop --sid ID\n"
+                    "                         then act on that one\n"
                     "      --ignore-tty-size  skip the 80x25 minimum "
                     "check\n");
                 return 0;
             }
         }
     }
+
+    /* which session this is to be: "--sid ID" points the control
+       socket's path at that session's, here, before anything looks at
+       it.  with no id it is the default session, as it always was. */
+    if(vwm_session_args(&argc, argv, argc, "vwm") != 0) return 1;
 
     /* everything that can be refused is refused here, on the terminal,
        before anything is started */
@@ -190,11 +201,16 @@ int main(int argc,char **argv)
 
         if(vwm_ctl_preflight(ctl_path, sizeof(ctl_path)) != 0)
         {
+            char    hint[VWM_SESSION_SID_MAX + 16];
+
+            /* the commands as they have to be typed for this session */
+            vwm_session_hint(hint, sizeof(hint));
+
             fprintf(stderr,
                 "vwm: a session is already running (%s).\n"
-                "     vwm-resume brings it to this terminal; "
-                "vwm-stop ends it.\n",
-                ctl_path);
+                "     vwm-resume%s brings it to this terminal; "
+                "vwm-stop%s ends it.\n",
+                ctl_path, hint, hint);
             return 1;
         }
 
@@ -446,8 +462,12 @@ vwm_launch(const char *ctl_path)
        to do from here */
     if(tty == NULL)
     {
-        printf("vwm: session started.  vwm-resume brings it to a "
-            "terminal; vwm-stop ends it.\n");
+        char    hint[VWM_SESSION_SID_MAX + 16];
+
+        vwm_session_hint(hint, sizeof(hint));
+
+        printf("vwm: session started.  vwm-resume%s brings it to a "
+            "terminal; vwm-stop%s ends it.\n", hint, hint);
         exit(0);
     }
 
