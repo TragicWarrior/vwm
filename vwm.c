@@ -48,6 +48,7 @@
 #include "private.h"
 #include "bkgd.h"
 #include "session.h"
+#include "view.h"
 #include "mainmenu.h"
 #include "panel.h"
 #include "modules.h"
@@ -333,6 +334,9 @@ int main(int argc,char **argv)
        connection is registered. */
     vwm_ctl_release_client("stopped");
 
+    /* viewers are let go, and the published screen removed, before the
+       control socket they came in by */
+    vwm_view_shutdown();
     vwm_ctl_shutdown();
     vwm_sched_deinit(sched);
 
@@ -513,6 +517,9 @@ vwm_sched_render(void *arg)
         vk_screen_refresh(vwm->screen);
         vwm->screen_dirty = 0;
     }
+
+    /* viewers, if there are any, get the screen as it now stands */
+    vwm_view_step();
 }
 
 vwm_t*

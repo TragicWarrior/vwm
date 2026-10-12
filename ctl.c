@@ -27,6 +27,7 @@
 #include "screenshot.h"
 #include "ctl.h"
 #include "sched.h"
+#include "view.h"
 #include "modules/vwmterm3/vwmterm.h"
 
 #define VWM_CTL_MAX_REQ     (256 * 1024)
@@ -661,6 +662,8 @@ op_ping(int fd)
            attached at all */
         cJSON_AddNumberToObject(data, "pid", (double)getpid());
         cJSON_AddBoolToObject(data, "headless", vwm_is_headless());
+        /* how many remote viewers are watching the screen */
+        cJSON_AddNumberToObject(data, "viewers", (double)vwm_view_count());
     }
 
     ctl_reply(fd, 1, data, NULL);
@@ -845,6 +848,41 @@ op_attach(int fd, cJSON *req)
     attach_fd = fd;
     ctl_keep_fd = 1;
     vwm_sched_wake_fd_add(sched, attach_fd, NULL);
+}
+
+/*
+    A viewer wants to watch the screen (see view.h).  The reply says
+    where the published screen is and how big it is; after it, the
+    connection is kept, and each byte vwm sends on it means "the file
+    has changed, read it again".  The viewer closing the connection is
+    how it leaves.
+*/
+static void
+op_view(int fd)
+{
+    cJSON   *data;
+    char    path[PATH_MAX];
+    int     cols = 0;
+    int     rows = 0;
+
+    if(vwm_view_add(fd, path, sizeof(path), &cols, &rows) != 0)
+    {
+        ctl_reply(fd, 0, NULL, "cannot add a viewer");
+        return;
+    }
+
+    data = cJSON_CreateObject();
+    if(data != NULL)
+    {
+        cJSON_AddStringToObject(data, "path", path);
+        cJSON_AddNumberToObject(data, "cols", (double)cols);
+        cJSON_AddNumberToObject(data, "rows", (double)rows);
+    }
+
+    ctl_reply(fd, 1, data, NULL);
+
+    /* vwm_view_add took the connection: ctl_serve must not close it */
+    ctl_keep_fd = 1;
 }
 
 static void
@@ -2430,6 +2468,7 @@ ctl_dispatch(int fd, cJSON *req)
     else if(strcmp(op, "screenshot") == 0)    op_screenshot(fd, req);
     else if(strcmp(op, "attention") == 0)     op_attention(fd, req);
     else if(strcmp(op, "attach") == 0)        op_attach(fd, req);
+    else if(strcmp(op, "view") == 0)          op_view(fd);
     else if(strcmp(op, "detach") == 0)        op_detach(fd);
     else if(strcmp(op, "stop") == 0)          op_stop(fd);
     else

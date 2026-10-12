@@ -9,3 +9,8 @@ install_manifest.txt
 *.o
 *.so
 /vwm
+
+# tests (ctest)
+/test_viewfile
+CTestTestfile.cmake
+Testing/
