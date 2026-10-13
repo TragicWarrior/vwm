@@ -149,11 +149,6 @@ vwm_warning_popup_show(void)
 
     vk_popup_set_client(popup, VK_WIDGET(client));
 
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
-        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
-    }
-
     vk_popup_set_colors(popup, COLOR_RED, COLOR_WHITE);
 
     {
@@ -244,11 +239,6 @@ vwm_saved_popup_show(const char *msg)
 
     vk_popup_set_client(popup, VK_WIDGET(client));
 
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
-        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
-    }
-
     vk_popup_set_colors(popup, COLOR_WHITE, COLOR_BLUE);
 
     {
@@ -334,11 +324,6 @@ vwm_confirm_popup_show(void)
     }
 
     vk_popup_set_client(popup, VK_WIDGET(client));
-
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
-        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
-    }
 
     {
         int count = vk_popup_get_button_count(popup);
@@ -432,11 +417,6 @@ vwm_load_popup_show(const char *title, vk_filedialog_t **filedialog,
 
 
     vk_popup_set_client(popup, VK_WIDGET(fd));
-
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(fd));
-        vk_widget_set_state(VK_WIDGET(fd), st & ~VK_STATE_EXPAND);
-    }
 
     pos_x = (scr_w - popup_w) / 2;
     pos_y = (scr_h - popup_h) / 2;
@@ -556,11 +536,6 @@ vwm_error_popup_show(const char *msg, int popup_w, int popup_h)
     }
 
     vk_popup_set_client(popup, VK_WIDGET(client));
-
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
-        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
-    }
 
     vk_popup_set_colors(popup, COLOR_RED, COLOR_WHITE);
 

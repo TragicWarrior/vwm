@@ -1,3 +1,19 @@
+Version 9.3.4
+
+*  [Bryan Christ] Popups no longer work around a libviper resize bug.
+
+   A resize in libviper used to drop a widget's last column, and
+   nothing repainted it.  Ten popups cleared the "expand" flag on
+   their client so that it was never resized: the shared warning,
+   saved, confirm, load and error popups, the Settings save prompt,
+   Manage Desktop's two, and one each in the screenshot and print
+   dialogs.  Since libviper 11 a widget repaints itself after a resize,
+   so the lost column no longer shows; the workaround is removed and
+   the popup sizes its client again.  What is on screen is unchanged.
+
+   STYLE_GUIDE.md drops the workaround, and no longer says a dialog
+   has to repaint everything by hand after a recreate.
+
 Version 9.3.3
 
 *  [Bryan Christ] A mouse report no longer lands in the shell when vwm

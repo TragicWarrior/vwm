@@ -622,12 +622,6 @@ warning_popup_open(void)
 
     vk_popup_set_client(warning_popup, VK_WIDGET(warning_client));
 
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(warning_client));
-        vk_widget_set_state(VK_WIDGET(warning_client),
-            st & ~VK_STATE_EXPAND);
-    }
-
     vk_object_set_kmio(VK_OBJECT(warning_popup), warning_popup_kmio);
 
     warning_active_btn = 1;     /* default to No -- destructive */
@@ -946,12 +940,6 @@ move_popup_open(void)
     vk_box_set_widget(move_client, 0, VK_WIDGET(move_listbox), VK_INHERIT_NONE);
 
     vk_popup_set_client(move_popup, VK_WIDGET(move_client));
-
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(move_client));
-        vk_widget_set_state(VK_WIDGET(move_client),
-            st & ~VK_STATE_EXPAND);
-    }
 
     vk_object_set_kmio(VK_OBJECT(move_popup), move_popup_kmio);
 
