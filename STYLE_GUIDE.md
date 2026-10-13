@@ -327,9 +327,9 @@ dialog on its own shows nothing until the dialog is redrawn.
 
 ## Colors From the Container
 
-Since libviper 11.2.0 a widget attached with `VK_INHERIT_AUTO` takes
-the colors of the box, frame or window it is put in, and keeps taking
-them if they change.  Color the container; leave what sits in it alone:
+A widget attached with `VK_INHERIT_AUTO` takes the colors of the box,
+frame or window it is put in, and keeps taking them if they change.
+Since libviper 12 that is the default: `VK_INHERIT_AUTO` is 0.  Color the container; leave what sits in it alone:
 
 ```c
 client = vk_box_create(w, h, VK_BOX_VERTICAL, 3);
@@ -345,8 +345,10 @@ vk_box_set_widget(client, 1, VK_WIDGET(label), VK_INHERIT_AUTO);
 - Give a widget colors only when it differs from its container, or
   when its colors change (a button or input that shows focus).
   `vk_widget_set_colors` always wins over the container.
-- `VK_INHERIT_NONE` leaves the widget as it is.  A widget with no
+- `VK_INHERIT_NONE` leaves the widget as it is: use it for a widget
+  that must keep its own look whatever it is put in.  A widget with no
   colors of its own, attached that way, is black on white.
+- Always name the flag.  Do not pass a bare 0.
 - The order things are built and attached in does not matter.
 
 ## Widget Properties

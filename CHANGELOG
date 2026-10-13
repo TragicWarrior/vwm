@@ -1,3 +1,17 @@
+Version 9.3.7
+
+*  [Bryan Christ] Needs libviper 12.
+
+   libviper 12 makes following the container's colors the default and
+   withdraws its pre-11 names.  vwm already named its attach flags and
+   used the new names, so its source is otherwise unchanged; it has to
+   be rebuilt against libvdk.so.12.
+
+   vwm now checks libviper's version when it is compiled and stops
+   with "vwm needs libviper 12.0.0 or newer" on an older one.  The
+   check in the screenshot code for libviper 10.1, which this one
+   covers, is removed.
+
 Version 9.3.6
 
 *  [Bryan Christ] Dialog contents take their container's colors, and

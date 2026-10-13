@@ -10,10 +10,19 @@
 #include <vdk.h>
 #include <vkmio.h>
 
+/* vwm is written for libviper 12: a widget follows its container's
+   colors unless told otherwise, and widget state is set by property
+   name.  A libviper from before 12 does not say its version at all. */
+#ifndef VDK_VERSION_MAJOR
+#error "vwm needs libviper 12.0.0 or newer"
+#elif !VDK_VERSION_AT_LEAST(12, 0, 0)
+#error "vwm needs libviper 12.0.0 or newer"
+#endif
+
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"9.3.6"
+#define VWM_VERSION					"9.3.7"
 
 /* the narrowest window that shows its title-bar buttons: a corner, the
    3 columns of [v], the 3 of [X], and the 2-column margin to the right
