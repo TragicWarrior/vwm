@@ -357,7 +357,7 @@ cascade_origin_taken(vk_deck_t *deck, vk_widget_t *self, int x, int y)
 
         w = vk_deck_get_widget(deck, i);
         if(w == NULL || w == self) continue;
-        if(!(vk_widget_get_state(w) & VK_STATE_VISIBLE)) continue;
+        if(!vk_widget_is_visible(w)) continue;
 
         vk_widget_get_position(w, &ox, &oy);
         if(ox == x && oy == y)
@@ -375,7 +375,7 @@ cascade_place(vk_deck_t *deck, vk_widget_t *widget)
     int     scr_w, scr_h;
 
     if(deck == NULL || widget == NULL) return;
-    if(vk_widget_get_state(widget) & VK_STATE_NORESIZE)
+    if(vk_widget_is_noresize(widget))
         return;
 
     vwm = vwm_get_instance();
@@ -443,7 +443,7 @@ vwm_attention_set(vk_widget_t *widget)
     desk = vwm_widget_desktop(widget);
     if(desk < 0) return;
 
-    if(!(vk_widget_get_state(widget) & VK_STATE_VISIBLE))
+    if(!vk_widget_is_visible(widget))
         vk_widget_show(widget);
 
     if(vk_screen_get_active_surface(vwm->screen) != desk)

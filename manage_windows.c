@@ -256,7 +256,7 @@ rebuild_listbox(void)
         /* flag minimized (hidden) windows with a down-arrow.  every row gets
            a one-column marker slot -- a space when the window is visible --
            so the titles stay aligned whether or not the row is minimized */
-        if(!(vk_widget_get_state(w) & VK_STATE_VISIBLE))
+        if(!vk_widget_is_visible(w))
             mark = vwm_has_utf8() ? "\xe2\x86\x93" : "v";   /* U+2193 down arrow */
         else
             mark = " ";
@@ -589,8 +589,6 @@ warning_popup_open(void)
         vk_filler_t *top_pad = vk_filler_create();
         vk_filler_t *bot_pad = vk_filler_create();
 
-        vk_widget_set_colors(VK_WIDGET(top_pad), COLOR_RED, COLOR_WHITE);
-        vk_widget_set_colors(VK_WIDGET(bot_pad), COLOR_RED, COLOR_WHITE);
         vk_widget_set_expand(VK_WIDGET(top_pad));
         vk_widget_set_expand(VK_WIDGET(bot_pad));
 
@@ -612,10 +610,10 @@ warning_popup_open(void)
         vk_widget_set_colors(VK_WIDGET(warning_label_2),
             COLOR_RED, COLOR_WHITE);
 
-        vk_box_set_widget(warning_client, 0, VK_WIDGET(top_pad), VK_INHERIT_NONE);
+        vk_box_set_widget(warning_client, 0, VK_WIDGET(top_pad), VK_INHERIT_AUTO);
         vk_box_set_widget(warning_client, 1, VK_WIDGET(warning_label_1), VK_INHERIT_NONE);
         vk_box_set_widget(warning_client, 2, VK_WIDGET(warning_label_2), VK_INHERIT_NONE);
-        vk_box_set_widget(warning_client, 3, VK_WIDGET(bot_pad), VK_INHERIT_NONE);
+        vk_box_set_widget(warning_client, 3, VK_WIDGET(bot_pad), VK_INHERIT_AUTO);
     }
 
     vk_popup_set_client(warning_popup, VK_WIDGET(warning_client));
@@ -914,7 +912,6 @@ move_popup_open(void)
     vk_widget_set_colors(VK_WIDGET(move_client), COLOR_WHITE, COLOR_BLUE);
 
     move_listbox = vk_listbox_create(pw - 4, lb_height);
-    vk_widget_set_colors(VK_WIDGET(move_listbox), COLOR_WHITE, COLOR_BLUE);
     vk_widget_set_attrs(VK_WIDGET(move_listbox), A_BOLD);
     vk_listbox_set_highlight(move_listbox, COLOR_BLACK, COLOR_RED);
     vk_listbox_set_unfocused(move_listbox, COLOR_BLACK, COLOR_WHITE);
@@ -931,7 +928,7 @@ move_popup_open(void)
     }
     vk_listbox_set_curr(move_listbox, 0);
 
-    vk_box_set_widget(move_client, 0, VK_WIDGET(move_listbox), VK_INHERIT_NONE);
+    vk_box_set_widget(move_client, 0, VK_WIDGET(move_listbox), VK_INHERIT_AUTO);
 
     vk_popup_set_client(move_popup, VK_WIDGET(move_client));
 
@@ -1158,11 +1155,7 @@ build_dialog(void)
     vk_window_set_border_colors(dialog_window, COLOR_WHITE, COLOR_CYAN);
     vk_window_set_border_attrs(dialog_window, A_BOLD);
 
-    {
-        uint32_t state = vk_widget_get_state(VK_WIDGET(dialog_window));
-        vk_widget_set_state(VK_WIDGET(dialog_window),
-            state | VK_STATE_NORESIZE);
-    }
+    vk_widget_set_noresize(VK_WIDGET(dialog_window));
 
     main_vbox = vk_box_create(INTERIOR_WIDTH, INTERIOR_HEIGHT,
         VK_BOX_VERTICAL, 2);
@@ -1200,7 +1193,6 @@ build_dialog(void)
     button_hbox = vk_box_create(INTERIOR_WIDTH, 3,
         VK_BOX_HORIZONTAL, 6);
     vk_box_set_homogeneous(button_hbox, false);
-    vk_widget_set_colors(VK_WIDGET(button_hbox), COLOR_BLACK, COLOR_CYAN);
 
     /* bare verbs -- five buttons + a spacer pack exactly into the 46-col
        interior; longer "... Selected" labels would overflow.  the checkbox
@@ -1222,18 +1214,17 @@ build_dialog(void)
     }
 
     button_spacer = vk_filler_create();
-    vk_widget_set_colors(VK_WIDGET(button_spacer), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_expand(VK_WIDGET(button_spacer));
 
     vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_CLOSE]), VK_INHERIT_NONE);
     vk_box_set_widget(button_hbox, 1, VK_WIDGET(buttons[BTN_MOVE_TO]), VK_INHERIT_NONE);
     vk_box_set_widget(button_hbox, 2, VK_WIDGET(buttons[BTN_MINIMIZE]), VK_INHERIT_NONE);
     vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_RESTORE]), VK_INHERIT_NONE);
-    vk_box_set_widget(button_hbox, 4, VK_WIDGET(button_spacer), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 4, VK_WIDGET(button_spacer), VK_INHERIT_AUTO);
     vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_CANCEL]), VK_INHERIT_NONE);
 
     vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame), VK_INHERIT_NONE);
-    vk_box_set_widget(main_vbox, 1, VK_WIDGET(button_hbox), VK_INHERIT_NONE);
+    vk_box_set_widget(main_vbox, 1, VK_WIDGET(button_hbox), VK_INHERIT_AUTO);
 
     vk_window_set_child(dialog_window, VK_WIDGET(main_vbox), VK_INHERIT_NONE);
     vk_object_set_kmio(VK_OBJECT(dialog_window), manage_windows_kmio);

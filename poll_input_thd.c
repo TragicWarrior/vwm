@@ -153,7 +153,6 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
     vk_widget_t *hit;
     int         wx, wy, ww, wh;
     int         rx, ry;
-    uint32_t    state;
     int         z;
 
 /* test one candidate; return its zone immediately on a hit */
@@ -237,8 +236,7 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
             return ZONE_MINIMIZE_BTN;
     }
 
-    state = vk_widget_get_state(hit);
-    if(ry == wh - 1 && rx == ww - 1 && !(state & VK_STATE_NORESIZE))
+    if(ry == wh - 1 && rx == ww - 1 && !vk_widget_is_noresize(hit))
         return ZONE_RESIZE_CORNER;
 
     if(ry == 0 || ry == wh - 1 || rx == 0 || rx == ww - 1)

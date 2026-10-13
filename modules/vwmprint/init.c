@@ -161,7 +161,6 @@ static vk_window_t*
 make_window(int w, int h, const char *title, short fg, short bg)
 {
     vk_window_t *win;
-    uint32_t    st;
 
     win = vk_window_create(w, h);
     vk_window_set_title(win, title);
@@ -169,8 +168,7 @@ make_window(int w, int h, const char *title, short fg, short bg)
     vk_window_set_border_colors(win, fg, bg);
     vk_window_set_border_attrs(win, A_BOLD);
 
-    st = vk_widget_get_state(VK_WIDGET(win));
-    vk_widget_set_state(VK_WIDGET(win), st | VK_STATE_NORESIZE);
+    vk_widget_set_noresize(VK_WIDGET(win));
 
     vk_object_register_event(VK_OBJECT(win), VWM_EVENT_ON_CLOSE,
         print_on_close, NULL);
@@ -356,10 +354,7 @@ build_printers(print_session_t *s)
     vk_popup_set_button_colors(popup, COLOR_BLACK, COLOR_CYAN);
     vk_popup_set_button_attrs(popup, A_BOLD);
 
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(popup));
-        vk_widget_set_state(VK_WIDGET(popup), st | VK_STATE_NORESIZE);
-    }
+    vk_widget_set_noresize(VK_WIDGET(popup));
 
     bar = vk_popup_get_button_bar(popup);
     if(bar != NULL)
@@ -376,10 +371,8 @@ build_printers(print_session_t *s)
     vk_frame_set_border_style(frame, VK_BORDER_SINGLE | VK_RELIEF_SUNKEN);
     vk_frame_set_border_colors(frame, COLOR_YELLOW, COLOR_CYAN);
     vk_frame_set_border_attrs(frame, A_BOLD);
-    vk_widget_set_colors(VK_WIDGET(frame), COLOR_BLACK, COLOR_CYAN);
 
     lb = vk_listbox_create(W - 4, H - 7);
-    vk_widget_set_colors(VK_WIDGET(lb), COLOR_BLACK, COLOR_CYAN);
     vk_listbox_set_highlight(lb, COLOR_BLACK, COLOR_RED);
     vk_listbox_set_unfocused(lb, COLOR_BLACK, COLOR_WHITE);
     vk_listbox_set_highlight_attrs(lb, A_BOLD);
@@ -390,10 +383,10 @@ build_printers(print_session_t *s)
 
     vk_listbox_set_curr(lb, 0);
     vk_widget_set_expand(VK_WIDGET(lb));
-    vk_frame_set_child(frame, VK_WIDGET(lb), VK_INHERIT_NONE);
+    vk_frame_set_child(frame, VK_WIDGET(lb), VK_INHERIT_AUTO);
 
     vk_widget_set_expand(VK_WIDGET(frame));
-    vk_box_set_widget(client, 0, VK_WIDGET(frame), VK_INHERIT_NONE);
+    vk_box_set_widget(client, 0, VK_WIDGET(frame), VK_INHERIT_AUTO);
 
     vk_popup_set_client(popup, VK_WIDGET(client));
 
@@ -444,13 +437,11 @@ build_result(const char *msg)
 
     line = vk_label_create(W - 2);
     vk_label_set_text(line, msg);
-    vk_widget_set_colors(VK_WIDGET(line), COLOR_BLACK, COLOR_CYAN);
-    vk_box_set_widget(box, 0, VK_WIDGET(line), VK_INHERIT_NONE);
+    vk_box_set_widget(box, 0, VK_WIDGET(line), VK_INHERIT_AUTO);
 
     foot = vk_label_create(W - 2);
     vk_label_set_text(foot, " Press any key to close.");
-    vk_widget_set_colors(VK_WIDGET(foot), COLOR_BLACK, COLOR_CYAN);
-    vk_box_set_widget(box, 2, VK_WIDGET(foot), VK_INHERIT_NONE);
+    vk_box_set_widget(box, 2, VK_WIDGET(foot), VK_INHERIT_AUTO);
 
     vk_window_set_child(win, VK_WIDGET(box), VK_INHERIT_NONE);
     vk_object_set_kmio(VK_OBJECT(win), session_kmio);

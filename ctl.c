@@ -984,7 +984,7 @@ op_list_windows(int fd)
             title = vk_window_get_title(VK_WINDOW(w));
             vk_widget_get_position(w, &x, &y);
             vk_widget_get_metrics(w, &ww, &wh);
-            visible = (vk_widget_get_state(w) & VK_STATE_VISIBLE) ? 1 : 0;
+            visible = vk_widget_is_visible(w) ? 1 : 0;
 
             cJSON_AddNumberToObject(row, "id", vk_widget_get_id(w));
             cJSON_AddStringToObject(row, "title",
@@ -1270,7 +1270,7 @@ ctl_fit_new_window(vk_widget_t *w)
     int scr_w, scr_h;
 
     if(w == NULL) return;
-    if(vk_widget_get_state(w) & VK_STATE_NORESIZE) return;
+    if(vk_widget_is_noresize(w)) return;
     if(ctl_screen_size(&scr_w, &scr_h) != 0) return;
 
     vwm_fit_window_onscreen(w, scr_w, scr_h);

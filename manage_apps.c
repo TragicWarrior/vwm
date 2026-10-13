@@ -1964,11 +1964,7 @@ build_dialog(void)
     vk_window_set_border_colors(dialog_window, COLOR_WHITE, COLOR_CYAN);
     vk_window_set_border_attrs(dialog_window, A_BOLD);
 
-    {
-        uint32_t state = vk_widget_get_state(VK_WIDGET(dialog_window));
-        vk_widget_set_state(VK_WIDGET(dialog_window),
-            state | VK_STATE_NORESIZE);
-    }
+    vk_widget_set_noresize(VK_WIDGET(dialog_window));
 
     main_vbox = vk_box_create(INTERIOR_WIDTH, INTERIOR_HEIGHT,
         VK_BOX_VERTICAL, 8);
@@ -2138,7 +2134,6 @@ build_dialog(void)
     button_hbox = vk_box_create(INTERIOR_WIDTH, 3,
         VK_BOX_HORIZONTAL, 7);
     vk_box_set_homogeneous(button_hbox, false);
-    vk_widget_set_colors(VK_WIDGET(button_hbox), COLOR_BLACK, COLOR_CYAN);
 
     buttons[BTN_ADD] = vk_button_create("Add");
     buttons[BTN_REMOVE] = vk_button_create("Remove");
@@ -2161,13 +2156,12 @@ build_dialog(void)
     }
 
     button_spacer = vk_filler_create();
-    vk_widget_set_colors(VK_WIDGET(button_spacer), COLOR_BLACK, COLOR_CYAN);
     vk_widget_set_expand(VK_WIDGET(button_spacer));
 
     vk_box_set_widget(button_hbox, 0, VK_WIDGET(buttons[BTN_ADD]), VK_INHERIT_NONE);
     vk_box_set_widget(button_hbox, 1, VK_WIDGET(buttons[BTN_REMOVE]), VK_INHERIT_NONE);
     vk_box_set_widget(button_hbox, 2, VK_WIDGET(buttons[BTN_EDIT]), VK_INHERIT_NONE);
-    vk_box_set_widget(button_hbox, 3, VK_WIDGET(button_spacer), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 3, VK_WIDGET(button_spacer), VK_INHERIT_AUTO);
     vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_SAVE]), VK_INHERIT_NONE);
     vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_LOAD]), VK_INHERIT_NONE);
     vk_box_set_widget(button_hbox, 6, VK_WIDGET(buttons[BTN_CANCEL]), VK_INHERIT_NONE);
@@ -2292,7 +2286,7 @@ build_dialog(void)
         vk_box_set_widget(main_vbox, 4, VK_WIDGET(term_widget_row), VK_INHERIT_NONE);
         vk_box_set_widget(main_vbox, 5, VK_WIDGET(vis_label_row), VK_INHERIT_NONE);
         vk_box_set_widget(main_vbox, 6, VK_WIDGET(vis_widget_row), VK_INHERIT_NONE);
-        vk_box_set_widget(main_vbox, 7, VK_WIDGET(button_hbox), VK_INHERIT_NONE);
+        vk_box_set_widget(main_vbox, 7, VK_WIDGET(button_hbox), VK_INHERIT_AUTO);
     }
 
     vk_window_set_child(dialog_window, VK_WIDGET(main_vbox), VK_INHERIT_NONE);

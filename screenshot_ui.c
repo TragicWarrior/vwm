@@ -133,7 +133,6 @@ static vk_window_t*
 make_window(int w, int h, const char *title, short fg, short bg)
 {
     vk_window_t *win;
-    uint32_t    st;
 
     win = vk_window_create(w, h);
     vk_window_set_title(win, title);
@@ -141,8 +140,7 @@ make_window(int w, int h, const char *title, short fg, short bg)
     vk_window_set_border_colors(win, fg, bg);
     vk_window_set_border_attrs(win, A_BOLD);
 
-    st = vk_widget_get_state(VK_WIDGET(win));
-    vk_widget_set_state(VK_WIDGET(win), st | VK_STATE_NORESIZE);
+    vk_widget_set_noresize(VK_WIDGET(win));
 
     /* clean up if the window is closed via its [X] / the window manager */
     vk_object_register_event(VK_OBJECT(win), VWM_EVENT_ON_CLOSE,
@@ -201,10 +199,7 @@ build_prompt(scrshot_session_t *s)
     vk_popup_set_button_colors(popup, COLOR_BLACK, COLOR_CYAN);
     vk_popup_set_button_attrs(popup, A_BOLD);
 
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(popup));
-        vk_widget_set_state(VK_WIDGET(popup), st | VK_STATE_NORESIZE);
-    }
+    vk_widget_set_noresize(VK_WIDGET(popup));
 
     bar = vk_popup_get_button_bar(popup);
     if(bar != NULL)
@@ -219,18 +214,15 @@ build_prompt(scrshot_session_t *s)
     vk_widget_set_colors(VK_WIDGET(client), COLOR_BLACK, COLOR_CYAN);
 
     pad_top = vk_filler_create();
-    vk_widget_set_colors(VK_WIDGET(pad_top), COLOR_BLACK, COLOR_CYAN);
-    vk_box_set_widget(client, 0, VK_WIDGET(pad_top), VK_INHERIT_NONE);
+    vk_box_set_widget(client, 0, VK_WIDGET(pad_top), VK_INHERIT_AUTO);
 
     line = vk_label_create(W - 2);
     vk_label_set_justify(line, VK_JUSTIFY_CENTER);
     vk_label_set_text(line, "What do you want to capture?");
-    vk_widget_set_colors(VK_WIDGET(line), COLOR_BLACK, COLOR_CYAN);
-    vk_box_set_widget(client, 1, VK_WIDGET(line), VK_INHERIT_NONE);
+    vk_box_set_widget(client, 1, VK_WIDGET(line), VK_INHERIT_AUTO);
 
     pad_bot = vk_filler_create();
-    vk_widget_set_colors(VK_WIDGET(pad_bot), COLOR_BLACK, COLOR_CYAN);
-    vk_box_set_widget(client, 2, VK_WIDGET(pad_bot), VK_INHERIT_NONE);
+    vk_box_set_widget(client, 2, VK_WIDGET(pad_bot), VK_INHERIT_AUTO);
 
     vk_popup_set_client(popup, VK_WIDGET(client));
 
@@ -373,13 +365,12 @@ build_save(scrshot_session_t *s)
 
     fname = vk_input_create(W - 2);
     vk_input_set_border_style(fname, VK_BORDER_SINGLE);
-    vk_widget_set_colors(VK_WIDGET(fname), COLOR_WHITE, COLOR_BLUE);
 
     now = time(NULL);
     localtime_r(&now, &tmv);
     strftime(defname, sizeof(defname), "vwm-%Y%m%d-%H%M%S.png", &tmv);
     vk_input_set_text(fname, defname);
-    vk_box_set_widget(box, 0, VK_WIDGET(fname), VK_INHERIT_NONE);
+    vk_box_set_widget(box, 0, VK_WIDGET(fname), VK_INHERIT_AUTO);
 
     fd = vk_filedialog_create(W - 2, fd_h, VK_BORDER_SINGLE, false);
     vk_filedialog_set_colors(fd, COLOR_WHITE, COLOR_BLUE);
@@ -437,13 +428,11 @@ build_result(const char *msg)
 
     line = vk_label_create(W - 2);
     vk_label_set_text(line, msg);
-    vk_widget_set_colors(VK_WIDGET(line), COLOR_BLACK, COLOR_CYAN);
-    vk_box_set_widget(box, 0, VK_WIDGET(line), VK_INHERIT_NONE);
+    vk_box_set_widget(box, 0, VK_WIDGET(line), VK_INHERIT_AUTO);
 
     foot = vk_label_create(W - 2);
     vk_label_set_text(foot, " Press any key to close.");
-    vk_widget_set_colors(VK_WIDGET(foot), COLOR_BLACK, COLOR_CYAN);
-    vk_box_set_widget(box, 2, VK_WIDGET(foot), VK_INHERIT_NONE);
+    vk_box_set_widget(box, 2, VK_WIDGET(foot), VK_INHERIT_AUTO);
 
     vk_window_set_child(win, VK_WIDGET(box), VK_INHERIT_NONE);
     vk_object_set_kmio(VK_OBJECT(win), session_kmio);

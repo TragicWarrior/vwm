@@ -224,7 +224,7 @@ vwm_screensaver_resize(void)
 {
     vwm_t       *vwm = vwm_get_instance();
     vk_widget_t *content;
-    uint32_t     state;
+    bool         fixed;
     int          h, w;
 
     if(!s_active || s_window == NULL) return;
@@ -232,8 +232,9 @@ vwm_screensaver_resize(void)
     getmaxyx(vk_screen_get_window(vwm->screen), h, w);
     if(w < 1 || h < 1) return;
 
-    state = vk_widget_get_state(VK_WIDGET(s_window));
-    vk_widget_set_state(VK_WIDGET(s_window), state & ~VK_STATE_NORESIZE);
+    /* the window refuses to be resized; lift that for this resize */
+    fixed = vk_widget_is_noresize(VK_WIDGET(s_window));
+    vk_widget_clear_noresize(VK_WIDGET(s_window));
 
     content = vk_window_get_child(s_window);
     if(content != NULL)
@@ -242,7 +243,7 @@ vwm_screensaver_resize(void)
     vk_widget_resize(VK_WIDGET(s_window), w, h);
     vk_widget_move(VK_WIDGET(s_window), 0, 0);
 
-    vk_widget_set_state(VK_WIDGET(s_window), state);
+    vk_widget_set_prop(VK_WIDGET(s_window), VK_PROP_NORESIZE, fixed);
 
     vk_window_redraw(s_window);
 }
