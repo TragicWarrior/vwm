@@ -366,8 +366,6 @@ build_printers(print_session_t *s)
     {
         vk_box_set_homogeneous(bar, true);
         vk_widget_set_colors(VK_WIDGET(bar), COLOR_BLACK, COLOR_CYAN);
-        vk_widget_fill(VK_WIDGET(bar),
-            ' ' | COLOR_PAIR(vdk_color_pair(COLOR_BLACK, COLOR_CYAN)));
     }
 
     client = vk_box_create(W - 2, H - 5, VK_BOX_VERTICAL, 0);
@@ -412,8 +410,6 @@ build_printers(print_session_t *s)
 
     update_printer_focus(s);
 
-    vk_widget_fill(VK_WIDGET(client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_BLACK, COLOR_CYAN)));
     vk_popup_redraw(popup);
 
     return VK_WINDOW(popup);

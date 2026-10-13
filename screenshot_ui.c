@@ -212,8 +212,6 @@ build_prompt(scrshot_session_t *s)
         /* equal-size slots so the equal-width buttons space evenly */
         vk_box_set_homogeneous(bar, true);
         vk_widget_set_colors(VK_WIDGET(bar), COLOR_BLACK, COLOR_CYAN);
-        vk_widget_fill(VK_WIDGET(bar),
-            ' ' | COLOR_PAIR(vdk_color_pair(COLOR_BLACK, COLOR_CYAN)));
     }
 
     client = vk_box_create(W - 2, H - 5, VK_BOX_VERTICAL, 3);
@@ -245,11 +243,6 @@ build_prompt(scrshot_session_t *s)
     s->client_box = NULL;
 
     update_prompt_focus(s);
-
-    /* the client's own background, under what the popup's redraw puts
-       on it */
-    vk_widget_fill(VK_WIDGET(client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_BLACK, COLOR_CYAN)));
 
     vk_popup_redraw(popup);
 

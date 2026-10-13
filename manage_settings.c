@@ -1932,9 +1932,6 @@ save_confirm_popup_show(void)
         {
             vk_widget_set_colors(VK_WIDGET(bar),
                 COLOR_RED, COLOR_WHITE);
-            vk_widget_fill(VK_WIDGET(bar),
-                ' ' | COLOR_PAIR(
-                    vdk_color_pair(COLOR_RED, COLOR_WHITE)));
         }
     }
 
@@ -1989,8 +1986,6 @@ save_confirm_popup_show(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(save_confirm_popup));
 
-    vk_widget_fill(VK_WIDGET(client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
     vk_popup_redraw(save_confirm_popup);
     vk_screen_refresh(vwm->screen);
 }

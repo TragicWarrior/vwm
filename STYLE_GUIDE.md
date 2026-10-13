@@ -124,11 +124,10 @@ discard-confirmation prompts. Red theme signals caution.
 | Button (active)      | YELLOW     | WHITE      | A_BOLD   |
 | Button (inactive)    | BLACK      | WHITE      | A_BOLD   |
 
-Fill the client area before the popup is redrawn:
+Set the client's colors; the client paints its own background:
 
 ```c
-vk_widget_fill(VK_WIDGET(client),
-    ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
+vk_widget_set_colors(VK_WIDGET(client), COLOR_RED, COLOR_WHITE);
 ```
 
 ## Input / Info Popups
@@ -149,11 +148,10 @@ neutral interaction.
 | File dialog text     | WHITE      | BLUE       |        |
 | File dialog highlight| WHITE      | RED        |        |
 
-Fill the client area before the popup is redrawn:
+Set the client's colors; the client paints its own background:
 
 ```c
-vk_widget_fill(VK_WIDGET(client),
-    ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
+vk_widget_set_colors(VK_WIDGET(client), COLOR_WHITE, COLOR_BLUE);
 ```
 
 ## File Dialogs (Load / Save)
@@ -296,13 +294,18 @@ vk_screen_refresh(vwm->screen);
 
 ## Client Area Pattern
 
-Fill a popup's client area before the popup is first redrawn:
+A popup's client box and its button bar paint their own background in
+the colors they are given.  Set the colors and redraw the popup:
 
 ```c
-vk_widget_fill(VK_WIDGET(client), ' ' | COLOR_PAIR(...));
+vk_widget_set_colors(VK_WIDGET(client), fg, bg);
+vk_widget_set_colors(VK_WIDGET(bar), fg, bg);
 vk_popup_redraw(popup);
 vk_screen_refresh(vwm->screen);
 ```
+
+Do not fill them by hand with `vk_widget_fill`; the redraw erases and
+repaints the box, so a fill only paints it twice.
 
 ## Redrawing
 

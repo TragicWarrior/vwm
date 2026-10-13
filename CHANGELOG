@@ -1,3 +1,16 @@
+Version 9.3.5
+
+*  [Bryan Christ] Popups no longer fill their own background by hand.
+
+   Every popup filled its client box and its button bar with the
+   background color before it was redrawn, eighteen fills in all.  A
+   box paints its own background, in the colors it is given, each time
+   it is redrawn, so the fill was painted over at once.  The fills are
+   removed.  What is on screen is unchanged.
+
+   STYLE_GUIDE.md says to set the colors and leave the painting to the
+   box.
+
 Version 9.3.4
 
 *  [Bryan Christ] Popups no longer work around a libviper resize bug.
