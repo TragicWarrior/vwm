@@ -7,6 +7,8 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <termios.h>
+#include <poll.h>
+#include <time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -15,6 +17,11 @@
 
 /* the longest line the session sends this client */
 #define VWM_ATTACH_LINE     512
+
+/* how long to wait for the terminal to answer that it has caught up,
+   in milliseconds.  A terminal that never answers costs this much at
+   exit and no more. */
+#define VWM_ATTACH_DRAIN_MS 400
 
 /*
     Connect to the session's control socket.  Returns the descriptor, or
@@ -147,6 +154,89 @@ attach_json_str(const char *line, const char *key, char *out, size_t n)
     return out;
 }
 
+/*
+    Throw away what the terminal sent while the session was leaving it.
+
+    The session asks the terminal to report the mouse, and tells it to
+    stop as it leaves.  A terminal reads that request when it gets to
+    it: a report for a pointer that moved in the meantime is already on
+    its way, or is sent a moment later, and would land in the shell as
+    typed text ("35;17;18M").
+
+    The terminal is asked a question it answers in turn (a status
+    report, ESC [ 5 n, answered ESC [ 0 n).  By the time the answer
+    arrives it has acted on everything written before the question,
+    the request to stop reporting included, so whatever comes in up to
+    and including the answer is stale and is discarded.  A terminal
+    that does not answer is given VWM_ATTACH_DRAIN_MS.
+
+    `saved` is how the terminal is set up for the shell; it is put back
+    by the caller afterwards.
+*/
+static void
+attach_drain_input(int tty_fd, const struct termios *saved)
+{
+    static const char   ask[] = "\033[5n";
+    static const char   answer[] = "\033[0n";
+    struct termios      quiet;
+    struct timespec     start;
+    struct timespec     now;
+    struct pollfd       pfd;
+    char                buf[256];
+    size_t              matched = 0;
+    long                elapsed_ms;
+    ssize_t             got;
+    ssize_t             i;
+    int                 ready;
+
+    if(tty_fd < 0 || saved == NULL) return;
+
+    /* no echo and no line editing while this goes on, or the tty
+       would print the very bytes being thrown away.  TCSAFLUSH drops
+       what is already waiting. */
+    quiet = *saved;
+    cfmakeraw(&quiet);
+    quiet.c_cc[VMIN] = 0;
+    quiet.c_cc[VTIME] = 0;
+    if(tcsetattr(tty_fd, TCSAFLUSH, &quiet) != 0) return;
+
+    if(write(tty_fd, ask, sizeof(ask) - 1) != (ssize_t)(sizeof(ask) - 1))
+        return;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    /* read and discard until the answer has gone by, or time is up */
+    for(;;)
+    {
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        elapsed_ms = (now.tv_sec - start.tv_sec) * 1000L
+            + (now.tv_nsec - start.tv_nsec) / 1000000L;
+        if(elapsed_ms >= VWM_ATTACH_DRAIN_MS) break;
+
+        pfd.fd = tty_fd;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+
+        ready = poll(&pfd, 1, (int)(VWM_ATTACH_DRAIN_MS - elapsed_ms));
+        if(ready < 0 && errno == EINTR) continue;
+        if(ready <= 0) break;
+
+        got = read(tty_fd, buf, sizeof(buf));
+        if(got <= 0) break;
+
+        /* look for the answer, which may arrive split across reads */
+        for(i = 0; i < got; i++)
+        {
+            if(buf[i] == answer[matched])
+                matched++;
+            else
+                matched = (buf[i] == answer[0]) ? 1 : 0;
+
+            if(matched == sizeof(answer) - 1) return;
+        }
+    }
+}
+
 /* see attach.h */
 int
 vwm_attach_run(const char *sock, const char *tty, const char *term)
@@ -256,9 +346,14 @@ vwm_attach_run(const char *sock, const char *tty, const char *term)
         }
     }
 
+    /* mouse reports the terminal sent while the session was leaving it
+       must not reach the shell */
+    if(have_saved) attach_drain_input(tty_fd, &saved);
+
     /* vwm restores the modes itself when it leaves in good order; doing
-       it again costs nothing and covers the times it could not */
-    if(have_saved) tcsetattr(tty_fd, TCSANOW, &saved);
+       it again costs nothing and covers the times it could not.
+       Anything still unread is dropped with it. */
+    if(have_saved) tcsetattr(tty_fd, TCSAFLUSH, &saved);
     if(tty_fd >= 0) close(tty_fd);
 
     /* the commands as they have to be typed for this session */
