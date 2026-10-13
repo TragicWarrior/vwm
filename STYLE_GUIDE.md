@@ -341,23 +341,20 @@ vk_label_set_text(label, msg);
 vk_widget_set_colors(VK_WIDGET(label), fg, bg);
 ```
 
-## VDK Resize Bug Workaround
+## Popup Clients
 
-`_vk_widget_resize` has an off-by-one that drops the rightmost column
-on expanded widgets. After `vk_popup_set_client`, clear the expand
-flag on the client:
-
-```c
-uint32_t st = vk_widget_get_state(VK_WIDGET(client));
-vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
-```
+`vk_popup_set_client` marks the client as expanding, and the popup
+sizes it to the space above the buttons.  Leave it that way.  (Older
+code cleared the expand flag on the client to dodge a resize bug that
+dropped the widget's last column; since libviper 11 a widget repaints
+itself after a resize, and the bug itself is fixed in 11.1.1.)
 
 ## Widget Recreation After Resize
 
-`vk_widget_recreate` blanks all canvases. After calling it, every
-child widget (labels, buttons, dropdowns) must be explicitly updated
-to restore content and colors. Call `refresh_dialog()` after
-recreation.
+`vk_widget_recreate` gives a widget a fresh canvas and, since libviper
+11, repaints it: nothing has to be redrawn by hand afterwards.  A
+dialog that rebuilds itself on a terminal resize ends with its usual
+`refresh_dialog()`.
 
 ## Managed vs. Unmanaged Windows
 

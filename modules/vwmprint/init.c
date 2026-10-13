@@ -399,11 +399,6 @@ build_printers(print_session_t *s)
 
     vk_popup_set_client(popup, VK_WIDGET(client));
 
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
-        vk_widget_set_state(VK_WIDGET(client), st & ~VK_STATE_EXPAND);
-    }
-
     vk_object_set_kmio(VK_OBJECT(popup), session_kmio);
     vk_object_register_event(VK_OBJECT(popup), VWM_EVENT_ON_CLOSE,
         print_on_close, NULL);

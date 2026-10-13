@@ -1971,12 +1971,6 @@ save_confirm_popup_show(void)
 
     vk_popup_set_client(save_confirm_popup, VK_WIDGET(client));
 
-    {
-        uint32_t st = vk_widget_get_state(VK_WIDGET(client));
-        vk_widget_set_state(VK_WIDGET(client),
-            st & ~VK_STATE_EXPAND);
-    }
-
     vk_object_set_kmio(VK_OBJECT(save_confirm_popup),
         save_confirm_popup_kmio);
 
