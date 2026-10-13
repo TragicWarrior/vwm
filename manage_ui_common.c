@@ -113,8 +113,6 @@ vwm_warning_popup_show(void)
         if(bar != NULL)
         {
             vk_widget_set_colors(VK_WIDGET(bar), COLOR_RED, COLOR_WHITE);
-            vk_widget_fill(VK_WIDGET(bar),
-                ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
         }
     }
 
@@ -168,8 +166,6 @@ vwm_warning_popup_show(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(popup));
 
-    vk_widget_fill(VK_WIDGET(client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
     vk_popup_redraw(popup);
     vk_screen_refresh(vwm->screen);
 
@@ -203,8 +199,6 @@ vwm_saved_popup_show(const char *msg)
         if(bar != NULL)
         {
             vk_widget_set_colors(VK_WIDGET(bar), COLOR_WHITE, COLOR_BLUE);
-            vk_widget_fill(VK_WIDGET(bar),
-                ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
         }
     }
 
@@ -258,8 +252,6 @@ vwm_saved_popup_show(const char *msg)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(popup));
 
-    vk_widget_fill(VK_WIDGET(client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
     vk_popup_redraw(popup);
     vk_screen_refresh(vwm->screen);
 
@@ -291,8 +283,6 @@ vwm_confirm_popup_show(void)
         if(bar != NULL)
         {
             vk_widget_set_colors(VK_WIDGET(bar), COLOR_RED, COLOR_WHITE);
-            vk_widget_fill(VK_WIDGET(bar),
-                ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
         }
     }
 
@@ -357,8 +347,6 @@ vwm_confirm_popup_show(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(popup));
 
-    vk_widget_fill(VK_WIDGET(client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
     vk_popup_redraw(popup);
     vk_screen_refresh(vwm->screen);
 
@@ -500,8 +488,6 @@ vwm_error_popup_show(const char *msg, int popup_w, int popup_h)
         if(bar != NULL)
         {
             vk_widget_set_colors(VK_WIDGET(bar), COLOR_RED, COLOR_WHITE);
-            vk_widget_fill(VK_WIDGET(bar),
-                ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
         }
     }
 
@@ -556,8 +542,6 @@ vwm_error_popup_show(const char *msg, int popup_w, int popup_h)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(popup));
 
-    vk_widget_fill(VK_WIDGET(client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
     vk_popup_redraw(popup);
     vk_screen_refresh(vwm->screen);
 

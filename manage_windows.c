@@ -579,8 +579,6 @@ warning_popup_open(void)
     if(button_bar != NULL)
     {
         vk_widget_set_colors(VK_WIDGET(button_bar), COLOR_RED, COLOR_WHITE);
-        vk_widget_fill(VK_WIDGET(button_bar),
-            ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
     }
 
     warning_client = vk_box_create(pw - 2, ph - 5, VK_BOX_VERTICAL, 4);
@@ -636,8 +634,6 @@ warning_popup_open(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(warning_popup));
 
-    vk_widget_fill(VK_WIDGET(warning_client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
     warning_update_buttons();
     vk_popup_redraw(warning_popup);
     vk_screen_refresh(vwm->screen);
@@ -912,8 +908,6 @@ move_popup_open(void)
     if(button_bar != NULL)
     {
         vk_widget_set_colors(VK_WIDGET(button_bar), COLOR_WHITE, COLOR_BLUE);
-        vk_widget_fill(VK_WIDGET(button_bar),
-            ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
     }
 
     move_client = vk_box_create(pw - 2, lb_height, VK_BOX_VERTICAL, 1);
@@ -955,8 +949,6 @@ move_popup_open(void)
         vk_screen_get_active_surface(vwm->screen),
         VK_WIDGET(move_popup));
 
-    vk_widget_fill(VK_WIDGET(move_client),
-        ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
     move_update_focus();
 }
 
