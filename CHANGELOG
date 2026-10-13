@@ -1,3 +1,23 @@
+Version 9.3.3
+
+*  [Bryan Christ] A mouse report no longer lands in the shell when vwm
+   leaves a terminal.
+
+   Moving the mouse as vwm exited (or detached, or moved to another
+   terminal) could leave text such as "35;17;18M" on the shell's
+   command line.  vwm tells the terminal to stop reporting the mouse
+   as it leaves, but a terminal acts on that when it gets to it: a
+   report for a pointer that moved in the meantime arrived after
+   nobody was reading, and the shell took it for typing.
+
+   The foreground program now asks the terminal for a status report
+   (ESC [ 5 n) before handing it back, and discards everything that
+   arrives up to and including the answer.  The answer comes only
+   after the terminal has acted on the request to stop, so nothing
+   after it can be a mouse report.  A terminal that does not answer is
+   waited on for 400 ms, once, at exit.  The terminal's modes are then
+   restored with whatever is still unread dropped.
+
 Version 9.3.2
 
 *  [Bryan Christ] A dialog repaints with one redraw.
