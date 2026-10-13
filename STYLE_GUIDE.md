@@ -325,24 +325,47 @@ That was needed before 11.1.0, innermost first; now it only paints them
 twice.  A redraw does not reach upward, so redrawing a widget inside a
 dialog on its own shows nothing until the dialog is redrawn.
 
-## Label Color Pattern
+## Colors From the Container
 
-`vk_label_set_text` writes the text into the label's canvas at the
-**current** color, which is whatever default a freshly-created
-`vk_label_t` came up with — usually black on black against a popup's
-red/white theme.  Calling `vk_widget_set_colors` afterwards updates
-the widget's stored colors but does **not** repaint what's already in
-the canvas.
-
-The label is repainted in its new colors when the window or popup
-holding it is redrawn (see *Redrawing*); no `vk_label_redraw` is needed:
+Since libviper 11.2.0 a widget attached with `VK_INHERIT_AUTO` takes
+the colors of the box, frame or window it is put in, and keeps taking
+them if they change.  Color the container; leave what sits in it alone:
 
 ```c
-label = vk_label_create(width);
-vk_label_set_justify(label, VK_JUSTIFY_CENTER);   /* if applicable */
+client = vk_box_create(w, h, VK_BOX_VERTICAL, 3);
+vk_widget_set_colors(VK_WIDGET(client), COLOR_RED, COLOR_WHITE);
+
+label = vk_label_create(w);
 vk_label_set_text(label, msg);
-vk_widget_set_colors(VK_WIDGET(label), fg, bg);
+vk_box_set_widget(client, 1, VK_WIDGET(label), VK_INHERIT_AUTO);
 ```
+
+- Use `VK_INHERIT_AUTO` for anything meant to look like its container:
+  pads, fillers, plain labels, a box inside a box.
+- Give a widget colors only when it differs from its container, or
+  when its colors change (a button or input that shows focus).
+  `vk_widget_set_colors` always wins over the container.
+- `VK_INHERIT_NONE` leaves the widget as it is.  A widget with no
+  colors of its own, attached that way, is black on white.
+- The order things are built and attached in does not matter.
+
+## Widget Properties
+
+Turn a widget's on / off properties on and off by name, not by masking
+its state word:
+
+```c
+vk_widget_set_noresize(VK_WIDGET(dialog_window));
+vk_widget_clear_expand(VK_WIDGET(pad));
+
+if(vk_widget_is_visible(w)) ...
+```
+
+The names are `vk_widget_show` / `_hide` / `_is_visible`,
+`_freeze` / `_thaw` / `_is_frozen`, `_set_expand` / `_clear_expand` /
+`_is_expand` and `_set_noresize` / `_clear_noresize` / `_is_noresize`;
+`vk_widget_set_prop(w, VK_PROP_..., on)` is the call beneath them.  Do
+not call `vk_widget_set_state`: it writes every property at once.
 
 ## Popup Clients
 

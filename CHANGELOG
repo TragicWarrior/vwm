@@ -1,3 +1,21 @@
+Version 9.3.6
+
+*  [Bryan Christ] Dialog contents take their container's colors, and
+   widget properties are set by name.
+
+   libviper 11.2.0 has a widget follow its container's colors when it
+   is attached with VK_INHERIT_AUTO.  35 widgets that were colored by
+   hand to match the box around them no longer are: the pads and text
+   lines of the popups, the button rows and their spacers in the four
+   Manage dialogs, and parts of the screenshot and print dialogs.
+
+   The 20 places that read or masked a widget's state word by hand now
+   use libviper's names: vk_widget_set_noresize(), vk_widget_set_expand(),
+   vk_widget_is_visible(), vk_widget_is_noresize().
+
+   Needs libviper 11.2.0.  STYLE_GUIDE.md describes both.  What is on
+   screen is unchanged.
+
 Version 9.3.5
 
 *  [Bryan Christ] Popups no longer fill their own background by hand.

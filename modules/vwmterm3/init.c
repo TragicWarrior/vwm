@@ -318,16 +318,14 @@ vwmterm_main(vwm_module_t *mod)
         vk_window_set_border_style(window, VK_BORDER_SINGLE);
 
         content = vk_widget_create(width + 1, height);
-        vk_widget_set_state(content,
-            vk_widget_get_state(content) | VK_STATE_EXPAND);
+        vk_widget_set_expand(content);
     }
     else
     {
         window = vk_window_create(width, height);
         vk_window_set_border_style(window, VK_BORDER_NONE);
 
-        uint32_t state = vk_widget_get_state(VK_WIDGET(window));
-        vk_widget_set_state(VK_WIDGET(window), state | VK_STATE_NORESIZE);
+        vk_widget_set_noresize(VK_WIDGET(window));
 
         content = vk_widget_create(width, height);
     }

@@ -700,7 +700,7 @@ create_windows_dropdown(vwm_t *vwm)
         w = vk_deck_get_widget(vwm->deck, i);
         if(w == NULL) continue;
 
-        if(vk_widget_get_state(w) & VK_STATE_VISIBLE)
+        if(vk_widget_is_visible(w))
             mark = " ";
         else
             mark = vwm_has_utf8() ? "\xe2\x86\x93" : "v";   /* U+2193 down arrow */

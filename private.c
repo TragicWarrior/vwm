@@ -75,7 +75,6 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
     char        buf[32];
     int         len;
     int         y, x;
-    uint32_t    state;
     short       pair;
     attr_t      extra;
     cchar_t     cc;
@@ -168,8 +167,7 @@ vwm_window_decorate(vk_window_t *window, WINDOW *canvas, void *anything)
     len = strlen(buf);
     mvwprintw(canvas, y - 1, (x / 2) - (len / 2), "%s", buf);
 
-    state = vk_widget_get_state(VK_WIDGET(window));
-    if(!(state & VK_STATE_NORESIZE))
+    if(!vk_widget_is_noresize(VK_WIDGET(window)))
         mvwaddch(canvas, y - 1, x - 1, '*');
 
     wattroff(canvas, COLOR_PAIR(pair) | extra);
