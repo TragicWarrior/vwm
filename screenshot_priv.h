@@ -10,11 +10,6 @@
 
 #include "screenshot.h"
 
-/* the portable cell a screenshot is drawn from arrived in libviper 10.1 */
-#ifndef VDK_CELL_BOLD
-#error "vwm needs libviper 10.1.0 or newer (vdk_cells_read_row)"
-#endif
-
 /* a screenshot is drawn from libviper's portable cells (vdk_cell_t): the
    same description of a canvas that anything else showing it would use */
 typedef struct
