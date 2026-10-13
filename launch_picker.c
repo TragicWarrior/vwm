@@ -101,7 +101,6 @@ launch_picker_redraw(void)
 
     if(picker == NULL) return;
 
-    vk_filedialog_redraw(picker_fd);
     vk_popup_redraw(picker);
     vk_screen_refresh(vwm->screen);
 }

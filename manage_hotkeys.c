@@ -329,7 +329,6 @@ rebuild_listbox(void)
         lb_idx++;
     }
 
-    vk_listbox_redraw(hotkey_listbox);
 }
 
 /* ── highlight updates ─────────────────────────────────────── */
@@ -361,7 +360,6 @@ update_button_highlights(void)
             vk_widget_set_attrs(VK_WIDGET(buttons[i]), A_BOLD);
         }
 
-        vk_button_redraw(buttons[i]);
     }
 
     if(model->focus_zone == FOCUS_HOTKEY_LIST)
@@ -377,9 +375,7 @@ update_button_highlights(void)
 
     vk_listbox_set_focused(hotkey_listbox,
         model->focus_zone == FOCUS_HOTKEY_LIST);
-    vk_listbox_redraw(hotkey_listbox);
 
-    vk_frame_redraw(listbox_frame);
 }
 
 /* ── error popup ───────────────────────────────────────────── */
@@ -610,7 +606,6 @@ confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
                 vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
             }
 
-            vk_button_redraw(btn);
         }
 
         vk_popup_redraw(confirm_popup);
@@ -707,7 +702,6 @@ hk_load_popup_ok(void)
     rebuild_listbox();
 
     vk_listbox_set_curr(hotkey_listbox, entry_to_lb[0]);
-    vk_listbox_redraw(hotkey_listbox);
 
     refresh_dialog();
 }
@@ -757,7 +751,6 @@ hk_load_popup_kmio(vk_object_t *object, int32_t keystroke)
 
     /* HL_FILEDIALOG: forward to the dialog (existing behavior) */
     vk_object_push_keystroke(VK_OBJECT(load_filedialog), keystroke);
-    vk_filedialog_redraw(load_filedialog);
 
     if(keystroke == KEY_CRLF)
     {
@@ -785,7 +778,6 @@ refresh_load_popup(void)
 
     if(load_popup == NULL) return;
 
-    vk_filedialog_redraw(load_filedialog);
     vk_popup_redraw(load_popup);
 
     vwm = vwm_get_instance();
@@ -831,7 +823,6 @@ on_reset(void)
 
     rebuild_listbox();
     vk_listbox_set_curr(hotkey_listbox, entry_to_lb[model->selected]);
-    vk_listbox_redraw(hotkey_listbox);
     refresh_dialog();
 }
 
@@ -888,7 +879,6 @@ hotkey_list_step(int dir)
         vk_listbox_set_prev(hotkey_listbox);
     else
         vk_listbox_set_next(hotkey_listbox);
-    vk_listbox_redraw(hotkey_listbox);
 
     /* a separator row maps to no hotkey: keep the old selection */
     entry = lb_index_to_entry(vk_listbox_get_curr(hotkey_listbox));
@@ -971,7 +961,6 @@ manage_hotkeys_kmio(vk_object_t *object, int32_t keystroke)
         rebuild_listbox();
         vk_listbox_set_curr(hotkey_listbox,
             entry_to_lb[model->selected]);
-        vk_listbox_redraw(hotkey_listbox);
 
         vwm_panel_set_status(MANAGE_HOTKEYS_HELP);
         refresh_dialog();
@@ -1035,11 +1024,6 @@ refresh_dialog(void)
     if(dialog_window == NULL) return;
 
     update_button_highlights();
-    vk_listbox_redraw(hotkey_listbox);
-    vk_scroller_redraw(listbox_scroller);
-    vk_frame_redraw(listbox_frame);
-    vk_box_redraw(button_hbox);
-    vk_box_redraw(main_vbox);
     vk_window_redraw(dialog_window);
 
     vwm = vwm_get_instance();
@@ -1148,7 +1132,6 @@ build_dialog(void)
 
     model->selected = 0;
     vk_listbox_set_curr(hotkey_listbox, entry_to_lb[0]);
-    vk_listbox_redraw(hotkey_listbox);
 
     update_button_highlights();
 
@@ -1396,7 +1379,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         if(ly < input_h)
         {
             vk_object_push_keystroke(VK_OBJECT(load_filedialog), '/');
-            vk_filedialog_redraw(load_filedialog);
             refresh_load_popup();
             return 0;
         }
@@ -1435,8 +1417,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
                     vk_listbox_set_prev(file_list);
                 else
                     vk_listbox_set_next(file_list);
-                vk_listbox_redraw(file_list);
-                vk_filedialog_redraw(load_filedialog);
                 refresh_load_popup();
                 return 0;
             }
@@ -1471,8 +1451,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
                     load_last_click_item = clicked;
 
                     vk_listbox_set_curr(file_list, clicked);
-                    vk_listbox_redraw(file_list);
-                    vk_filedialog_redraw(load_filedialog);
                     refresh_load_popup();
 
                     if(is_dblclick)
@@ -1481,7 +1459,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
                            directory or accepts a regular file */
                         vk_object_push_keystroke(
                             VK_OBJECT(load_filedialog), KEY_CRLF);
-                        vk_filedialog_redraw(load_filedialog);
 
                         const char *sel =
                             vk_filedialog_get_selected(load_filedialog);
@@ -1583,7 +1560,6 @@ vwm_manage_hotkeys_mouse(MEVENT *mouse_event)
         list_last_click_item = entry;
 
         vk_listbox_set_curr(hotkey_listbox, clicked_lb);
-        vk_listbox_redraw(hotkey_listbox);
         model->selected = entry;
 
         refresh_dialog();

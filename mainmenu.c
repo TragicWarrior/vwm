@@ -108,7 +108,6 @@ vwm_dropdown_kmio(vk_object_t *object, int32_t keystroke)
             return -1;
     }
 
-    vk_listbox_redraw(listbox);
 
     return 0;
 }
@@ -205,7 +204,6 @@ menu_window_create(vwm_t *vwm, vk_listbox_t *listbox, const char *title,
     int             max_height = 0;
     bool            over;
 
-    vk_listbox_redraw(listbox);
     over = menu_list_fit(vwm, listbox, title, &max_width, &max_height);
     if(clipped != NULL) *clipped = over;
 
@@ -371,7 +369,6 @@ apps_submenu_focus(vwm_t *vwm, bool focus)
         vk_listbox_t *top = VK_LISTBOX(vk_window_get_child(vwm->menu));
 
         vk_listbox_set_focused(top, !focus);
-        vk_listbox_redraw(top);
         vk_window_redraw(vwm->menu);
     }
 
@@ -379,7 +376,6 @@ apps_submenu_focus(vwm_t *vwm, bool focus)
 
     sub = VK_LISTBOX(vk_window_get_child(g_sub));
     vk_listbox_set_focused(sub, focus);
-    vk_listbox_redraw(sub);
     vk_window_redraw(g_sub);
 }
 
@@ -413,7 +409,6 @@ vwm_menubar_refit_dropdown(void)
     vk_widget_resize(VK_WIDGET(listbox), width, height);
     vk_widget_resize(VK_WIDGET(menu), width + 2, height + 2);
 
-    vk_listbox_redraw(listbox);
     vk_window_redraw(menu);
 }
 
@@ -750,7 +745,6 @@ open_dropdown(vwm_t *vwm, int idx)
     vk_screen_attach_widget(vwm->screen,
         vk_screen_get_active_surface(vwm->screen), VK_WIDGET(window));
 
-    vk_listbox_redraw(VK_LISTBOX(vk_window_get_child(window)));
     vk_window_redraw(window);
 
     vwm->menu = window;
@@ -802,7 +796,6 @@ apps_submenu_mouse(vwm_t *vwm, MEVENT *mouse_event)
         if(scr != NULL &&
            vk_scroller_nudge(scr, (bs & BUTTON4_PRESSED) ? -1 : 1, 0) == 0)
         {
-            vk_listbox_redraw(listbox);
             vk_window_redraw(g_sub);
         }
         return 0;
@@ -919,7 +912,6 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
             int dy = (bs & BUTTON4_PRESSED) ? -1 : 1;
             if(vk_scroller_nudge(scr, dy, 0) == 0)
             {
-                vk_listbox_redraw(listbox);
                 vk_window_redraw(menu);
             }
             return 0;
@@ -932,7 +924,6 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
         else                        /* scroll down */
             pos++;
         vk_listbox_set_scroll_pos(listbox, pos);
-        vk_listbox_redraw(listbox);
         vk_window_redraw(menu);
         return 0;
     }
@@ -951,7 +942,6 @@ vwm_dropdown_mouse(MEVENT *mouse_event)
                 apps_submenu_sync(vwm);
                 apps_submenu_focus(vwm, false);
             }
-            vk_listbox_redraw(listbox);
             vk_window_redraw(menu);
         }
         return 0;
@@ -983,7 +973,6 @@ vwm_menubar_init(void)
 
     vwm_menubar_fit("(0) Windows");
 
-    vk_menubar_redraw(vwm->menubar);
 
     {
         VWM_PANEL *panel = vwm_panel_get_data();

@@ -88,8 +88,10 @@ Inside the tool's focus-update function (`update_dropdown_highlights`,
 
 ```c
 vk_listbox_set_focused(lb, model->focus_zone == FOCUS_LIST);
-vk_listbox_redraw(lb);
 ```
+
+The dialog's refresh function redraws the window, which repaints the
+list with it (see *Redrawing*).
 
 The default at creation is focused (BLACK/RED), so legacy code that
 never calls `set_focused` is unaffected.  When `set_unfocused` is
@@ -122,12 +124,11 @@ discard-confirmation prompts. Red theme signals caution.
 | Button (active)      | YELLOW     | WHITE      | A_BOLD   |
 | Button (inactive)    | BLACK      | WHITE      | A_BOLD   |
 
-Fill the client area before updating:
+Fill the client area before the popup is redrawn:
 
 ```c
 vk_widget_fill(VK_WIDGET(client),
     ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
-vk_box_redraw(client);
 ```
 
 ## Input / Info Popups
@@ -148,12 +149,11 @@ neutral interaction.
 | File dialog text     | WHITE      | BLUE       |        |
 | File dialog highlight| WHITE      | RED        |        |
 
-Fill the client area before updating:
+Fill the client area before the popup is redrawn:
 
 ```c
 vk_widget_fill(VK_WIDGET(client),
     ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
-vk_box_redraw(client);
 ```
 
 ## File Dialogs (Load / Save)
@@ -270,7 +270,6 @@ vk_button_release(VK_BUTTON(ok));
 vk_widget_set_colors(ok,
     focus == OK ? COLOR_YELLOW : COLOR_WHITE, COLOR_BLUE);
 vk_widget_set_attrs(ok, A_BOLD);
-vk_button_redraw(VK_BUTTON(ok));
 ```
 
 When the mouse interacts with the list or path, reset focus back to the
@@ -278,15 +277,10 @@ browser so a subsequent Tab stays consistent.
 
 ### Rendering
 
-The filedialog is a nested box, so it must be re-rendered on its own
-*before* the enclosing box/popup blits it (see *Client Area Pattern*).
-After any change — navigation, selection, or focus — call
-`vk_filedialog_redraw(fd)` first, or the dialog stays stale/blank and
-clicks appear to do nothing:
+After any change — navigation, selection, or focus — redraw the popup
+or window that holds the filedialog (see *Redrawing*):
 
 ```c
-vk_filedialog_redraw(fd);     /* re-render the nested filedialog */
-vk_box_redraw(client);        /* parent only copies fd's composer */
 vk_popup_redraw(popup);       /* (or vk_window_redraw) */
 vk_screen_refresh(vwm->screen);
 ```
@@ -302,16 +296,31 @@ vk_screen_refresh(vwm->screen);
 
 ## Client Area Pattern
 
-VDK popup client areas require explicit fill and box update before
-`vk_popup_redraw`, otherwise the background renders black. Always
-follow this sequence:
+Fill a popup's client area before the popup is first redrawn:
 
 ```c
 vk_widget_fill(VK_WIDGET(client), ' ' | COLOR_PAIR(...));
-vk_box_redraw(client);
 vk_popup_redraw(popup);
 vk_screen_refresh(vwm->screen);
 ```
+
+## Redrawing
+
+Since libviper 11.1.0, redrawing a window or popup repaints everything
+it holds, to any depth.  A dialog redraws one thing: its outermost
+window or popup.
+
+```c
+vk_label_set_text(label, msg);        /* change whatever needs changing */
+vk_listbox_set_curr(lb, row);
+vk_window_redraw(dialog_window);      /* one redraw shows all of it */
+vk_screen_refresh(vwm->screen);
+```
+
+Do not redraw the labels, buttons, lists and boxes inside it by hand.
+That was needed before 11.1.0, innermost first; now it only paints them
+twice.  A redraw does not reach upward, so redrawing a widget inside a
+dialog on its own shows nothing until the dialog is redrawn.
 
 ## Label Color Pattern
 
@@ -322,20 +331,15 @@ red/white theme.  Calling `vk_widget_set_colors` afterwards updates
 the widget's stored colors but does **not** repaint what's already in
 the canvas.
 
-Always finish a label setup with `vk_label_redraw`:
+The label is repainted in its new colors when the window or popup
+holding it is redrawn (see *Redrawing*); no `vk_label_redraw` is needed:
 
 ```c
 label = vk_label_create(width);
 vk_label_set_justify(label, VK_JUSTIFY_CENTER);   /* if applicable */
 vk_label_set_text(label, msg);
 vk_widget_set_colors(VK_WIDGET(label), fg, bg);
-vk_label_redraw(label);                           /* required */
 ```
-
-Symptom when this is forgotten: label text renders as the default
-(typically invisible, e.g. black on black inside a red Warning popup).
-Surrounding fills and box/popup updates won't fix it — only
-`vk_label_redraw` repaints the label's own canvas with the new colors.
 
 ## VDK Resize Bug Workaround
 

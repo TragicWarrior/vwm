@@ -143,24 +143,13 @@ refresh_session(print_session_t *s)
 
     if(s == NULL) return;
 
-    /*
-        nested children only get blitted by the parent update; re-render
-        them into their composers first or interactions won't show.
-    */
+    /* redrawing the popup or the window repaints everything it holds */
     if(s->printer_popup != NULL)
     {
-        if(s->printer_list != NULL) vk_listbox_redraw(s->printer_list);
-        if(s->printer_frame != NULL) vk_frame_redraw(s->printer_frame);
-        if(s->client_box != NULL) vk_box_redraw(s->client_box);
         vk_popup_redraw(s->printer_popup);
         vk_screen_refresh(vwm->screen);
         return;
     }
-
-    if(s->state == ST_PICK && s->fd != NULL)
-        vk_filedialog_redraw(s->fd);
-    else if(s->client_box != NULL)
-        vk_box_redraw(s->client_box);
 
     if(s->window != NULL)
         vk_window_redraw(s->window);
@@ -230,7 +219,6 @@ build_pick(print_session_t *s)
     s->printer_list = NULL;
     s->client_box = NULL;
 
-    vk_filedialog_redraw(fd);
 
     return win;
 }
@@ -265,7 +253,6 @@ update_pick_focus(print_session_t *s)
             (s->pick_focus == PK_OKAY) ? COLOR_YELLOW : COLOR_WHITE,
             COLOR_BLUE);
         vk_widget_set_attrs(ok, A_BOLD);
-        vk_button_redraw(VK_BUTTON(ok));
     }
 
     if(cancel != NULL)
@@ -275,7 +262,6 @@ update_pick_focus(print_session_t *s)
             (s->pick_focus == PK_CANCEL) ? COLOR_YELLOW : COLOR_WHITE,
             COLOR_BLUE);
         vk_widget_set_attrs(cancel, A_BOLD);
-        vk_button_redraw(VK_BUTTON(cancel));
     }
 
     /* toggle the listbox highlight to reflect focus state */
@@ -309,7 +295,6 @@ update_printer_focus(print_session_t *s)
         vk_widget_set_colors(VK_WIDGET(btn),
             focused ? COLOR_YELLOW : COLOR_BLACK, COLOR_CYAN);
         vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-        vk_button_redraw(btn);
     }
 
     /* the list frame turns yellow when the list is the active tab stop */
@@ -319,14 +304,12 @@ update_printer_focus(print_session_t *s)
             (s->printer_focus == PR_LIST) ? COLOR_YELLOW : COLOR_WHITE,
             COLOR_CYAN);
         vk_frame_set_border_attrs(s->printer_frame, A_BOLD);
-        vk_frame_redraw(s->printer_frame);
     }
 
     if(s->printer_list != NULL)
     {
         vk_listbox_set_focused(s->printer_list,
             s->printer_focus == PR_LIST);
-        vk_listbox_redraw(s->printer_list);
     }
 }
 
@@ -436,9 +419,6 @@ build_printers(print_session_t *s)
 
     vk_widget_fill(VK_WIDGET(client),
         ' ' | COLOR_PAIR(vdk_color_pair(COLOR_BLACK, COLOR_CYAN)));
-    vk_listbox_redraw(lb);
-    vk_frame_redraw(frame);
-    vk_box_redraw(client);
     vk_popup_redraw(popup);
 
     return VK_WINDOW(popup);
@@ -474,13 +454,11 @@ build_result(const char *msg)
     line = vk_label_create(W - 2);
     vk_label_set_text(line, msg);
     vk_widget_set_colors(VK_WIDGET(line), COLOR_BLACK, COLOR_CYAN);
-    vk_label_redraw(line);
     vk_box_set_widget(box, 0, VK_WIDGET(line), VK_INHERIT_NONE);
 
     foot = vk_label_create(W - 2);
     vk_label_set_text(foot, " Press any key to close.");
     vk_widget_set_colors(VK_WIDGET(foot), COLOR_BLACK, COLOR_CYAN);
-    vk_label_redraw(foot);
     vk_box_set_widget(box, 2, VK_WIDGET(foot), VK_INHERIT_NONE);
 
     vk_window_set_child(win, VK_WIDGET(box), VK_INHERIT_NONE);
@@ -492,7 +470,6 @@ build_result(const char *msg)
     s_session->printer_frame = NULL;
     s_session->printer_list = NULL;
 
-    vk_box_redraw(box);
 
     return win;
 }

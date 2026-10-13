@@ -1,3 +1,18 @@
+Version 9.3.2
+
+*  [Bryan Christ] A dialog repaints with one redraw.
+
+   libviper 11.1.0 has a window or popup repaint everything it holds.
+   vwm no longer redraws each label, button, list and box of a dialog
+   by hand, innermost first, before the window around them: 253 of its
+   333 redraw calls are gone, from the Settings, Hotkeys, Apps and
+   Desktop dialogs, the screenshot and print dialogs, the shared
+   popups, the menus, the calendar and the panel.  What is on screen
+   is unchanged.
+
+   Needs libviper 11.1.0.  STYLE_GUIDE.md describes the one-redraw
+   rule and drops the old innermost-first instructions.
+
 Version 9.3.1
 
 *  [Bryan Christ] Uses libviper 11's names.

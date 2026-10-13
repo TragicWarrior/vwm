@@ -122,13 +122,7 @@ refresh_session(scrshot_session_t *s)
         return;
     }
 
-    /*
-        the filedialog is a nested box; vk_box_redraw() on the client only
-        blits its composer, so it must be re-rendered first or interactions
-        (selection, navigation) won't show.
-    */
-    if(s->fd != NULL) vk_filedialog_redraw(s->fd);
-    if(s->client_box != NULL) vk_box_redraw(s->client_box);
+    /* redrawing the window repaints everything it holds */
     if(s->window != NULL) vk_window_redraw(s->window);
 
     vk_screen_refresh(vwm->screen);
@@ -234,7 +228,6 @@ build_prompt(scrshot_session_t *s)
     vk_label_set_justify(line, VK_JUSTIFY_CENTER);
     vk_label_set_text(line, "What do you want to capture?");
     vk_widget_set_colors(VK_WIDGET(line), COLOR_BLACK, COLOR_CYAN);
-    vk_label_redraw(line);
     vk_box_set_widget(client, 1, VK_WIDGET(line), VK_INHERIT_NONE);
 
     pad_bot = vk_filler_create();
@@ -258,16 +251,10 @@ build_prompt(scrshot_session_t *s)
 
     update_prompt_focus(s);
 
-    /*
-        vk_popup_redraw() only re-draws the layout box by copying each
-        child's composer; it does NOT recurse into the nested client box.
-        So the client must be filled and updated itself first, otherwise
-        its composer is the uninitialized (black) canvas and the label
-        renders black-on-black.
-    */
+    /* the client's own background, under what the popup's redraw puts
+       on it */
     vk_widget_fill(VK_WIDGET(client),
         ' ' | COLOR_PAIR(vdk_color_pair(COLOR_BLACK, COLOR_CYAN)));
-    vk_box_redraw(client);
 
     vk_popup_redraw(popup);
 
@@ -292,7 +279,6 @@ update_prompt_focus(scrshot_session_t *s)
         vk_widget_set_colors(VK_WIDGET(btn),
             (i == s->prompt_btn) ? COLOR_YELLOW : COLOR_BLACK, COLOR_CYAN);
         vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-        vk_button_redraw(btn);
     }
 }
 
@@ -329,7 +315,6 @@ update_save_focus(scrshot_session_t *s)
         vk_input_show_cursor(s->fname, false);
     }
 
-    vk_input_redraw(s->fname);
 
     /*
         the OK/Cancel buttons live in the filedialog's button bar (slot 2);
@@ -350,7 +335,6 @@ update_save_focus(scrshot_session_t *s)
             (s->save_focus == SF_OK) ? COLOR_YELLOW : COLOR_WHITE,
             COLOR_BLUE);
         vk_widget_set_attrs(ok, A_BOLD);
-        vk_button_redraw(VK_BUTTON(ok));
     }
 
     if(cancel != NULL)
@@ -360,7 +344,6 @@ update_save_focus(scrshot_session_t *s)
             (s->save_focus == SF_CANCEL) ? COLOR_YELLOW : COLOR_WHITE,
             COLOR_BLUE);
         vk_widget_set_attrs(cancel, A_BOLD);
-        vk_button_redraw(VK_BUTTON(cancel));
     }
 
     /* toggle the listbox highlight to reflect focus state */
@@ -408,7 +391,6 @@ build_save(scrshot_session_t *s)
     localtime_r(&now, &tmv);
     strftime(defname, sizeof(defname), "vwm-%Y%m%d-%H%M%S.png", &tmv);
     vk_input_set_text(fname, defname);
-    vk_input_redraw(fname);
     vk_box_set_widget(box, 0, VK_WIDGET(fname), VK_INHERIT_NONE);
 
     fd = vk_filedialog_create(W - 2, fd_h, VK_BORDER_SINGLE, false);
@@ -434,8 +416,6 @@ build_save(scrshot_session_t *s)
 
     update_save_focus(s);
 
-    vk_filedialog_redraw(fd);
-    vk_box_redraw(box);
 
     return win;
 }
@@ -470,13 +450,11 @@ build_result(const char *msg)
     line = vk_label_create(W - 2);
     vk_label_set_text(line, msg);
     vk_widget_set_colors(VK_WIDGET(line), COLOR_BLACK, COLOR_CYAN);
-    vk_label_redraw(line);
     vk_box_set_widget(box, 0, VK_WIDGET(line), VK_INHERIT_NONE);
 
     foot = vk_label_create(W - 2);
     vk_label_set_text(foot, " Press any key to close.");
     vk_widget_set_colors(VK_WIDGET(foot), COLOR_BLACK, COLOR_CYAN);
-    vk_label_redraw(foot);
     vk_box_set_widget(box, 2, VK_WIDGET(foot), VK_INHERIT_NONE);
 
     vk_window_set_child(win, VK_WIDGET(box), VK_INHERIT_NONE);
@@ -484,7 +462,6 @@ build_result(const char *msg)
 
     s_session->client_box = box;
 
-    vk_box_redraw(box);
 
     return win;
 }
@@ -974,7 +951,6 @@ session_kmio(vk_object_t *object, int32_t keystroke)
             break;
     }
 
-    vk_input_redraw(s->fname);
     refresh_session(s);
 
     return 0;
