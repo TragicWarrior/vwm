@@ -187,7 +187,6 @@ vwm_panel_init(vwm_t *vwm)
         vk_label_t *pad = vk_label_create(1);
         vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_CYAN);
         vk_label_set_text(pad, " ");
-        vk_label_redraw(pad);
         vk_box_set_widget(vwm_panel->box, 5, VK_WIDGET(pad), VK_INHERIT_NONE);
     }
 
@@ -213,7 +212,6 @@ vwm_panel_init(vwm_t *vwm)
             vk_label_t *pad = vk_label_create(1);
             vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_WHITE);
             vk_label_set_text(pad, " ");
-            vk_label_redraw(pad);
             vk_box_set_widget(vwm_panel->status_box, 0, VK_WIDGET(pad), VK_INHERIT_NONE);
         }
 
@@ -232,7 +230,6 @@ vwm_panel_init(vwm_t *vwm)
         vk_widget_set_colors(VK_WIDGET(vwm_panel->version_label),
             COLOR_BLACK, COLOR_CYAN);
         vk_label_set_text(vwm_panel->version_label, version_str);
-        vk_label_redraw(vwm_panel->version_label);
 
         vk_box_set_widget(vwm_panel->status_box, 1,
             VK_WIDGET(vwm_panel->status_marquee), VK_INHERIT_NONE);
@@ -495,7 +492,6 @@ vwm_panel_update_taskcount(VWM_PANEL *panel)
     snprintf(buf, sizeof(buf), " %2d ", n);
 
     vk_label_set_text(panel->task_label, buf);
-    vk_label_redraw(panel->task_label);
 }
 
 void
@@ -514,7 +510,6 @@ vwm_panel_update_clock(VWM_PANEL *panel)
         local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
 
     vk_label_set_text(panel->clock_label, buf);
-    vk_label_redraw(panel->clock_label);
 }
 
 void
@@ -571,7 +566,6 @@ vwm_calendar_kmio(vk_object_t *object, int32_t keystroke)
             return -1;
     }
 
-    vk_calendar_redraw(calendar);
 
     {
         vwm_t *vwm = vwm_get_instance();
@@ -640,7 +634,6 @@ vwm_calendar_toggle(void)
         vk_screen_attach_widget(vwm->screen,
             vk_screen_get_active_surface(vwm->screen), VK_WIDGET(window));
 
-        vk_calendar_redraw(calendar);
         vk_window_redraw(window);
 
         vwm->calendar_popup = window;

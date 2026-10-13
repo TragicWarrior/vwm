@@ -763,13 +763,11 @@ vwm_poll_input(void * const env)
                     if(bs & BUTTON4_PRESSED)
                     {
                         vk_calendar_prev_month(cal);
-                        vk_calendar_redraw(cal);
                         vk_window_redraw(vwm->calendar_popup);
                     }
                     else if(bs & BUTTON5_PRESSED)
                     {
                         vk_calendar_next_month(cal);
-                        vk_calendar_redraw(cal);
                         vk_window_redraw(vwm->calendar_popup);
                     }
                     else if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
@@ -777,13 +775,11 @@ vwm_poll_input(void * const env)
                         if(ry == 1 && rx == 1)
                         {
                             vk_calendar_prev_month(cal);
-                            vk_calendar_redraw(cal);
                             vk_window_redraw(vwm->calendar_popup);
                         }
                         else if(ry == 1 && rx == cal_w - 2)
                         {
                             vk_calendar_next_month(cal);
-                            vk_calendar_redraw(cal);
                             vk_window_redraw(vwm->calendar_popup);
                         }
                     }

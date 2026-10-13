@@ -347,7 +347,6 @@ update_button_highlights(void)
         vk_widget_set_colors(VK_WIDGET(buttons[i]),
             focused ? COLOR_YELLOW : COLOR_BLACK, COLOR_CYAN);
         vk_widget_set_attrs(VK_WIDGET(buttons[i]), A_BOLD);
-        vk_button_redraw(buttons[i]);
     }
 
     vk_listbox_set_focused(VK_LISTBOX(windows_selectbox),
@@ -365,11 +364,6 @@ refresh_dialog(void)
     if(dialog_window == NULL) return;
 
     update_button_highlights();
-    vk_selectbox_redraw(windows_selectbox);
-    vk_scroller_redraw(listbox_scroller);
-    vk_frame_redraw(listbox_frame);
-    vk_box_redraw(button_hbox);
-    vk_box_redraw(main_vbox);
     vk_window_redraw(dialog_window);
 
     vwm = vwm_get_instance();
@@ -557,7 +551,6 @@ warning_update_buttons(void)
             i == warning_active_btn ? COLOR_YELLOW : COLOR_BLACK,
             COLOR_WHITE);
         vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-        vk_button_redraw(btn);
     }
 }
 
@@ -614,14 +607,12 @@ warning_popup_open(void)
         }
         vk_widget_set_colors(VK_WIDGET(warning_label_1),
             COLOR_RED, COLOR_WHITE);
-        vk_label_redraw(warning_label_1);
 
         warning_label_2 = vk_label_create(pw - 4);
         vk_label_set_justify(warning_label_2, VK_JUSTIFY_CENTER);
         vk_label_set_text(warning_label_2, WARNING_LINE_2);
         vk_widget_set_colors(VK_WIDGET(warning_label_2),
             COLOR_RED, COLOR_WHITE);
-        vk_label_redraw(warning_label_2);
 
         vk_box_set_widget(warning_client, 0, VK_WIDGET(top_pad), VK_INHERIT_NONE);
         vk_box_set_widget(warning_client, 1, VK_WIDGET(warning_label_1), VK_INHERIT_NONE);
@@ -653,7 +644,6 @@ warning_popup_open(void)
 
     vk_widget_fill(VK_WIDGET(warning_client),
         ' ' | COLOR_PAIR(vdk_color_pair(COLOR_RED, COLOR_WHITE)));
-    vk_box_redraw(warning_client);
     warning_update_buttons();
     vk_popup_redraw(warning_popup);
     vk_screen_refresh(vwm->screen);
@@ -789,11 +779,8 @@ move_update_focus(void)
         vk_widget_set_colors(VK_WIDGET(btn),
             focused ? COLOR_YELLOW : COLOR_WHITE, COLOR_BLUE);
         vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-        vk_button_redraw(btn);
     }
 
-    vk_listbox_redraw(move_listbox);
-    vk_box_redraw(move_client);
     vk_popup_redraw(move_popup);
     vk_screen_refresh(vwm_get_instance()->screen);
 }
@@ -982,7 +969,6 @@ move_popup_open(void)
 
     vk_widget_fill(VK_WIDGET(move_client),
         ' ' | COLOR_PAIR(vdk_color_pair(COLOR_WHITE, COLOR_BLUE)));
-    vk_box_redraw(move_client);
     move_update_focus();
 }
 
