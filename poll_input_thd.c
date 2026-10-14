@@ -492,6 +492,14 @@ vwm_poll_input(void * const env)
            input while open; its kmio handles KEY_MOUSE itself */
         if(vwm->tool_window != NULL)
         {
+            /* the tool takes the event, but the console pointer vwm draws
+               still has to follow the mouse or it looks frozen */
+            if(keystroke == KEY_MOUSE)
+            {
+                vwm->cursor_x = mouse_event->x;
+                vwm->cursor_y = mouse_event->y;
+            }
+
             vk_object_push_keystroke(VK_OBJECT(vwm->tool_window), keystroke);
             vk_screen_refresh(vwm->screen);
             pt_yield(ctx_poll_input);

@@ -705,7 +705,11 @@ handle_mouse(MEVENT *me)
         rel = iy - fd_top;              /* row within the file dialog */
         if(rel < 0 || rel >= fd_h) return;
 
-        s->save_focus = SF_FILEDIALOG;
+        /* only a press moves the keyboard to the browser.  Mere pointer
+           movement must not: it would take the keys away from the file
+           name with nothing on screen to show it. */
+        if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+            s->save_focus = SF_FILEDIALOG;
 
         /* path-input strip at the top of the dialog */
         if(rel < 3)
@@ -772,6 +776,8 @@ handle_mouse(MEVENT *me)
             s->last_click_item = clicked;
 
             vk_listbox_set_curr(fl, clicked);
+            /* show that the keyboard now belongs to the list */
+            update_save_focus(s);
             refresh_session(s);
 
             if(dbl)
