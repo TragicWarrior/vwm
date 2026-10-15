@@ -638,7 +638,7 @@ confirm_popup_show(void)
 {
     if(confirm_popup != NULL) return;
 
-    confirm_popup = vwm_confirm_popup_show();
+    confirm_popup = vwm_confirm_popup_show("Discard changes and close?");
     vk_object_set_kmio(VK_OBJECT(confirm_popup), confirm_popup_kmio);
     confirm_active_btn = 0;
 }

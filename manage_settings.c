@@ -14,6 +14,7 @@
 #include "private.h"
 #include "profile.h"
 #include "settings.h"
+#include "programs.h"
 #include "panel.h"
 #include "modules.h"
 #include "mainmenu.h"
@@ -65,15 +66,17 @@ enum
     FOCUS_BTN_MODIFY,
     FOCUS_BTN_SAVE,
     FOCUS_BTN_LOAD,
+    FOCUS_BTN_RELOAD,
     FOCUS_BTN_CLOSE,
     FOCUS_MAX
 };
 
-#define NUM_BUTTONS     4
+#define NUM_BUTTONS     5
 #define BTN_MODIFY      0
 #define BTN_SAVE        1
 #define BTN_LOAD        2
-#define BTN_CLOSE       3
+#define BTN_RELOAD      3
+#define BTN_CLOSE       4
 
 static const struct
 {
@@ -1700,11 +1703,12 @@ update_button_highlights(void)
 {
     int focus_zones[] =
     {
-        FOCUS_BTN_MODIFY, FOCUS_BTN_SAVE, FOCUS_BTN_LOAD, FOCUS_BTN_CLOSE
+        FOCUS_BTN_MODIFY, FOCUS_BTN_SAVE, FOCUS_BTN_LOAD, FOCUS_BTN_RELOAD,
+        FOCUS_BTN_CLOSE
     };
     int btn_indices[] =
     {
-        BTN_MODIFY, BTN_SAVE, BTN_LOAD, BTN_CLOSE
+        BTN_MODIFY, BTN_SAVE, BTN_LOAD, BTN_RELOAD, BTN_CLOSE
     };
     int i;
 
@@ -1869,22 +1873,30 @@ two_button_kmio(vk_popup_t **popup, int *active, int32_t keystroke,
 
 /* ── confirm-discard popup ────────────────────────────────── */
 
+/* what Discard goes on to do: close the dialog, or reload the config */
+static void (*confirm_discard_action)(void) = NULL;
+
 static int
 confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    /* Discard: close the dialog without saving */
+    /* Discard: drop the unsaved changes and carry on */
     return two_button_kmio(&confirm_popup, &confirm_active_btn, keystroke,
-        vwm_manage_settings_close);
+        confirm_discard_action);
 }
 
+/*
+    Ask before throwing away unsaved changes.  `question` is the second
+    line ("Discard changes and close?"); `action` runs on Discard.
+*/
 static void
-confirm_popup_show(void)
+confirm_popup_show(const char *question, void (*action)(void))
 {
     if(confirm_popup != NULL) return;
 
-    confirm_popup = vwm_confirm_popup_show();
+    confirm_discard_action = action;
+    confirm_popup = vwm_confirm_popup_show(question);
     vk_object_set_kmio(VK_OBJECT(confirm_popup), confirm_popup_kmio);
     confirm_active_btn = 0;
 }
@@ -2179,11 +2191,63 @@ on_close(void)
 {
     if(model->dirty)
     {
-        confirm_popup_show();
+        confirm_popup_show("Discard changes and close?",
+            vwm_manage_settings_close);
         return;
     }
 
     vwm_manage_settings_close();
+}
+
+/*
+    Read the config file again and put what it says into effect: the
+    settings in this dialog, the hotkeys and the Apps menu.  Every vwm
+    session (each --sid) shares the one file, so this picks up what
+    another session saved.  The settings go in the way Save puts them in;
+    a change in the number of desktops waits for the dialog to close,
+    as it does after a Save.
+*/
+static void
+do_reload(void)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     count;
+
+    model_load_from_config(vwm->profile->rc_file);
+    commit_to_vwm();
+
+    // the desktop count, as Save does: applied when the dialog closes
+    count = atoi(model->values[SETTING_NUM_DESKTOPS]);
+    if(count >= 2 && count <= 6) pending_desktops = count;
+
+    vwm_settings_load_hotkeys(vwm);
+    vwm_programs_reload();
+
+    model->dirty = false;
+
+    rebuild_listbox();
+    if(model->selected >= active_setting_count()) model->selected = 0;
+    vk_listbox_set_curr(settings_listbox, model->selected);
+
+    refresh_dialog();
+
+    if(saved_popup == NULL)
+    {
+        saved_popup = vwm_saved_popup_show("Settings reloaded.");
+        vk_object_set_kmio(VK_OBJECT(saved_popup), notice_popup_kmio);
+    }
+}
+
+static void
+on_reload(void)
+{
+    if(model->dirty)
+    {
+        confirm_popup_show("Discard changes and reload?", do_reload);
+        return;
+    }
+
+    do_reload();
 }
 
 /* ── keyboard handler ─────────────────────────────────────── */
@@ -2284,6 +2348,7 @@ manage_settings_kmio(vk_object_t *object, int32_t keystroke)
             case FOCUS_BTN_MODIFY:  on_modify(); break;
             case FOCUS_BTN_SAVE:    on_save();   break;
             case FOCUS_BTN_LOAD:    on_load();   break;
+            case FOCUS_BTN_RELOAD:  on_reload(); break;
             case FOCUS_BTN_CLOSE:   on_close();  break;
         }
         return 0;
@@ -2348,12 +2413,13 @@ build_dialog(void)
         listbox_scroller);
 
     button_hbox = vk_box_create(INTERIOR_WIDTH, 3,
-        VK_BOX_HORIZONTAL, 5);
+        VK_BOX_HORIZONTAL, 6);
     vk_box_set_homogeneous(button_hbox, false);
 
     buttons[BTN_MODIFY] = vk_button_create("Modify");
     buttons[BTN_SAVE] = vk_button_create("Save");
     buttons[BTN_LOAD] = vk_button_create("Load");
+    buttons[BTN_RELOAD] = vk_button_create("Reload");
     buttons[BTN_CLOSE] = vk_button_create("Close");
 
     {
@@ -2376,7 +2442,8 @@ build_dialog(void)
     vk_box_set_widget(button_hbox, 1, VK_WIDGET(button_spacer), VK_INHERIT_AUTO);
     vk_box_set_widget(button_hbox, 2, VK_WIDGET(buttons[BTN_SAVE]), VK_INHERIT_NONE);
     vk_box_set_widget(button_hbox, 3, VK_WIDGET(buttons[BTN_LOAD]), VK_INHERIT_NONE);
-    vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_CLOSE]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 4, VK_WIDGET(buttons[BTN_RELOAD]), VK_INHERIT_NONE);
+    vk_box_set_widget(button_hbox, 5, VK_WIDGET(buttons[BTN_CLOSE]), VK_INHERIT_NONE);
 
     vk_box_set_widget(main_vbox, 0, VK_WIDGET(listbox_frame), VK_INHERIT_NONE);
     vk_box_set_widget(main_vbox, 1, VK_WIDGET(button_hbox), VK_INHERIT_AUTO);
@@ -3019,12 +3086,15 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
             {
                 int zone = -1;
 
-                if(rx <= 9)
+                /* [Modify]  ...  [Save][Load][Reload][Close] */
+                if(rx <= 7)
                     zone = FOCUS_BTN_MODIFY;
-                else if(rx >= 23 && rx <= 28)
+                else if(rx >= 15 && rx <= 20)
                     zone = FOCUS_BTN_SAVE;
-                else if(rx >= 29 && rx <= 34)
+                else if(rx >= 21 && rx <= 26)
                     zone = FOCUS_BTN_LOAD;
+                else if(rx >= 27 && rx <= 34)
+                    zone = FOCUS_BTN_RELOAD;
                 else if(rx >= 35)
                     zone = FOCUS_BTN_CLOSE;
 
@@ -3039,6 +3109,7 @@ vwm_manage_settings_mouse(MEVENT *mouse_event)
                         case FOCUS_BTN_MODIFY: on_modify(); break;
                         case FOCUS_BTN_SAVE:   on_save();   break;
                         case FOCUS_BTN_LOAD:   on_load();   break;
+                        case FOCUS_BTN_RELOAD: on_reload(); break;
                         case FOCUS_BTN_CLOSE:  on_close();  break;
                     }
                 }

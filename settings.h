@@ -5,6 +5,7 @@
 
 int     vwm_settings_load(vwm_t *vwm);
 int     vwm_settings_save(vwm_t *vwm);
+int     vwm_settings_load_hotkeys(vwm_t *vwm);
 
 void    vwm_settings_load_general(vwm_t *vwm);
 void    vwm_settings_save_general(vwm_t *vwm);
