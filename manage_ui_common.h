@@ -57,11 +57,12 @@ vk_popup_t *vwm_error_popup_show(const char *msg, int popup_w, int popup_h);
 vk_popup_t *vwm_saved_popup_show(const char *msg);
 
 /* Build, center, and attach the shared red-on-white " Confirm " discard
-   dialog ("You have unsaved changes." / "Discard changes and close?")
-   with Discard / Cancel buttons (button 0 active), returning it.  The
+   dialog ("You have unsaved changes." / `question`, such as "Discard
+   changes and close?") with Discard / Cancel buttons (button 0 active),
+   returning it.  The
    caller sets its kmio handler, stores the pointer, and resets its own
    active-button index.  Shared by Settings / Hotkeys / Apps. */
-vk_popup_t *vwm_confirm_popup_show(void);
+vk_popup_t *vwm_confirm_popup_show(const char *question);
 
 /* Focus targets for the Load popup's Tab cycle (file browser -> OK ->
    Cancel); mirrors the per-dialog focus orderings in Hotkeys / Apps. */

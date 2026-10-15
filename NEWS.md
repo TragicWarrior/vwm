@@ -1,3 +1,14 @@
+2026-10-14
+
+The Settings dialog has a Reload button.  Every vwm session, including
+each one started with --sid, shares one config file, so a change saved
+in one session did not reach another until it restarted.  Reload reads
+the file again and puts it into effect: the settings in the dialog, the
+hotkeys and the Apps menu.  If the dialog has changes you have not
+saved, it asks before discarding them.  A change in the number of
+desktops takes effect when the dialog closes, as it does after Save.
+
+
 2026-10-11
 
 vwm now builds on libvtty, which is libvterm under a new name.  The

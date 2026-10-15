@@ -252,7 +252,7 @@ vwm_saved_popup_show(const char *msg)
 }
 
 vk_popup_t *
-vwm_confirm_popup_show(void)
+vwm_confirm_popup_show(const char *question)
 {
     vwm_t       *vwm;
     vk_box_t    *client;
@@ -295,7 +295,7 @@ vwm_confirm_popup_show(void)
 
         vk_label_t *line2 = vk_label_create(popup_w - 2);
         vk_label_set_justify(line2, VK_JUSTIFY_CENTER);
-        vk_label_set_text(line2, "Discard changes and close?");
+        vk_label_set_text(line2, question);
         vk_box_set_widget(client, 2, VK_WIDGET(line2), VK_INHERIT_AUTO);
 
         vk_filler_t *bot_pad = vk_filler_create();

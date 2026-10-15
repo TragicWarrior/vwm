@@ -23,6 +23,20 @@ struct hotkey_entry
 int
 vwm_settings_load(vwm_t *vwm)
 {
+    if(vwm_settings_load_hotkeys(vwm) != 0) return -1;
+
+    vwm_settings_load_general(vwm);
+
+    return 0;
+}
+
+/*
+    Read the hotkeys from the config file into the running session.  A
+    key the file does not name keeps the value it has.
+*/
+int
+vwm_settings_load_hotkeys(vwm_t *vwm)
+{
     cJSON       *root;
     cJSON       *hotkeys;
     const char  *value;
@@ -68,8 +82,6 @@ vwm_settings_load(vwm_t *vwm)
 
         cJSON_Delete(root);
     }
-
-    vwm_settings_load_general(vwm);
 
     return 0;
 }
