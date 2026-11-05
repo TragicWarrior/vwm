@@ -1,5 +1,24 @@
 2026-11-04
 
+vwm 10.0.0.  vwm-msg run inside a vwm terminal now works on that
+terminal's desktop only (this arrived in 9.6.0; the new major number
+marks it).  A script or agent running in a vwm terminal sees and acts
+on only the windows of its own desktop, opens windows there, may switch
+the screen only to its own desktop while a window there flashes, and
+cannot stop or detach the session.  Run vwm-msg from outside vwm for the
+old, unrestricted behaviour.
+
+contrib/skills/vwm/SKILL.md is a skill that teaches an AI agent (Claude
+Code, Grok, OpenCode and others) to drive vwm with vwm-msg; the README
+says where to link it.
+
+Fixed:  a window that stops flashing for attention gets its normal
+border colour back.  Clicking in it, or another window starting to
+flash, left its border red or yellow until something else redrew it.
+
+
+2026-11-04
+
 A window opened with vwm-msg launch or launch-app from inside a vwm
 terminal now opens on that terminal's desktop, not the one you are
 looking at.  An LLM working in a terminal on another desktop no longer
