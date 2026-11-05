@@ -1,5 +1,24 @@
 2026-11-04
 
+A window opened with vwm-msg launch or launch-app from inside a vwm
+terminal now opens on that terminal's desktop, not the one you are
+looking at.  An LLM working in a terminal on another desktop no longer
+drops its windows in front of you.  Each terminal's program is started
+with VWM_WINDOW set to a number of its own, which vwm-msg passes along;
+it reaches commands an agent runs in sessions of their own, too.  From
+outside vwm, or from a terminal that has since closed, windows open on
+the desktop on screen as before.
+
+A vwm terminal also sees only its own desktop: vwm-msg run inside one
+lists and acts on only the windows there, and cannot switch the desktop
+on screen except to bring you to its own while a window there is
+flashing for attention, and it cannot stop or detach the session.  An
+agent can no longer type into, read or close a window on another
+desktop, or end the session, by mistake.
+
+
+2026-11-04
+
 The top panel has a desktop selector next to the task count: black
 numbers on green, three cells per desktop, with the current desktop's
 cells on bright green.  Click a number to go to that desktop.  It

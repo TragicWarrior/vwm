@@ -104,6 +104,27 @@ there, as the shell's foreground job, until the session leaves; it is
 what vwm-resume runs, and it is refused from a terminal inside the
 session.  See vwm-msg --help.
 
+A window opened with launch or launch-app from inside a vwm terminal
+goes on that terminal's desktop, not the one on screen, so a program
+(an LLM, say) working on another desktop does not open windows in front
+of you.  Each terminal starts its program with VWM_WINDOW set to a
+number of its own; vwm-msg sends it along, and vwm puts the new window
+beside that terminal wherever it is now.  Run from outside vwm, or from
+a terminal that has since closed, the window goes on the desktop on
+screen as before.
+
+A vwm terminal also sees only its own desktop.  From inside one,
+list-windows lists the windows on that desktop, and a window elsewhere
+answers "unknown id" to focus, close, send-keys, capture and the rest.
+focused names the top window of the terminal's own desktop; focus and
+restore raise a window without changing the desktop on screen;
+screenshot --target top takes the terminal's own desktop, and --target
+screen works only while that desktop is showing.  desktop N is refused,
+except to bring you to the terminal's own desktop while a window there
+is flashing for attention, and stop and detach are refused.  This
+guards against acting on the wrong window by mistake; it is not a
+security boundary (any process of yours can unset VWM_WINDOW).
+
 INSTALLATION
 ============
 

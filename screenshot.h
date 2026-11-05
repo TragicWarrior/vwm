@@ -1,6 +1,8 @@
 #ifndef _H_VWM_SCREENSHOT_
 #define _H_VWM_SCREENSHOT_
 
+#include <vdk.h>
+
 /*
     In-process screenshot API.  The VWM-menu dialog is one caller;
     vwm-msg screenshot is another.
@@ -26,6 +28,13 @@ enum
     the painted surface is current.  Returns VWM_SHOT_OK or VWM_SHOT_ERR_*.
 */
 int     vwm_screenshot_save(int target, const char *path);
+
+/*
+    The same, with VWM_SHOT_TOP taken from `deck`'s top window rather
+    than the desktop on screen's (NULL: the desktop on screen).
+*/
+int     vwm_screenshot_save_deck(int target, const char *path,
+            vk_deck_t *deck);
 
 /* open the interactive prompt + save dialog (VWM menu) */
 void    vwm_screenshot_open(void);

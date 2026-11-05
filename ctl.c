@@ -50,6 +50,15 @@ static struct stat  bound_st;    /* on-disk entry we minted at bind() */
 static void     ctl_reply(int fd, int ok, cJSON *data, const char *err);
 static void     ctl_dispatch(int fd, cJSON *req);
 static vk_widget_t *ctl_find_id(uint32_t id, int *desktop);
+
+/*
+    The desktop of the vwm terminal the request being served came from
+    (vwm-msg names it as "from"), or -1 when it came from outside vwm or
+    from a terminal that has since closed.  A caller with a desktop sees
+    only that desktop: windows elsewhere are not there for it.  Set by
+    ctl_dispatch for each request.
+*/
+static int ctl_scope = -1;
 static int      ctl_switch_desktop(int n);
 static void     ctl_set_io_timeout(int fd);
 static int      ctl_write_all(int fd, const void *buf, size_t n);
@@ -556,6 +565,9 @@ ctl_find_id(uint32_t id, int *desktop)
 
             if(w != NULL && vk_widget_get_id(w) == id)
             {
+                // on another desktop than the caller's: not there for it
+                if(ctl_scope >= 0 && i != ctl_scope) return NULL;
+
                 if(desktop != NULL) *desktop = i;
                 return w;
             }
@@ -648,6 +660,53 @@ ctl_widget_vterm(vk_widget_t *w)
     if(data == NULL) return NULL;
 
     return data->vterm;
+}
+
+/*
+    The desktop of the terminal a request came from.  vwm-msg sends the
+    VWM_WINDOW its terminal's program was given as "from"; if that
+    terminal is still open, this is the desktop it is on now.  -1 when
+    there is no "from" or the terminal has gone.
+*/
+static int
+ctl_caller_desktop(cJSON *req)
+{
+    vwm_t           *vwm = vwm_get_instance();
+    uint32_t        from;
+    int             present = 0;
+    int             i, j, n;
+
+    from = ctl_json_u32(req, "from", &present);
+    if(!present || from == 0) return -1;
+
+    for(i = 0; i < vwm->surface_count; i++)
+    {
+        if(vwm->decks[i] == NULL) continue;
+
+        n = vk_deck_count(vwm->decks[i]);
+        for(j = 0; j < n; j++)
+        {
+            vk_widget_t     *w = vk_deck_get_widget(vwm->decks[i], j);
+            vwmterm_data_t  *data = (vwmterm_data_t *)vk_widget_get_userptr(w);
+
+            // a terminal, and the one that asked
+            if(data != NULL && data->ticket == from) return i;
+        }
+    }
+
+    return -1;
+}
+
+/*
+    The deck a launched window goes on: the asking terminal's desktop,
+    or the desktop on screen when the request came from outside vwm.
+*/
+static vk_deck_t *
+ctl_launch_deck(void)
+{
+    vwm_t   *vwm = vwm_get_instance();
+
+    return (ctl_scope >= 0) ? vwm->decks[ctl_scope] : vwm->deck;
 }
 
 static void
@@ -965,6 +1024,9 @@ op_list_windows(int fd)
 
         if(vwm->decks[i] == NULL) continue;
 
+        // a terminal sees only the windows on its own desktop
+        if(ctl_scope >= 0 && i != ctl_scope) continue;
+
         top = vk_deck_get_top(vwm->decks[i]);
         n = vk_deck_count(vwm->decks[i]);
 
@@ -1029,16 +1091,44 @@ op_focused(int fd)
         return;
     }
 
-    cJSON_AddNumberToObject(data, "desktop",
-        vk_screen_get_active_surface(vwm->screen));
-
-    top = vk_deck_get_top(vwm->deck);
+    /* for a terminal: the top window of its own desktop */
+    if(ctl_scope >= 0)
+    {
+        cJSON_AddNumberToObject(data, "desktop", ctl_scope);
+        top = vk_deck_get_top(vwm->decks[ctl_scope]);
+    }
+    else
+    {
+        cJSON_AddNumberToObject(data, "desktop",
+            vk_screen_get_active_surface(vwm->screen));
+        top = vk_deck_get_top(vwm->deck);
+    }
     if(top == NULL)
         cJSON_AddNullToObject(data, "id");
     else
         cJSON_AddNumberToObject(data, "id", vk_widget_get_id(top));
 
     ctl_reply(fd, 1, data, NULL);
+}
+
+/* does any window on desktop `desk` ask for attention (flashing)? */
+static int
+ctl_desk_wants_attention(int desk)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     j, n;
+
+    if(desk < 0 || desk >= vwm->surface_count || vwm->decks[desk] == NULL)
+        return 0;
+
+    n = vk_deck_count(vwm->decks[desk]);
+    for(j = 0; j < n; j++)
+    {
+        if(vwm_attention_is(vk_deck_get_widget(vwm->decks[desk], j)))
+            return 1;
+    }
+
+    return 0;
 }
 
 static void
@@ -1053,6 +1143,16 @@ op_desktop(int fd, cJSON *req)
     if(!present)
     {
         ctl_reply(fd, 0, NULL, "missing desktop");
+        return;
+    }
+
+    /* a terminal may not move the screen under you, except to bring
+       you to its own desktop while a window there asks for attention */
+    if(ctl_scope >= 0 && (n != ctl_scope || !ctl_desk_wants_attention(n)))
+    {
+        ctl_reply(fd, 0, NULL,
+            "a terminal may switch only to its own desktop, "
+            "while a window there asks for attention");
         return;
     }
 
@@ -1086,7 +1186,9 @@ op_focus(int fd, cJSON *req)
         return;
     }
 
-    if(ctl_switch_desktop(desk) != 0)
+    /* a terminal raises the window on its own desktop but does not
+       bring that desktop on screen: only you or `desktop` move the view */
+    if(ctl_scope < 0 && ctl_switch_desktop(desk) != 0)
     {
         ctl_reply(fd, 0, NULL, "bad desktop");
         return;
@@ -1169,7 +1271,11 @@ op_restore(int fd, cJSON *req)
     }
 
     vwm_restore_window(w);
-    ctl_switch_desktop(desk);
+
+    /* as with focus: a terminal does not move the view */
+    if(ctl_scope < 0) ctl_switch_desktop(desk);
+
+    vk_screen_refresh(vwm_get_instance()->screen);
     ctl_reply(fd, 1, NULL, NULL);
 }
 
@@ -1438,7 +1544,9 @@ op_launch(int fd, cJSON *req)
         return;
     }
 
-    vwm_deck_add_window(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+    /* on the desktop of the terminal that asked, if one did */
+    vwm_deck_add_window(ctl_launch_deck(), VK_WIDGET(window),
+        VK_DECK_TOP);
     ctl_fit_new_window(VK_WIDGET(window));
     if(ctl_json_bool(req, "attention", NULL))
         vwm_attention_set(VK_WIDGET(window));
@@ -1638,7 +1746,9 @@ op_launch_app(int fd, cJSON *req)
         return;
     }
 
-    vwm_deck_add_window(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
+    /* on the desktop of the terminal that asked, if one did */
+    vwm_deck_add_window(ctl_launch_deck(), VK_WIDGET(window),
+        VK_DECK_TOP);
     ctl_fit_new_window(VK_WIDGET(window));
     if(ctl_json_bool(req, "attention", NULL))
         vwm_attention_set(VK_WIDGET(window));
@@ -2372,7 +2482,31 @@ op_screenshot(int fd, cJSON *req)
         path = gen;
     }
 
-    code = vwm_screenshot_save(target, path);
+    /* a terminal photographs only its own desktop: its top window, or
+       the screen while its desktop is the one showing */
+    if(ctl_scope >= 0)
+    {
+        vwm_t   *vwm = vwm_get_instance();
+
+        if(target == VWM_SHOT_SCREEN &&
+            ctl_scope != vk_screen_get_active_surface(vwm->screen))
+        {
+            ctl_reply(fd, 0, NULL, "your desktop is not on screen");
+            return;
+        }
+
+        if(target == VWM_SHOT_TOP &&
+            vk_deck_get_top(vwm->decks[ctl_scope]) == NULL)
+        {
+            ctl_reply(fd, 0, NULL, "no window");
+            return;
+        }
+
+        code = vwm_screenshot_save_deck(target, path,
+            vwm->decks[ctl_scope]);
+    }
+    else
+        code = vwm_screenshot_save(target, path);
     if(code != VWM_SHOT_OK)
     {
         ctl_reply(fd, 0, NULL, ctl_shot_err(code));
@@ -2412,6 +2546,15 @@ op_attention(int fd, cJSON *req)
             }
             vwm_attention_clear(w);
         }
+        else if(ctl_scope >= 0)
+        {
+            /* a terminal's "all" is the windows on its own desktop */
+            vwm_t   *vwm = vwm_get_instance();
+            int     j, n = vk_deck_count(vwm->decks[ctl_scope]);
+
+            for(j = 0; j < n; j++)
+                vwm_attention_clear(vk_deck_get_widget(vwm->decks[ctl_scope], j));
+        }
         else
             vwm_attention_clear(NULL);
 
@@ -2449,6 +2592,9 @@ ctl_dispatch(int fd, cJSON *req)
         return;
     }
 
+    /* who is asking: a vwm terminal's desktop, or -1 for everything */
+    ctl_scope = ctl_caller_desktop(req);
+
     if(strcmp(op, "ping") == 0)             op_ping(fd);
     else if(strcmp(op, "list-windows") == 0)  op_list_windows(fd);
     else if(strcmp(op, "list-desktops") == 0) op_list_desktops(fd);
@@ -2469,6 +2615,13 @@ ctl_dispatch(int fd, cJSON *req)
     else if(strcmp(op, "attention") == 0)     op_attention(fd, req);
     else if(strcmp(op, "attach") == 0)        op_attach(fd, req);
     else if(strcmp(op, "view") == 0)          op_view(fd);
+    else if((strcmp(op, "detach") == 0 || strcmp(op, "stop") == 0) &&
+        ctl_scope >= 0)
+    {
+        /* a terminal inside the session must not end it, or take it off
+           your screen: those are yours to do */
+        ctl_reply(fd, 0, NULL, "not from a terminal inside the session");
+    }
     else if(strcmp(op, "detach") == 0)        op_detach(fd);
     else if(strcmp(op, "stop") == 0)          op_stop(fd);
     else
