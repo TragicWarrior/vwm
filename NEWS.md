@@ -1,3 +1,20 @@
+2026-11-04
+
+The top panel has a desktop selector next to the task count: black
+numbers on green, three cells per desktop, with the current desktop's
+cells on bright green.  Click a number to go to that desktop.  It
+follows every way of switching (the Alt+d prompt, vwm-msg desktop,
+moving a window) and grows or shrinks with the number of desktops.  The
+task count now reads T and the number (" T3 "), so it is not mistaken
+for one more desktop.  The Linux console has no bright green
+background; there the current desktop is drawn blinking, which the
+console shows as a bright background.
+
+Fixed:  lowering the number of desktops while you were on one of those
+being removed made the top and bottom bars vanish until you changed
+desktops.
+
+
 2026-10-14
 
 The Settings dialog has a Reload button.  Every vwm session, including

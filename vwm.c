@@ -865,10 +865,14 @@ vwm_apply_surface_count(int new_count)
         for(i = old_count; i < new_count; i++)
             vwm_apply_desktop_bkgd(i);
 
+        /* the panel's selector grows a cell per new desktop */
+        vwm_panel_update_desktops(vwm_panel_get_data());
+
         return;
     }
 
     int target = new_count - 1;
+    int was_active = vk_screen_get_active_surface(vwm->screen);
 
     for(i = old_count - 1; i >= new_count; i--)
     {
@@ -895,6 +899,18 @@ vwm_apply_surface_count(int new_count)
         vk_screen_set_surface(vwm->screen, target);
 
     vwm->deck = vwm->decks[vk_screen_get_active_surface(vwm->screen)];
+
+    /*
+        the desktop on screen was one of those removed.  The screen moved
+        to the last one left by itself, without its change notice, and
+        the switch above found it already there -- so nothing moved the
+        panel across and the top and bottom bars vanished.  Do what the
+        notice does.
+    */
+    if(was_active >= new_count) vwm_on_surface_change(NULL, 0, NULL);
+
+    /* the panel's selector loses the cells of the removed desktops */
+    vwm_panel_update_desktops(vwm_panel_get_data());
 }
 
 static int
@@ -943,6 +959,9 @@ vwm_on_surface_change(vk_object_t *object, int event, void *anything)
 
     /* the "(N) Windows" count is per-desktop -- recount for the new deck */
     vwm_window_menu_refresh();
+
+    /* and the panel's selector shows which desktop is current */
+    vwm_panel_update_desktops(panel);
 
     return 0;
 }

@@ -127,6 +127,77 @@ vwm_panel_refresh_glyphs(void)
     vk_box_redraw(vwm_panel->status_box);
 }
 
+/*
+    Paint the desktop selector: three cells per desktop, " 1  2  3 ",
+    black numbers on green, and the current desktop's three cells on
+    bright green.  A terminal with fewer than 16 colours has no bright
+    green background; there the current desktop is drawn blinking,
+    which the Linux console shows as a bright background instead.
+*/
+static void
+_panel_desktops_paint(VWM_PANEL *panel)
+{
+    vwm_t       *vwm = vwm_get_instance();
+    WINDOW      *canvas;
+    short       idle_pair;
+    short       cur_pair;
+    attr_t      cur_attrs;
+    int         active;
+    int         count;
+    int         w, h;
+    int         i;
+
+    if(panel == NULL || panel->desktops == NULL) return;
+
+    canvas = vk_widget_get_canvas(panel->desktops);
+    if(canvas == NULL) return;
+
+    getmaxyx(canvas, h, w);
+    (void)h;
+
+    count = vwm->surface_count;
+    active = vk_screen_get_active_surface(vwm->screen);
+
+    idle_pair = vdk_color_pair(COLOR_BLACK, COLOR_GREEN);
+    cur_pair = vdk_color_pair(COLOR_BLACK, 10);             // bright green
+    cur_attrs = (COLORS < 16) ? A_BLINK : A_NORMAL;
+
+    // the whole strip green first, so any spare width matches
+    wattr_set(canvas, A_NORMAL, idle_pair, NULL);
+    for(i = 0; i < w; i++) mvwaddch(canvas, 0, i, ' ');
+
+    // " n " for each desktop; the current one on bright green
+    for(i = 0; i < count && 3 * i + 2 < w; i++)
+    {
+        if(i == active)
+            wattr_set(canvas, cur_attrs, cur_pair, NULL);
+        else
+            wattr_set(canvas, A_NORMAL, idle_pair, NULL);
+
+        mvwaddch(canvas, 0, 3 * i, ' ');
+        mvwaddch(canvas, 0, 3 * i + 1, '1' + i);
+        mvwaddch(canvas, 0, 3 * i + 2, ' ');
+    }
+
+    wattr_set(canvas, A_NORMAL, 0, NULL);
+}
+
+/*
+    the selector paints nothing itself, so a resize or a rebuilt canvas
+    (after a move to another terminal) leaves it blank: paint it again
+*/
+static int
+_panel_desktops_repaint(vk_object_t *object, int event, void *anything)
+{
+    (void)object;
+    (void)event;
+    (void)anything;
+
+    _panel_desktops_paint(panel_data);
+
+    return 0;
+}
+
 void
 vwm_panel_init(vwm_t *vwm)
 {
@@ -140,7 +211,7 @@ vwm_panel_init(vwm_t *vwm)
 
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
 
-    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 6);
+    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 8);
     vk_box_set_homogeneous(vwm_panel->box, false);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->box),
         COLOR_BLACK, COLOR_WHITE);
@@ -158,7 +229,19 @@ vwm_panel_init(vwm_t *vwm)
         vk_box_set_widget(vwm_panel->box, 1, VK_WIDGET(spacer), VK_INHERIT_NONE);
     }
 
-    vwm_panel->task_label = vk_label_create(4);
+    /* the desktop selector, " 1  2  3 ": painted by
+       vwm_panel_update_desktops, and again whenever its canvas is
+       resized or rebuilt (a plain widget paints nothing itself) */
+    vwm_panel->desktops = vk_widget_create(3 * vwm->surface_count, 1);
+    vk_widget_set_colors(vwm_panel->desktops, COLOR_BLACK, COLOR_WHITE);
+    vk_object_register_event(VK_OBJECT(vwm_panel->desktops),
+        VK_EVENT_ON_RESIZE, _panel_desktops_repaint, NULL);
+    vk_object_register_event(VK_OBJECT(vwm_panel->desktops),
+        VK_EVENT_ON_RECREATE, _panel_desktops_repaint, NULL);
+
+    /* five wide: " T12 " -- the T keeps the count from reading as one
+       more desktop next to the selector */
+    vwm_panel->task_label = vk_label_create(5);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->task_label),
         COLOR_WHITE, COLOR_MAGENTA);
     vwm_panel_update_taskcount(vwm_panel);
@@ -177,18 +260,31 @@ vwm_panel_init(vwm_t *vwm)
     vk_box_set_widget(vwm_panel->box, 0,
         VK_WIDGET(vwm_panel->menubar), VK_INHERIT_NONE);
     vk_box_set_widget(vwm_panel->box, 2,
-        VK_WIDGET(vwm_panel->task_label), VK_INHERIT_NONE);
-    vk_box_set_widget(vwm_panel->box, 3,
-        VK_WIDGET(vwm_panel->clock_label), VK_INHERIT_NONE);
+        vwm_panel->desktops, VK_INHERIT_NONE);
+
+    {
+        /* a gap between the selector and the task count */
+        vk_label_t *gap = vk_label_create(1);
+        vk_widget_set_colors(VK_WIDGET(gap), COLOR_BLACK, COLOR_WHITE);
+        vk_label_set_text(gap, " ");
+        vk_box_set_widget(vwm_panel->box, 3, VK_WIDGET(gap), VK_INHERIT_NONE);
+    }
+
     vk_box_set_widget(vwm_panel->box, 4,
+        VK_WIDGET(vwm_panel->task_label), VK_INHERIT_NONE);
+    vk_box_set_widget(vwm_panel->box, 5,
+        VK_WIDGET(vwm_panel->clock_label), VK_INHERIT_NONE);
+    vk_box_set_widget(vwm_panel->box, 6,
         VK_WIDGET(vwm_panel->activity), VK_INHERIT_NONE);
 
     {
         vk_label_t *pad = vk_label_create(1);
         vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_CYAN);
         vk_label_set_text(pad, " ");
-        vk_box_set_widget(vwm_panel->box, 5, VK_WIDGET(pad), VK_INHERIT_NONE);
+        vk_box_set_widget(vwm_panel->box, 7, VK_WIDGET(pad), VK_INHERIT_NONE);
     }
+
+    vwm_panel_update_desktops(vwm_panel);
 
     vk_screen_attach_widget(vwm->screen, 0, VK_WIDGET(vwm_panel->box));
 
@@ -441,6 +537,11 @@ vwm_panel_ON_TERM_RESIZED(VWM_PANEL *vwm_panel)
     vk_widget_resize(VK_WIDGET(vwm_panel->box), max_x, 1);
     vk_box_redraw(vwm_panel->box);
 
+    /* a move to another terminal also arrives here, after the colours
+       are set up on it: the selector painted itself when its canvas was
+       rebuilt, before that, so paint it again with the right colours */
+    vwm_panel_update_desktops(vwm_panel);
+
     vk_widget_resize(VK_WIDGET(vwm_panel->status_box), max_x, 1);
     vk_widget_move(VK_WIDGET(vwm_panel->status_box), 0, max_y - 1);
     vk_box_redraw(vwm_panel->status_box);
@@ -489,9 +590,57 @@ vwm_panel_update_taskcount(VWM_PANEL *panel)
     int                 n;
 
     n = vwm_sched_active_count(sched);
-    snprintf(buf, sizeof(buf), " %2d ", n);
+    snprintf(buf, sizeof(buf), " T%-2d ", n);
 
     vk_label_set_text(panel->task_label, buf);
+}
+
+/*
+    Bring the desktop selector up to date: the current desktop, and the
+    number of desktops (the strip is three cells per desktop).
+*/
+void
+vwm_panel_update_desktops(VWM_PANEL *panel)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     want;
+    int     w, h;
+
+    if(panel == NULL || panel->desktops == NULL) return;
+
+    want = 3 * vwm->surface_count;
+    vk_widget_get_metrics(panel->desktops, &w, &h);
+
+    // the count changed: resize (which repaints) and rearrange the panel
+    if(w != want)
+    {
+        vk_widget_resize(panel->desktops, want, 1);
+        vk_box_layout(panel->box);
+    }
+
+    _panel_desktops_paint(panel);
+    vk_box_redraw(panel->box);
+}
+
+/*
+    The desktop under column x of the screen, or -1 when x is not on
+    the selector.  Each desktop is three cells wide.
+*/
+int
+vwm_panel_desktop_at(VWM_PANEL *panel, int x)
+{
+    vwm_t   *vwm = vwm_get_instance();
+    int     px, py;
+    int     col;
+
+    if(panel == NULL || panel->desktops == NULL) return -1;
+
+    vk_widget_get_position(panel->desktops, &px, &py);
+    col = x - px;
+
+    if(col < 0 || col >= 3 * vwm->surface_count) return -1;
+
+    return col / 3;
 }
 
 void

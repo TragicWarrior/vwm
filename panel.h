@@ -13,6 +13,7 @@ typedef struct
 {
     vk_box_t            *box;
     vk_menubar_t        *menubar;
+    vk_widget_t         *desktops;      /* " 1  2  3 ", drawn by the panel */
     vk_label_t          *task_label;
     vk_label_t          *clock_label;
     vk_activity_t       *activity;
@@ -40,6 +41,8 @@ VWM_PANEL*  vwm_panel_get_data(void);
 void    vwm_panel_update_throbber(VWM_PANEL *panel);
 void    vwm_panel_update_taskcount(VWM_PANEL *panel);
 void    vwm_panel_update_clock(VWM_PANEL *panel);
+void    vwm_panel_update_desktops(VWM_PANEL *panel);
+int     vwm_panel_desktop_at(VWM_PANEL *panel, int x);
 void    vwm_panel_set_status(const char *text);
 
 /* put the status bar back to what it shows when nothing else has a
