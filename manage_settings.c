@@ -1758,42 +1758,50 @@ refresh_dialog(void)
 
 /* ── the small popups: error, warning, saved, the two confirms ─ */
 
-/*
-    Close one of the dialog's popups and repaint the dialog under it.
-    Does nothing (and repaints nothing) when it is not open.
-*/
-static void
-popup_close(vk_popup_t **popup)
+/* one of the small popups is going away; redraw the dialog under it */
+static void error_popup_close(void)
 {
-    if(*popup == NULL) return;
-
-    vwm_popup_dismiss(popup);
-    refresh_dialog();
+    vwm_popup_close(&error_popup, refresh_dialog);
 }
 
-static void error_popup_close(void)        { popup_close(&error_popup); }
-static void warning_popup_close(void)      { popup_close(&warning_popup); }
-static void saved_popup_close(void)        { popup_close(&saved_popup); }
-static void confirm_popup_close(void)      { popup_close(&confirm_popup); }
-static void save_confirm_popup_close(void) { popup_close(&save_confirm_popup); }
+static void warning_popup_close(void)
+{
+    vwm_popup_close(&warning_popup, refresh_dialog);
+}
+
+static void saved_popup_close(void)
+{
+    vwm_popup_close(&saved_popup, refresh_dialog);
+}
+
+static void confirm_popup_close(void)
+{
+    vwm_popup_close(&confirm_popup, refresh_dialog);
+}
+
+static void save_confirm_popup_close(void)
+{
+    vwm_popup_close(&save_confirm_popup, refresh_dialog);
+}
 
 /*
-    Keys for the three notices -- error, warning, saved.  Each only has
-    to be acknowledged: Esc, Enter or Space closes it, and every other
-    key is swallowed.  `object` is the popup the key was sent to, which
-    says which one to close.
+    Keys for the three notices -- error, warning, saved.  `object` is
+    the popup the key was sent to, which says which one to close.
+    The dialog's own kmio passes that object; the popup's kmio is this
+    same function.
 */
 static int
 notice_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
-    if(keystroke != 27 && keystroke != KEY_CRLF && keystroke != ' ')
-        return 0;
+    vk_popup_t **popup = NULL;
 
-    if(object == VK_OBJECT(error_popup))        error_popup_close();
-    else if(object == VK_OBJECT(warning_popup)) warning_popup_close();
-    else if(object == VK_OBJECT(saved_popup))   saved_popup_close();
+    if(object == VK_OBJECT(error_popup))        popup = &error_popup;
+    else if(object == VK_OBJECT(warning_popup)) popup = &warning_popup;
+    else if(object == VK_OBJECT(saved_popup))   popup = &saved_popup;
 
-    return 0;
+    if(popup == NULL) return 0;
+
+    return vwm_notice_popup_kmio(popup, keystroke, refresh_dialog, 0);
 }
 
 static void
@@ -1823,54 +1831,6 @@ saved_popup_show(void)
     vk_object_set_kmio(VK_OBJECT(saved_popup), notice_popup_kmio);
 }
 
-/*
-    Keys for a popup with two buttons, the first of which does
-    something and the second of which backs out -- "Discard / Cancel"
-    and "Save / Cancel".
-
-      Esc                 back out
-      Tab, Left, Right    move to the other button
-      Enter, Space        press the button that has the focus
-
-    *active is the index of the focused button.  on_first runs when the
-    first button is pressed, after the popup has been closed (it may
-    close the whole dialog, so the popup must be gone by then).
-*/
-static int
-two_button_kmio(vk_popup_t **popup, int *active, int32_t keystroke,
-    void (*on_first)(void))
-{
-    if(keystroke == 27)
-    {
-        popup_close(popup);
-        return 0;
-    }
-
-    if(keystroke == '\t' || keystroke == KEY_RIGHT || keystroke == KEY_LEFT)
-    {
-        vwm_t   *vwm = vwm_get_instance();
-
-        *active = (*active + 1) % vk_popup_get_button_count(*popup);
-
-        vwm_popup_buttons_paint(*popup, *active);
-        vk_popup_redraw(*popup);
-        vk_screen_refresh(vwm->screen);
-        return 0;
-    }
-
-    if(keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        bool    first = (*active == 0);
-
-        popup_close(popup);
-        if(first) on_first();
-
-        return 0;
-    }
-
-    return 0;
-}
-
 /* ── confirm-discard popup ────────────────────────────────── */
 
 /* what Discard goes on to do: close the dialog, or reload the config */
@@ -1882,8 +1842,8 @@ confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
     (void)object;
 
     /* Discard: drop the unsaved changes and carry on */
-    return two_button_kmio(&confirm_popup, &confirm_active_btn, keystroke,
-        confirm_discard_action);
+    return vwm_two_button_kmio(&confirm_popup, &confirm_active_btn,
+        keystroke, confirm_discard_action, refresh_dialog, 0);
 }
 
 /*
@@ -1911,8 +1871,8 @@ save_confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
     (void)object;
 
     /* Save: write the settings out */
-    return two_button_kmio(&save_confirm_popup, &save_confirm_active_btn,
-        keystroke, do_save);
+    return vwm_two_button_kmio(&save_confirm_popup, &save_confirm_active_btn,
+        keystroke, do_save, refresh_dialog, 0);
 }
 
 static void
@@ -2004,49 +1964,12 @@ save_confirm_popup_show(void)
 
 /* ── load popup ───────────────────────────────────────────── */
 
+/* a file was chosen: take it in, and leave the first row selected */
 static void
-load_popup_close(void)
+load_on_file(const char *path)
 {
-    vwm_t *vwm;
-
-    if(load_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(load_popup));
-
-    vk_popup_destroy(load_popup);
-    load_popup = NULL;
-    load_filedialog = NULL;
-
-    refresh_dialog();
-}
-
-static void
-load_popup_ok(void)
-{
-    const char  *path;
-    const char  *selected;
-    char        fullpath[PATH_MAX];
-
-    if(load_filedialog == NULL) return;
-
-    path = vk_filedialog_get_path(load_filedialog);
-    selected = vk_filedialog_get_selected(load_filedialog);
-
-    if(path == NULL || selected == NULL) return;
-
-    if(strcmp(path, "/") == 0)
-        snprintf(fullpath, sizeof(fullpath), "/%s", selected);
-    else
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", path, selected);
-
-    strncpy(model->file_path, fullpath, PATH_MAX - 1);
+    strncpy(model->file_path, path, PATH_MAX - 1);
     model->file_path[PATH_MAX - 1] = '\0';
-
-    load_popup_close();
 
     model_load_from_config(model->file_path);
     model->dirty = false;
@@ -2067,36 +1990,28 @@ load_popup_ok(void)
     refresh_dialog();
 }
 
+static void
+load_popup_close(void)
+{
+    /* settings does not Tab-cycle, and OK does not refuse a directory */
+    vwm_load_popup_close(&load_popup, &load_filedialog, refresh_dialog);
+}
+
+static void
+load_popup_ok(void)
+{
+    vwm_load_popup_ok(&load_popup, &load_filedialog, load_on_file,
+        refresh_dialog, 0);
+}
+
 static int
 load_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27)
-    {
-        load_popup_close();
-        return 0;
-    }
-
-    vk_object_push_keystroke(VK_OBJECT(load_filedialog), keystroke);
-
-    if(keystroke == KEY_CRLF)
-    {
-        const char *selected = vk_filedialog_get_selected(load_filedialog);
-        if(selected != NULL && selected[0] != '\0')
-        {
-            int len = strlen(selected);
-            if(selected[len - 1] != '/' && strcmp(selected, "..") != 0)
-            {
-                load_popup_ok();
-                return 0;
-            }
-        }
-    }
-
-    refresh_load_popup();
-
-    return 0;
+    /* every key other than Esc goes to the file dialog */
+    return vwm_load_popup_kmio(&load_popup, &load_filedialog, NULL,
+        keystroke, load_on_file, refresh_dialog, refresh_load_popup, 0);
 }
 
 static void

@@ -1,5 +1,7 @@
-#include <ncursesw/curses.h>
+#include <stdio.h>
 #include <string.h>
+
+#include <ncursesw/curses.h>
 
 #include <vdk.h>
 
@@ -559,4 +561,215 @@ vwm_layers_hit(vk_widget_t **layers, int count, int mx, int my)
     }
 
     return NULL;
+}
+
+/* see manage_ui_common.h */
+void
+vwm_popup_close(vk_popup_t **popup, void (*repaint)(void))
+{
+    if(popup == NULL || *popup == NULL) return;
+
+    vwm_popup_dismiss(popup);
+
+    if(repaint != NULL) repaint();
+}
+
+/* see manage_ui_common.h */
+int
+vwm_notice_popup_kmio(vk_popup_t **popup, int32_t keystroke,
+    void (*repaint)(void), int flags)
+{
+    int keypad = (flags & VWM_POPUP_KEY_ENTER) && keystroke == KEY_ENTER;
+
+    /* Esc, Enter or Space acknowledges the notice; the rest is eaten */
+    if(keystroke != 27 && keystroke != KEY_CRLF && keystroke != ' '
+        && !keypad)
+        return 0;
+
+    vwm_popup_close(popup, repaint);
+
+    return 0;
+}
+
+/* see manage_ui_common.h */
+int
+vwm_two_button_kmio(vk_popup_t **popup, int *active, int32_t keystroke,
+    void (*on_first)(void), void (*repaint)(void), int flags)
+{
+    int move;
+    int press;
+
+    /* back out, and show the dialog again */
+    if(keystroke == 27)
+    {
+        vwm_popup_close(popup, repaint);
+        return 0;
+    }
+
+    /* move to the other button */
+    move = (keystroke == '\t' || keystroke == KEY_RIGHT
+        || keystroke == KEY_LEFT);
+    if((flags & VWM_POPUP_KEY_BTAB) && keystroke == KEY_BTAB)
+        move = 1;
+
+    if(move)
+    {
+        vwm_t   *vwm = vwm_get_instance();
+
+        *active = (*active + 1) % vk_popup_get_button_count(*popup);
+
+        vwm_popup_buttons_paint(*popup, *active);
+
+        /* windows refreshes without redrawing; the others redraw first */
+        if((flags & VWM_POPUP_QUIET_MOVE) == 0)
+            vk_popup_redraw(*popup);
+
+        vk_screen_refresh(vwm->screen);
+        return 0;
+    }
+
+    /* press the button that has the focus */
+    press = (keystroke == KEY_CRLF || keystroke == ' ');
+    if((flags & VWM_POPUP_KEY_ENTER) && keystroke == KEY_ENTER)
+        press = 1;
+
+    if(press)
+    {
+        int first = (*active == 0);
+
+        /* the first button's action may close the whole dialog, so the
+           popup is gone before it runs.  windows' Yes skips the repaint. */
+        if(first && (flags & VWM_POPUP_QUIET_FIRST))
+            vwm_popup_close(popup, NULL);
+        else
+            vwm_popup_close(popup, repaint);
+
+        if(first && on_first != NULL) on_first();
+
+        return 0;
+    }
+
+    return 0;
+}
+
+/* see manage_ui_common.h */
+void
+vwm_load_popup_close(vk_popup_t **popup, vk_filedialog_t **filedialog,
+    void (*repaint)(void))
+{
+    if(popup == NULL || *popup == NULL) return;
+
+    vwm_popup_dismiss(popup);
+
+    if(filedialog != NULL)
+        *filedialog = NULL;
+
+    if(repaint != NULL) repaint();
+}
+
+/* see manage_ui_common.h */
+void
+vwm_load_popup_ok(vk_popup_t **popup, vk_filedialog_t **filedialog,
+    void (*on_file)(const char *path), void (*repaint)(void), int flags)
+{
+    const char  *path;
+    const char  *selected;
+    char        fullpath[PATH_MAX];
+
+    if(filedialog == NULL || *filedialog == NULL) return;
+
+    path = vk_filedialog_get_path(*filedialog);
+    selected = vk_filedialog_get_selected(*filedialog);
+
+    /* nothing chosen: hotkeys and apps close; settings stays open */
+    if(path == NULL || selected == NULL)
+    {
+        if((flags & VWM_LOAD_CLOSE_EMPTY) != 0)
+            vwm_load_popup_close(popup, filedialog, repaint);
+        return;
+    }
+
+    /* hotkeys and apps refuse a directory here; settings does not */
+    if((flags & VWM_LOAD_REJECT_DIR) != 0
+        && selected[strlen(selected) - 1] == '/')
+        return;
+
+    if(strcmp(path, "/") == 0)
+        snprintf(fullpath, sizeof(fullpath), "/%s", selected);
+    else
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", path, selected);
+
+    /* destroy first: on_file may close the dialog the popup sat on */
+    vwm_load_popup_close(popup, filedialog, repaint);
+
+    if(on_file != NULL)
+        on_file(fullpath);
+}
+
+/* see manage_ui_common.h */
+int
+vwm_load_popup_kmio(vk_popup_t **popup, vk_filedialog_t **filedialog,
+    int *focus, int32_t keystroke, void (*on_file)(const char *path),
+    void (*repaint_dialog)(void), void (*repaint_popup)(void), int flags)
+{
+    /* Esc closes, whichever control has the focus */
+    if(keystroke == 27)
+    {
+        vwm_load_popup_close(popup, filedialog, repaint_dialog);
+        return 0;
+    }
+
+    /* hotkeys and apps: Tab walks the file list, OK, then Cancel.
+       settings has no cycle, so Tab falls through to the file dialog. */
+    if((flags & VWM_LOAD_TAB_CYCLES) != 0 && keystroke == '\t')
+    {
+        *focus = (*focus + 1) % VWM_LOAD_FOCUS_COUNT;
+        vwm_load_popup_paint_focus(*filedialog, *focus);
+        if(repaint_popup != NULL) repaint_popup();
+        return 0;
+    }
+
+    /* a button has focus: Enter or Space runs it, and every other key
+       is eaten so it never reaches the file list */
+    if((flags & VWM_LOAD_TAB_CYCLES) != 0 && focus != NULL
+        && *focus == VWM_LOAD_FOCUS_OK)
+    {
+        if(keystroke == KEY_CRLF || keystroke == ' ')
+            vwm_load_popup_ok(popup, filedialog, on_file, repaint_dialog,
+                flags);
+        return 0;
+    }
+
+    if((flags & VWM_LOAD_TAB_CYCLES) != 0 && focus != NULL
+        && *focus == VWM_LOAD_FOCUS_CANCEL)
+    {
+        if(keystroke == KEY_CRLF || keystroke == ' ')
+            vwm_load_popup_close(popup, filedialog, repaint_dialog);
+        return 0;
+    }
+
+    /* the file list, or a dialog that forwards every key */
+    vk_object_push_keystroke(VK_OBJECT(*filedialog), keystroke);
+
+    /* Enter loads a plain file.  A directory or ".." stays in the list. */
+    if(keystroke == KEY_CRLF)
+    {
+        const char *selected = vk_filedialog_get_selected(*filedialog);
+
+        if(selected != NULL && selected[0] != '\0')
+        {
+            int len = strlen(selected);
+
+            if(selected[len - 1] != '/' && strcmp(selected, "..") != 0)
+            {
+                vwm_load_popup_ok(popup, filedialog, on_file,
+                    repaint_dialog, flags);
+                return 0;
+            }
+        }
+    }
+
+    if(repaint_popup != NULL) repaint_popup();
+
+    return 0;
 }

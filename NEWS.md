@@ -1,3 +1,11 @@
+2026-11-05
+
+vwm 10.0.2.  The settings, hotkeys, apps and windows dialogs share
+their popup handling, and the hotkey list lives in one place.  Nothing
+on screen changes, except that a freshly generated default config now
+includes the detach hotkey.
+
+
 2026-11-04
 
 The task count in the top panel is one cell wider on the left and sits

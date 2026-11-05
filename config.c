@@ -4,6 +4,7 @@
 
 #include "cJSON.h"
 #include "config.h"
+#include "settings.h"
 
 /* read an entire file into a malloc'd, NUL-terminated buffer */
 static char*
@@ -112,23 +113,19 @@ vwm_config_defaults(void)
     cJSON   *hotkeys;
     cJSON   *programs;
     cJSON   *settings;
+    char    buf[16];
+    int     i;
 
     root = cJSON_CreateObject();
 
+    /* the same defaults the running session starts with, detach included */
     hotkeys = cJSON_AddObjectToObject(root, "hotkeys");
-    cJSON_AddStringToObject(hotkeys, "menu",       "0000601b");
-    cJSON_AddStringToObject(hotkeys, "wm",         "0000771b");
-    cJSON_AddStringToObject(hotkeys, "close",      "00000011");
-    cJSON_AddStringToObject(hotkeys, "cycle",      "00000009");
-    cJSON_AddStringToObject(hotkeys, "move_up",    "00000103");
-    cJSON_AddStringToObject(hotkeys, "move_down",  "00000102");
-    cJSON_AddStringToObject(hotkeys, "move_left",  "00000104");
-    cJSON_AddStringToObject(hotkeys, "move_right", "00000105");
-    cJSON_AddStringToObject(hotkeys, "grow_h",     "0000002b");
-    cJSON_AddStringToObject(hotkeys, "shrink_h",   "0000002d");
-    cJSON_AddStringToObject(hotkeys, "grow_w",     "0000003e");
-    cJSON_AddStringToObject(hotkeys, "shrink_w",   "0000003c");
-    cJSON_AddStringToObject(hotkeys, "desktop",    "0000641b");
+    for(i = 0; i < VWM_HOTKEY_COUNT; i++)
+    {
+        snprintf(buf, sizeof(buf), "%08x",
+            (unsigned)vwm_hotkeys[i].default_value);
+        cJSON_AddStringToObject(hotkeys, vwm_hotkeys[i].name, buf);
+    }
 
     programs = cJSON_AddArrayToObject(root, "programs");
     add_program(programs, "vterm-color",    "VTerm Color",   "/bin/bash", "Tool");

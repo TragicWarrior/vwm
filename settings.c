@@ -8,17 +8,39 @@
 #include "settings.h"
 #include "profile.h"
 #include "private.h"
+#include "mainmenu.h"
 #include "winman.h"
 
 /*
     Hotkeys are stored flat under the "hotkeys" object as hex-string
     keycodes, e.g. { "menu": "0000601b", "wm": "0000771b", ... }.
+    This is the only list of names, offsets and defaults.  The dialog's
+    labels sit beside it, in manage_hotkeys.c, in the same order.
 */
-struct hotkey_entry
+const vwm_hotkey_def_t vwm_hotkeys[VWM_HOTKEY_COUNT] =
 {
-    const char  *name;
-    int32_t     *field;
+    { "menu",       offsetof(vwm_t, hotkey_menu),       VWM_HOTKEY_MENU },
+    { "wm",         offsetof(vwm_t, hotkey_wm),         VWM_HOTKEY_WM },
+    { "close",      offsetof(vwm_t, hotkey_close),      17 },
+    { "cycle",      offsetof(vwm_t, hotkey_cycle),      KEY_TAB },
+    { "move_up",    offsetof(vwm_t, hotkey_move_up),    KEY_UP },
+    { "move_down",  offsetof(vwm_t, hotkey_move_down),  KEY_DOWN },
+    { "move_left",  offsetof(vwm_t, hotkey_move_left),  KEY_LEFT },
+    { "move_right", offsetof(vwm_t, hotkey_move_right), KEY_RIGHT },
+    { "grow_h",     offsetof(vwm_t, hotkey_grow_h),     '+' },
+    { "shrink_h",   offsetof(vwm_t, hotkey_shrink_h),   '-' },
+    { "grow_w",     offsetof(vwm_t, hotkey_grow_w),     '>' },
+    { "shrink_w",   offsetof(vwm_t, hotkey_shrink_w),   '<' },
+    { "desktop",    offsetof(vwm_t, hotkey_desktop),    (27 | (100 << 8)) },
+    { "detach",     offsetof(vwm_t, hotkey_detach),     28 },   /* Ctrl-\ */
 };
+
+/* see settings.h */
+int32_t *
+vwm_hotkey_field(vwm_t *vwm, int index)
+{
+    return (int32_t *)((char *)vwm + vwm_hotkeys[index].offset);
+}
 
 int
 vwm_settings_load(vwm_t *vwm)
@@ -48,36 +70,19 @@ vwm_settings_load_hotkeys(vwm_t *vwm)
     if(vwm->profile == NULL) return -1;
     if(vwm->profile->rc_file == NULL) return -1;
 
-    struct hotkey_entry entries[] =
-    {
-        { "menu",       &vwm->hotkey_menu },
-        { "wm",         &vwm->hotkey_wm },
-        { "close",      &vwm->hotkey_close },
-        { "cycle",      &vwm->hotkey_cycle },
-        { "move_up",    &vwm->hotkey_move_up },
-        { "move_down",  &vwm->hotkey_move_down },
-        { "move_left",  &vwm->hotkey_move_left },
-        { "move_right", &vwm->hotkey_move_right },
-        { "grow_h",     &vwm->hotkey_grow_h },
-        { "shrink_h",   &vwm->hotkey_shrink_h },
-        { "grow_w",     &vwm->hotkey_grow_w },
-        { "shrink_w",   &vwm->hotkey_shrink_w },
-        { "desktop",    &vwm->hotkey_desktop },
-        { "detach",     &vwm->hotkey_detach },
-    };
-
-    count = sizeof(entries) / sizeof(entries[0]);
+    count = VWM_HOTKEY_COUNT;
 
     root = vwm_config_load(vwm->profile->rc_file);
     if(root != NULL)
     {
         hotkeys = cJSON_GetObjectItemCaseSensitive(root, "hotkeys");
 
+        /* a name the file leaves out keeps the value it already has */
         for(i = 0; i < count; i++)
         {
-            value = vwm_json_str(hotkeys, entries[i].name, NULL);
+            value = vwm_json_str(hotkeys, vwm_hotkeys[i].name, NULL);
             if(value != NULL && sscanf(value, "%x", &keystroke) == 1)
-                *entries[i].field = keystroke;
+                *vwm_hotkey_field(vwm, i) = keystroke;
         }
 
         cJSON_Delete(root);
@@ -99,25 +104,7 @@ vwm_settings_save(vwm_t *vwm)
     if(vwm->profile == NULL) return -1;
     if(vwm->profile->rc_file == NULL) return -1;
 
-    struct { const char *name; int32_t value; } keys[] =
-    {
-        { "menu",       vwm->hotkey_menu },
-        { "wm",         vwm->hotkey_wm },
-        { "close",      vwm->hotkey_close },
-        { "cycle",      vwm->hotkey_cycle },
-        { "move_up",    vwm->hotkey_move_up },
-        { "move_down",  vwm->hotkey_move_down },
-        { "move_left",  vwm->hotkey_move_left },
-        { "move_right", vwm->hotkey_move_right },
-        { "grow_h",     vwm->hotkey_grow_h },
-        { "shrink_h",   vwm->hotkey_shrink_h },
-        { "grow_w",     vwm->hotkey_grow_w },
-        { "shrink_w",   vwm->hotkey_shrink_w },
-        { "desktop",    vwm->hotkey_desktop },
-        { "detach",     vwm->hotkey_detach },
-    };
-
-    count = sizeof(keys) / sizeof(keys[0]);
+    count = VWM_HOTKEY_COUNT;
 
     root = vwm_config_load(vwm->profile->rc_file);
     if(root == NULL) root = cJSON_CreateObject();
@@ -127,8 +114,8 @@ vwm_settings_save(vwm_t *vwm)
 
     for(i = 0; i < count; i++)
     {
-        snprintf(buf, sizeof(buf), "%08x", keys[i].value);
-        cJSON_AddStringToObject(hotkeys, keys[i].name, buf);
+        snprintf(buf, sizeof(buf), "%08x", *vwm_hotkey_field(vwm, i));
+        cJSON_AddStringToObject(hotkeys, vwm_hotkeys[i].name, buf);
     }
 
     vwm_config_store(vwm->profile->rc_file, root);

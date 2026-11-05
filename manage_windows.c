@@ -637,65 +637,50 @@ warning_popup_open(void)
     vk_screen_refresh(vwm->screen);
 }
 
+/* the popup took its client with it; don't keep the dangling pointers */
 static void
-warning_popup_close(void)
+warning_clear_client(void)
 {
-    vwm_t *vwm;
-
-    if(warning_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(warning_popup));
-
-    /* a popup, so the popup call: the window call refuses an object
-       that is not exactly a window and would leave this one behind */
-    vk_popup_destroy(warning_popup);
-    warning_popup = NULL;
     warning_client = NULL;
     warning_label_1 = NULL;
     warning_label_2 = NULL;
 }
 
+static void
+warning_popup_close(void)
+{
+    /* no repaint here: Yes goes on to close windows, and the callers
+       that should show the dialog again refresh it themselves */
+    vwm_popup_close(&warning_popup, NULL);
+    warning_clear_client();
+}
+
+/* Yes: close the checked windows, then the tool */
+static void
+warning_yes(void)
+{
+    do_close_selected();
+    vwm_manage_windows_close();
+}
+
 static int
 warning_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
+    int rc;
+
     (void)object;
 
-    if(keystroke == 27)
-    {
-        warning_popup_close();
-        refresh_dialog();
-        return 0;
-    }
+    /* Shift-Tab and keypad Enter count here.  Yes does not repaint
+       first, and moving the button does not redraw the popup. */
+    rc = vwm_two_button_kmio(&warning_popup, &warning_active_btn,
+        keystroke, warning_yes, refresh_dialog,
+        VWM_POPUP_KEY_ENTER | VWM_POPUP_KEY_BTAB
+        | VWM_POPUP_QUIET_FIRST | VWM_POPUP_QUIET_MOVE);
 
-    if(keystroke == '\t' || keystroke == KEY_RIGHT || keystroke == KEY_LEFT
-        || keystroke == KEY_BTAB)
-    {
-        warning_active_btn = (warning_active_btn == 0) ? 1 : 0;
-        warning_update_buttons();
-        vk_screen_refresh(vwm_get_instance()->screen);
-        return 0;
-    }
+    if(warning_popup == NULL)
+        warning_clear_client();
 
-    if(keystroke == '\n' || keystroke == ' ' || keystroke == KEY_ENTER)
-    {
-        if(warning_active_btn == 0)
-        {
-            warning_popup_close();
-            do_close_selected();
-            vwm_manage_windows_close();   /* close the tool after the op */
-        }
-        else
-        {
-            warning_popup_close();
-            refresh_dialog();
-        }
-        return 0;
-    }
-
-    return 0;
+    return rc;
 }
 
 
@@ -715,19 +700,7 @@ error_popup_open(void)
 static void
 error_popup_close(void)
 {
-    vwm_t *vwm;
-
-    if(error_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(error_popup));
-
-    vk_popup_destroy(error_popup);
-    error_popup = NULL;
-
-    refresh_dialog();
+    vwm_popup_close(&error_popup, refresh_dialog);
 }
 
 static int
@@ -735,13 +708,9 @@ error_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27 || keystroke == '\n'
-        || keystroke == KEY_ENTER || keystroke == ' ')
-    {
-        error_popup_close();
-    }
-
-    return 0;
+    /* keypad Enter counts here, unlike the other dialogs' notices */
+    return vwm_notice_popup_kmio(&error_popup, keystroke, refresh_dialog,
+        VWM_POPUP_KEY_ENTER);
 }
 
 
