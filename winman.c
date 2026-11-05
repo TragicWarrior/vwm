@@ -417,19 +417,29 @@ vwm_deck_add_window(vk_deck_t *deck, vk_widget_t *widget, int position)
     return rc;
 }
 
+/*
+    Stop a window flashing.  Its border keeps whichever flash colour it
+    was last painted in until it is drawn again, so draw it now: the
+    decorator then gives it its focused or unfocused colours.
+*/
 void
 vwm_attention_clear(vk_widget_t *widget)
 {
-    vwm_t   *vwm = vwm_get_instance();
+    vwm_t       *vwm = vwm_get_instance();
+    vk_widget_t *was;
 
     if(vwm == NULL) return;
     if(widget != NULL && vwm->attention != widget) return;
 
     if(vwm->attention == NULL) return;
 
+    was = vwm->attention;
+
     vwm->attention = NULL;
     vwm->attention_phase = 0;
     vwm->attention_hold = 0;
+
+    vk_window_redraw(VK_WINDOW(was));
 }
 
 void
@@ -450,6 +460,11 @@ vwm_attention_set(vk_widget_t *widget)
         vk_screen_set_surface(vwm->screen, desk);
 
     vk_deck_set_top(vwm->decks[desk], widget);
+
+    /* only one window flashes: the one that was flashing stops, and
+       gets its own colours back */
+    if(vwm->attention != NULL && vwm->attention != widget)
+        vwm_attention_clear(vwm->attention);
 
     vwm->attention = widget;
     vwm->attention_phase = 1;
