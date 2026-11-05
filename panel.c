@@ -211,7 +211,7 @@ vwm_panel_init(vwm_t *vwm)
 
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
 
-    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 8);
+    vwm_panel->box = vk_box_create(max_x, 1, VK_BOX_HORIZONTAL, 7);
     vk_box_set_homogeneous(vwm_panel->box, false);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->box),
         COLOR_BLACK, COLOR_WHITE);
@@ -239,9 +239,9 @@ vwm_panel_init(vwm_t *vwm)
     vk_object_register_event(VK_OBJECT(vwm_panel->desktops),
         VK_EVENT_ON_RECREATE, _panel_desktops_repaint, NULL);
 
-    /* five wide: " T12 " -- the T keeps the count from reading as one
-       more desktop next to the selector */
-    vwm_panel->task_label = vk_label_create(5);
+    /* six wide, "  T3  " / "  T12 ", right against the selector -- the
+       T keeps the count from reading as one more desktop beside it */
+    vwm_panel->task_label = vk_label_create(6);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->task_label),
         COLOR_WHITE, COLOR_MAGENTA);
     vwm_panel_update_taskcount(vwm_panel);
@@ -262,26 +262,18 @@ vwm_panel_init(vwm_t *vwm)
     vk_box_set_widget(vwm_panel->box, 2,
         vwm_panel->desktops, VK_INHERIT_NONE);
 
-    {
-        /* a gap between the selector and the task count */
-        vk_label_t *gap = vk_label_create(1);
-        vk_widget_set_colors(VK_WIDGET(gap), COLOR_BLACK, COLOR_WHITE);
-        vk_label_set_text(gap, " ");
-        vk_box_set_widget(vwm_panel->box, 3, VK_WIDGET(gap), VK_INHERIT_NONE);
-    }
-
-    vk_box_set_widget(vwm_panel->box, 4,
+    vk_box_set_widget(vwm_panel->box, 3,
         VK_WIDGET(vwm_panel->task_label), VK_INHERIT_NONE);
-    vk_box_set_widget(vwm_panel->box, 5,
+    vk_box_set_widget(vwm_panel->box, 4,
         VK_WIDGET(vwm_panel->clock_label), VK_INHERIT_NONE);
-    vk_box_set_widget(vwm_panel->box, 6,
+    vk_box_set_widget(vwm_panel->box, 5,
         VK_WIDGET(vwm_panel->activity), VK_INHERIT_NONE);
 
     {
         vk_label_t *pad = vk_label_create(1);
         vk_widget_set_colors(VK_WIDGET(pad), COLOR_BLACK, COLOR_CYAN);
         vk_label_set_text(pad, " ");
-        vk_box_set_widget(vwm_panel->box, 7, VK_WIDGET(pad), VK_INHERIT_NONE);
+        vk_box_set_widget(vwm_panel->box, 6, VK_WIDGET(pad), VK_INHERIT_NONE);
     }
 
     vwm_panel_update_desktops(vwm_panel);
@@ -590,7 +582,7 @@ vwm_panel_update_taskcount(VWM_PANEL *panel)
     int                 n;
 
     n = vwm_sched_active_count(sched);
-    snprintf(buf, sizeof(buf), " T%-2d ", n);
+    snprintf(buf, sizeof(buf), "  T%-2d ", n);
 
     vk_label_set_text(panel->task_label, buf);
 }
