@@ -125,6 +125,11 @@ is flashing for attention, and stop and detach are refused.  This
 guards against acting on the wrong window by mistake; it is not a
 security boundary (any process of yours can unset VWM_WINDOW).
 
+contrib/skills/vwm/SKILL.md teaches an AI agent (Claude Code, Grok,
+OpenCode and others that read SKILL.md files) to drive vwm with
+vwm-msg.  Link or copy the contrib/skills/vwm folder into the agent's
+skills folder, for example ~/.claude/skills/vwm.
+
 INSTALLATION
 ============
 
