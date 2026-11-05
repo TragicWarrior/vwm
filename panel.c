@@ -351,7 +351,7 @@ vwm_desktop_prompt_show(void)
 
     vwm_menubar_close_dropdown();
     vk_menubar_set_focused(vwm->menubar, false);
-    vk_menubar_redraw(vwm->menubar);
+    vwm_panel_sync_menubar();
     vwm_calendar_close();
 
     getmaxyx(vk_screen_get_window(vwm->screen), max_y, max_x);
@@ -543,29 +543,106 @@ vwm_panel_ON_TERM_RESIZED(VWM_PANEL *vwm_panel)
     (void)max_y;
 }
 
+/*
+    Copy one bar child onto its parent bar.  The child's surface is the
+    bar's canvas, set when the bar was last laid out.  Returns 1 when
+    it copied, 0 when there is nothing to copy (not placed yet, or
+    nobody is looking).
+*/
+static int
+vwm_panel_blit_child(vk_widget_t *widget, int redraw)
+{
+    if(widget == NULL) return 0;
+    if(vk_widget_get_surface(widget) == NULL) return 0;
+    if(vwm_is_headless()) return 0;
+
+    if(redraw) vk_widget_redraw(widget);
+
+    vk_widget_blit(widget);
+
+    return 1;
+}
+
+/*
+    Copy one changed child onto its bar and ask for one screen
+    composite.  A full bar redraw would rebuild every sibling.
+*/
+static void
+vwm_panel_publish(vk_widget_t *widget)
+{
+    vwm_t   *vwm;
+
+    if(!vwm_panel_blit_child(widget, 1)) return;
+
+    vwm = vwm_get_instance();
+    if(vwm != NULL) vwm->screen_dirty = 1;
+}
+
+/* see panel.h */
+void
+vwm_panel_sync_menubar(void)
+{
+    vwm_t   *vwm;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL || vwm->menubar == NULL) return;
+
+    /* redraw paints the menu bar's own canvas.  the blit below is
+       what puts that canvas onto the top bar. */
+    vk_menubar_redraw(vwm->menubar);
+    vwm_panel_blit_child(VK_WIDGET(vwm->menubar), 0);
+}
+
+/* see panel.h */
+void
+vwm_panel_rebuild_bars(void)
+{
+    VWM_PANEL   *panel;
+
+    panel = vwm_panel_get_data();
+    if(panel == NULL) return;
+
+    if(panel->box != NULL) vk_box_redraw(panel->box);
+    if(panel->status_box != NULL) vk_box_redraw(panel->status_box);
+}
+
 void
 vwm_panel_ON_CLOCK_TICK(VWM_PANEL *vwm_panel)
 {
+    int frame;
+    int offset;
+
     if(vwm_panel == NULL) return;
 
     vwm_panel->clock++;
 
-    vwm_panel_update_throbber(vwm_panel);
+    /* run() always advances and redraws the throbber's own canvas.
+       the frame is the visible change (speed 2: every other tick). */
+    if(vwm_panel->activity != NULL)
+    {
+        frame = vk_activity_get_frame(vwm_panel->activity);
+        vwm_panel_update_throbber(vwm_panel);
+
+        if(vk_activity_get_frame(vwm_panel->activity) != frame)
+            vwm_panel_publish(VK_WIDGET(vwm_panel->activity));
+    }
 
     if((vwm_panel->clock % 5) == 0)
-    {
         vwm_panel_update_taskcount(vwm_panel);
-    }
 
     if((vwm_panel->clock % VWM_CLOCK_TICKS_PER_SEC) == 0)
-    {
         vwm_panel_update_clock(vwm_panel);
+
+    /* run() always redraws the marquee.  pixels move only when the
+       offset moves; a pause flip does not. */
+    if(vwm_panel->status_marquee != NULL)
+    {
+        offset = vk_marquee_get_offset(vwm_panel->status_marquee);
+        vk_marquee_run(vwm_panel->status_marquee);
+
+        if(vk_marquee_get_offset(vwm_panel->status_marquee) != offset)
+            vwm_panel_publish(VK_WIDGET(vwm_panel->status_marquee));
     }
-
-    vk_box_redraw(vwm_panel->box);
-
-    vk_marquee_run(vwm_panel->status_marquee);
-    vk_box_redraw(vwm_panel->status_box);
 }
 
 void
@@ -578,13 +655,22 @@ void
 vwm_panel_update_taskcount(VWM_PANEL *panel)
 {
     extern vwm_sched_t  *sched;
+    const char          *cur;
     char                buf[8];
     int                 n;
+
+    if(panel == NULL || panel->task_label == NULL) return;
 
     n = vwm_sched_active_count(sched);
     snprintf(buf, sizeof(buf), "  T%-2d ", n);
 
+    /* same count: do not touch the bar.  set_text does not paint, so
+       a real change is redrawn and copied onto the bar here. */
+    cur = vk_label_get_text(panel->task_label);
+    if(cur != NULL && strcmp(cur, buf) == 0) return;
+
     vk_label_set_text(panel->task_label, buf);
+    vwm_panel_publish(VK_WIDGET(panel->task_label));
 }
 
 /*
@@ -640,7 +726,10 @@ vwm_panel_update_clock(VWM_PANEL *panel)
 {
     time_t          clock;
     struct tm       *local_time;
+    const char      *cur;
     char            buf[80];
+
+    if(panel == NULL || panel->clock_label == NULL) return;
 
     clock = time(NULL);
     local_time = localtime((time_t*)&clock);
@@ -650,7 +739,13 @@ vwm_panel_update_clock(VWM_PANEL *panel)
         local_time->tm_year + 1900,
         local_time->tm_hour, local_time->tm_min, local_time->tm_sec);
 
+    cur = vk_label_get_text(panel->clock_label);
+    if(cur != NULL && strcmp(cur, buf) == 0) return;
+
     vk_label_set_text(panel->clock_label, buf);
+
+    /* set_text stores the string and does not paint */
+    vwm_panel_publish(VK_WIDGET(panel->clock_label));
 }
 
 void
@@ -659,9 +754,14 @@ vwm_panel_set_status(const char *text)
     VWM_PANEL   *vwm_panel;
 
     vwm_panel = vwm_panel_get_data();
-    if(vwm_panel == NULL) return;
+    if(vwm_panel == NULL || vwm_panel->status_marquee == NULL) return;
 
+    /* set_text replaces the string and resets the offset to 0.  it
+       does not paint.  a tick that only copies the marquee when the
+       offset moves would never show a string that fits, or one that
+       was reset back to the start.  paint it now. */
     vk_marquee_set_text(vwm_panel->status_marquee, text);
+    vwm_panel_publish(VK_WIDGET(vwm_panel->status_marquee));
 }
 
 /*

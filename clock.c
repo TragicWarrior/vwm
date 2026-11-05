@@ -82,10 +82,14 @@ vwm_clock_driver(void * const env)
             {
                 vwm->attention_hold = 0;
                 vwm->attention_phase = !vwm->attention_phase;
+
+                /* the border colour is chosen while the window paints.
+                   the deck copies that canvas on the next composite.
+                   headless keeps the phase current and paints nothing. */
                 vk_window_redraw(VK_WINDOW(vwm->attention));
+                if(!vwm_is_headless()) vwm->screen_dirty = 1;
             }
         }
-        vk_screen_refresh(vwm->screen);
 
         /* nothing more until the next tick */
         vwm_sched_wait(ctx_timer);

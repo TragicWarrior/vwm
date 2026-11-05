@@ -514,7 +514,11 @@ vwm_menu_helper(vk_widget_t *widget, void *anything)
         /* add at top; cascade if the origin matches another member.
            ON_FINALIZE decorates the new window as focused. */
         vwm_deck_add_window(vwm->deck, VK_WIDGET(window), VK_DECK_TOP);
-        vk_screen_refresh(vwm->screen);
+
+        /* the caller is inside a scheduler step (a key or a click).
+           one composite at the end of the step, not one here and
+           another from the input task. */
+        if(!vwm_is_headless()) vwm->screen_dirty = 1;
     }
 
     return 0;

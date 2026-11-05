@@ -1,5 +1,15 @@
 2026-11-05
 
+vwm 10.0.3.  The clock tick repaints only the panel cell that changed,
+and a mouse move no longer redraws the whole screen.  The control
+socket is serviced when a client is waiting, or on the regular tick.
+A detached session does not redraw until it is attached again; the
+clock and the status line are current when it comes back.
+Needs libviper 12.4.0.
+
+
+2026-11-05
+
 vwm 10.0.2.  The settings, hotkeys, apps and windows dialogs share
 their popup handling, and the hotkey list lives in one place.  Nothing
 on screen changes, except that a freshly generated default config now

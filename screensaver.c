@@ -155,7 +155,13 @@ screensaver_start(void)
 
     vk_widget_move(VK_WIDGET(window), 0, 0);
     vk_window_redraw(window);
-    vk_screen_refresh(vwm->screen);
+
+    /* the clock tick calls us.  a detached session has nothing to
+       paint onto; the attach refresh shows the lock. */
+    if(vwm_is_headless())
+        vwm->screen_dirty = 1;
+    else
+        vk_screen_refresh(vwm->screen);
 }
 
 void

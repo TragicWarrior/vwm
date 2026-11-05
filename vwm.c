@@ -310,10 +310,13 @@ int main(int argc,char **argv)
 
     /* control socket: inherit VWM_CONTROL_SOCK into every child */
     /* a connection on it ends the scheduler's sleep; the step hook
-       below (vwm_ctl_poll) then serves it.  no task owns it, hence the
-       NULL. */
+       then serves it, and only then (see vwm_sched_wake_fd_ctl).
+       no task owns it, hence the NULL. */
     if(vwm_ctl_init() == 0)
+    {
         vwm_sched_wake_fd_add(sched, vwm_ctl_listen_fd(), NULL);
+        vwm_sched_wake_fd_ctl(sched, vwm_ctl_listen_fd());
+    }
     else
     {
         /* a background session nobody can reach is no use to anyone */
@@ -515,9 +518,15 @@ vwm_sched_render(void *arg)
 {
     vwm_t   *vwm = (vwm_t *)arg;
 
-    vwm_ctl_poll();
+    /* not on every step: a busy terminal used to accept() here on
+       each of its turns.  the scheduler sets the flag when the listen
+       or attach fd is ready, and on the heartbeat. */
+    if(vwm_sched_take_ctl_pending(sched))
+        vwm_ctl_poll();
 
-    if(vwm->screen_dirty)
+    /* detached: leave the flag set.  nothing is on a terminal, and the
+       next attach rebuilds the bars before this hook paints. */
+    if(vwm->screen_dirty && !vwm_is_headless())
     {
         vk_screen_refresh(vwm->screen);
         vwm->screen_dirty = 0;
@@ -710,6 +719,12 @@ vwm_adopt_apply(const char *pty, const char *term)
     console = (cur != NULL && strcmp(cur, "linux") == 0);
     vwm->show_cursor = console;
     vk_screen_set_overlay(vwm->screen, console ? vwm_cursor_overlay : NULL);
+
+    /* the tick kept the clock and the marquee moving while detached
+       and did not copy them onto the bars.  rebuild before the step
+       hook paints, so the first frame back is current. */
+    if(retval == 0)
+        vwm_panel_rebuild_bars();
 
     vwm->screen_dirty = 1;
 

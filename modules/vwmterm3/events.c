@@ -52,6 +52,7 @@ static size_t   clipboard_len = 0;
 
 static void     vwmterm_scroll_drag_apply(vk_widget_t *widget, int mx, int my);
 static void     vwmterm_scroll_render(vwmterm_data_t *vwmterm_data);
+static void     vwmterm_note_paint(void);
 static void     vwmterm_osc52_copy(const char *buf, size_t len, char selection);
 static void     vwmterm_xclip_copy(const char *buf, size_t len, char selection);
 static void     vwmterm_host_clipboard_push(const char *buf, size_t len,
@@ -515,6 +516,21 @@ vwmterm_selection_span(vwmterm_data_t *vwmterm_data,
 }
 
 /*
+    One composite for this event, from the scheduler step.  The mouse
+    loop used to refresh again after we returned.
+*/
+static void
+vwmterm_note_paint(void)
+{
+    vwm_t   *vwm;
+
+    vwm = vwm_get_instance();
+    if(vwm == NULL) return;
+
+    vwm->screen_dirty = 1;
+}
+
+/*
     Scroll the view `lines` rows back into history (negative: forward,
     toward the live screen) and repaint.  The position is held between
     the live screen and the oldest row kept.  The wheel and Alt+PgUp /
@@ -524,6 +540,7 @@ static void
 vwmterm_scroll_by(vwmterm_data_t *vwmterm_data, int lines)
 {
     int used = vtty_get_history_used(vwmterm_data->vterm);
+    int old = vwmterm_data->scroll_offset;
 
     vwmterm_data->scroll_offset += lines;
     if(vwmterm_data->scroll_offset > used)
@@ -531,22 +548,23 @@ vwmterm_scroll_by(vwmterm_data_t *vwmterm_data, int lines)
     if(vwmterm_data->scroll_offset < 0)
         vwmterm_data->scroll_offset = 0;
 
+    /* already there: a wheel notch at the end of history paints nothing */
+    if(vwmterm_data->scroll_offset == old) return;
+
     /* at offset 0 this paints the live screen */
     vwmterm_scroll_render(vwmterm_data);
     vwmterm_window_update(vwmterm_data);
-    vk_screen_refresh(vwm_get_instance()->screen);
+    vwmterm_note_paint();
 }
 
 static void
 vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
 {
-    vwm_t       *vwm;
     vtty_t      *vterm;
     WINDOW      *win;
     int         width, height;
     int         r1, c1, r2, c2;
 
-    vwm = vwm_get_instance();
     vterm = vwmterm_data->vterm;
     win = vtty_wnd_get(vterm);
     vwmterm_grid_size(vwmterm_data, &width, &height);
@@ -567,7 +585,7 @@ vwmterm_render_selection(vwmterm_data_t *vwmterm_data)
     }
 
     vwmterm_window_update(vwmterm_data);
-    vk_screen_refresh(vwm->screen);
+    vwmterm_note_paint();
 }
 
 static void
@@ -694,10 +712,6 @@ vwmterm_enter_selection(vwmterm_data_t *vwmterm_data)
 static void
 vwmterm_exit_selection(vwmterm_data_t *vwmterm_data)
 {
-    vwm_t   *vwm;
-
-    vwm = vwm_get_instance();
-
     vwmterm_data->frozen = 0;
     vwmterm_wake(vwmterm_data);     /* reading again: catch up now */
 
@@ -710,7 +724,7 @@ vwmterm_exit_selection(vwmterm_data_t *vwmterm_data)
     vwm_panel_set_status(VWM_WINDOW_HELP);
 
     vwmterm_window_update(vwmterm_data);
-    vk_screen_refresh(vwm->screen);
+    vwmterm_note_paint();
 }
 
 static int
@@ -774,7 +788,6 @@ static void
 vwmterm_scrollbar_to(vwmterm_data_t *vwmterm_data, int row, int is_press)
 {
     vtty_t      *vterm = vwmterm_data->vterm;
-    vwm_t       *vwm;
     int         width, height;
     int         used;
     int         track_len, p, scroll_range, scroll_y;
@@ -814,9 +827,7 @@ vwmterm_scrollbar_to(vwmterm_data_t *vwmterm_data, int row, int is_press)
 
     vwmterm_scroll_render(vwmterm_data);
     vwmterm_window_update(vwmterm_data);
-
-    vwm = vwm_get_instance();
-    if(vwm != NULL) vk_screen_refresh(vwm->screen);
+    vwmterm_note_paint();
 }
 
 /*

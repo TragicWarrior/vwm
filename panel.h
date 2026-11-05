@@ -45,6 +45,16 @@ void    vwm_panel_update_desktops(VWM_PANEL *panel);
 int     vwm_panel_desktop_at(VWM_PANEL *panel, int x);
 void    vwm_panel_set_status(const char *text);
 
+/* redraw the menu bar and copy it onto the top bar.  the bar is what
+   the screen composites; redrawing the menu bar widget alone does not
+   change that copy. */
+void    vwm_panel_sync_menubar(void);
+
+/* rebuild both bars from current widget state.  used when a detached
+   session attaches: the tick advanced the clock and the marquee
+   without copying them onto the bars. */
+void    vwm_panel_rebuild_bars(void);
+
 /* put the status bar back to what it shows when nothing else has a
    claim on it: the window key help when the current desktop has a
    window, the menu hint when it is empty.  every dialog calls this as

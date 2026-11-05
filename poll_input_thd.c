@@ -245,16 +245,32 @@ classify_mouse(vwm_t *vwm, int mx, int my, vk_widget_t **hit_out)
     return ZONE_CONTENT;
 }
 
-static void
+/* 1 when the window was not already on top, so the focus border changed */
+static int
 raise_to_top(vwm_t *vwm, vk_widget_t *widget)
 {
     vwm_attention_clear(widget);
 
-    if(widget == vk_deck_get_top(vwm->deck)) return;
+    if(widget == vk_deck_get_top(vwm->deck)) return 0;
 
     /* set_top fires ON_FINALIZE, which repaints the outgoing and incoming
        top windows -- no manual re-decoration needed */
     vk_deck_set_top(vwm->deck, widget);
+
+    return 1;
+}
+
+/*
+    Ask the scheduler step for one screen composite.  Mouse and key
+    paths set this instead of calling vk_screen_refresh, so a step
+    paints at most once.  Headless has nowhere to paint.
+*/
+static void
+note_screen_change(vwm_t *vwm)
+{
+    if(vwm == NULL || vwm_is_headless()) return;
+
+    vwm->screen_dirty = 1;
 }
 
 /*
@@ -511,15 +527,27 @@ vwm_poll_input(void * const env)
             vk_widget_t     *hit = NULL;
             int             zone;
             mmask_t         bs = mouse_event->bstate;
+            int             old_cx;
+            int             old_cy;
+            int             need_paint = 0;
+            int             self_paint = 0;
+
+            /* where the console pointer was.  show_cursor is only set
+               on a Linux console; everywhere else the terminal draws
+               its own pointer and a bare hover paints nothing. */
+            old_cx = vwm->cursor_x;
+            old_cy = vwm->cursor_y;
 
             vwm->cursor_x = mouse_event->x;
             vwm->cursor_y = mouse_event->y;
 
             if(drag_mode != DRAG_NONE && drag_widget != NULL)
             {
+                int mode;
+
                 /* coalesce queued drag-move events down to the latest
                    position: the window jumps to the current cursor in one
-                   move + one refresh instead of replaying a backlog of
+                   move + one composite instead of replaying a backlog of
                    stale positions.  stop when a button release is reached
                    (which ends the drag) or the queue is empty. */
                 while(!(mouse_event->bstate &
@@ -534,6 +562,7 @@ vwm_poll_input(void * const env)
                 vwm->cursor_x = mouse_event->x;
                 vwm->cursor_y = mouse_event->y;
 
+                mode = drag_mode;
                 apply_drag_position(mouse_event);
 
                 if(mouse_event->bstate & (BUTTON1_RELEASED | BUTTON1_CLICKED))
@@ -542,7 +571,15 @@ vwm_poll_input(void * const env)
                     drag_widget = NULL;
                 }
 
-                vk_screen_refresh(vwm->screen);
+                /* a window move or resize only changes geometry.  a
+                   scrollbar drag sets screen_dirty itself when the
+                   offset changes.  either way the step hook paints once. */
+                if(mode == DRAG_MOVE || mode == DRAG_RESIZE)
+                    note_screen_change(vwm);
+                else if(vwm->show_cursor &&
+                    (vwm->cursor_x != old_cx || vwm->cursor_y != old_cy))
+                    note_screen_change(vwm);
+
                 pt_yield(ctx_poll_input);
                 continue;
             }
@@ -561,7 +598,8 @@ vwm_poll_input(void * const env)
             {
                 vwm_menubar_close_dropdown();
                 vk_menubar_set_focused(vwm->menubar, false);
-                vk_menubar_redraw(vwm->menubar);
+                vwm_panel_sync_menubar();
+                need_paint = 1;
             }
 
             if(vwm->calendar_popup != NULL && zone != ZONE_CALENDAR &&
@@ -569,6 +607,7 @@ vwm_poll_input(void * const env)
                (bs & BUTTON1_PRESSED))
             {
                 vwm_calendar_close();
+                need_paint = 1;
             }
 
             switch(zone)
@@ -605,7 +644,8 @@ vwm_poll_input(void * const env)
 
                                 vk_menubar_set_curr(vwm->menubar, hit_idx);
                                 vk_menubar_set_focused(vwm->menubar, true);
-                                vk_menubar_redraw(vwm->menubar);
+                                vwm_panel_sync_menubar();
+                                need_paint = 1;
 
                                 if(vwm->menu != NULL &&
                                    vwm->menu_item_idx == hit_idx)
@@ -656,6 +696,7 @@ vwm_poll_input(void * const env)
                                 {
                                     vk_screen_set_surface(vwm->screen,
                                         desk);
+                                    need_paint = 1;
                                 }
                             }
                             else if(mouse_event->x >= ck_x &&
@@ -668,6 +709,7 @@ vwm_poll_input(void * const env)
                                     "calendar") == 0)
                                 {
                                     vwm_calendar_toggle();
+                                    need_paint = 1;
                                 }
                                 else
                                 {
@@ -675,7 +717,13 @@ vwm_poll_input(void * const env)
                                         vwm_module_find_by_title(
                                             vwm->date_click_action);
                                     if(mod != NULL)
+                                    {
+                                        /* the helper marks the screen
+                                           dirty, or the file picker
+                                           does.  do not composite again. */
                                         vwm_menu_helper(NULL, mod);
+                                        self_paint = 1;
+                                    }
                                 }
                             }
                             else if(mouse_event->x >= tk_x &&
@@ -689,6 +737,7 @@ vwm_poll_input(void * const env)
                                 {
                                     vwm_calendar_close();
                                     vwm_menubar_hotkey();
+                                    need_paint = 1;
                                 }
                                 else
                                 {
@@ -696,7 +745,10 @@ vwm_poll_input(void * const env)
                                         vwm_module_find_by_title(
                                             vwm->task_indicator_action);
                                     if(mod != NULL)
+                                    {
                                         vwm_menu_helper(NULL, mod);
+                                        self_paint = 1;
+                                    }
                                 }
                             }
                             /* clicks elsewhere on the panel do nothing */
@@ -708,7 +760,11 @@ vwm_poll_input(void * const env)
 
                 case ZONE_MENU:
                 {
+                    /* the dropdown redraws its own window.  launching
+                       an item marks the screen dirty inside the helper.
+                       one composite either way. */
                     vwm_dropdown_mouse(mouse_event);
+                    need_paint = 1;
                     break;
                 }
 
@@ -717,7 +773,9 @@ vwm_poll_input(void * const env)
                     if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
                     {
                         raise_to_top(vwm, hit);
+                        /* close composites once itself */
                         vwm_default_WINDOW_CLOSE(hit);
+                        self_paint = 1;
                     }
 
                     break;
@@ -726,7 +784,11 @@ vwm_poll_input(void * const env)
                 case ZONE_MINIMIZE_BTN:
                 {
                     if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
+                    {
+                        /* minimize composites once itself */
                         vwm_minimize_window(hit);
+                        self_paint = 1;
+                    }
 
                     break;
                 }
@@ -735,12 +797,12 @@ vwm_poll_input(void * const env)
                 {
                     if(bs & BUTTON1_PRESSED)
                     {
-                        raise_to_top(vwm, hit);
+                        if(raise_to_top(vwm, hit)) need_paint = 1;
                         begin_drag(DRAG_RESIZE, hit, mouse_event);
                     }
                     else if(bs & BUTTON1_CLICKED)
                     {
-                        raise_to_top(vwm, hit);
+                        if(raise_to_top(vwm, hit)) need_paint = 1;
                     }
 
                     break;
@@ -750,12 +812,12 @@ vwm_poll_input(void * const env)
                 {
                     if(bs & BUTTON1_PRESSED)
                     {
-                        raise_to_top(vwm, hit);
+                        if(raise_to_top(vwm, hit)) need_paint = 1;
                         begin_drag(DRAG_MOVE, hit, mouse_event);
                     }
                     else if(bs & BUTTON1_CLICKED)
                     {
-                        raise_to_top(vwm, hit);
+                        if(raise_to_top(vwm, hit)) need_paint = 1;
                     }
 
                     break;
@@ -763,8 +825,13 @@ vwm_poll_input(void * const env)
 
                 case ZONE_CONTENT:
                 {
+                    /* selection, wheel and the scrollbar mark the
+                       screen dirty themselves.  a focus change is the
+                       only other thing this click draws. */
                     if(bs & (BUTTON1_PRESSED | BUTTON1_CLICKED))
-                        raise_to_top(vwm, hit);
+                    {
+                        if(raise_to_top(vwm, hit)) need_paint = 1;
+                    }
 
                     vk_object_push_keystroke(VK_OBJECT(hit), keystroke);
                     break;
@@ -788,11 +855,13 @@ vwm_poll_input(void * const env)
                     {
                         vk_calendar_prev_month(cal);
                         vk_window_redraw(vwm->calendar_popup);
+                        need_paint = 1;
                     }
                     else if(bs & BUTTON5_PRESSED)
                     {
                         vk_calendar_next_month(cal);
                         vk_window_redraw(vwm->calendar_popup);
+                        need_paint = 1;
                     }
                     else if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED))
                     {
@@ -800,11 +869,13 @@ vwm_poll_input(void * const env)
                         {
                             vk_calendar_prev_month(cal);
                             vk_window_redraw(vwm->calendar_popup);
+                            need_paint = 1;
                         }
                         else if(ry == 1 && rx == cal_w - 2)
                         {
                             vk_calendar_next_month(cal);
                             vk_window_redraw(vwm->calendar_popup);
+                            need_paint = 1;
                         }
                     }
 
@@ -814,18 +885,38 @@ vwm_poll_input(void * const env)
                 case ZONE_MANAGE_APPS:
                 {
                     vwm_manage_apps_mouse(mouse_event);
+
+                    /* a click refreshes inside the dialog.  a hover
+                       does not, and falls through to the pointer test. */
+                    if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED |
+                        BUTTON1_RELEASED | BUTTON4_PRESSED |
+                        BUTTON5_PRESSED))
+                        self_paint = 1;
+
                     break;
                 }
 
                 case ZONE_MANAGE_HOTKEYS:
                 {
                     vwm_manage_hotkeys_mouse(mouse_event);
+
+                    if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED |
+                        BUTTON1_RELEASED | BUTTON4_PRESSED |
+                        BUTTON5_PRESSED))
+                        self_paint = 1;
+
                     break;
                 }
 
                 case ZONE_MANAGE_SETTINGS:
                 {
                     vwm_manage_settings_mouse(mouse_event);
+
+                    if(bs & (BUTTON1_CLICKED | BUTTON1_PRESSED |
+                        BUTTON1_RELEASED | BUTTON4_PRESSED |
+                        BUTTON5_PRESSED))
+                        self_paint = 1;
+
                     break;
                 }
 
@@ -840,7 +931,21 @@ vwm_poll_input(void * const env)
                     break;
             }
 
-            vk_screen_refresh(vwm->screen);
+            /* a handler that already composited included the console
+               pointer.  anything else that changed, and a console
+               hover onto a new cell, is one composite in the step hook.
+               the input task is the HIGH protothread; this step's hook
+               runs before the scheduler waits again, so the dirty bit
+               is not delayed until the next 100 ms tick. */
+            if(!self_paint)
+            {
+                if(need_paint)
+                    note_screen_change(vwm);
+                else if(vwm->show_cursor &&
+                    (vwm->cursor_x != old_cx || vwm->cursor_y != old_cy))
+                    note_screen_change(vwm);
+            }
+
             pt_yield(ctx_poll_input);
             continue;
         }
@@ -900,7 +1005,10 @@ vwm_poll_input(void * const env)
         retval = vwm_menubar_ON_KEYSTROKE(keystroke);
         if(retval == KMIO_HANDLED)
         {
-            vk_screen_refresh(vwm->screen);
+            /* the menu bar was copied onto the top bar by
+               vwm_panel_sync_menubar.  one composite, here at the
+               end of the step, covers the dropdown too. */
+            note_screen_change(vwm);
             pt_yield(ctx_poll_input);
             continue;
         }
