@@ -4,8 +4,10 @@
 #include <vdk.h>
 
 /*
-    UI primitives shared by the Manage Settings / Hotkeys / Apps dialogs,
-    extracted from their former per-file copies (TODO S2).
+    UI primitives shared by the Manage Settings / Hotkeys / Apps / Windows
+    dialogs, extracted from their former per-file copies (TODO S2).
+    Popup close and key handling live here too.  Each dialog keeps a
+    thin wrapper where the kmio signature is fixed to (object, key).
 */
 
 /* Take a popup off the screen and destroy it, and clear the caller's
@@ -85,5 +87,64 @@ vk_popup_t *vwm_load_popup_show(const char *title,
    highlight for the given focus (a VWM_LOAD_FOCUS_* value).  Used by the
    Hotkeys / Apps load dialogs, which Tab between browser and buttons. */
 void vwm_load_popup_paint_focus(vk_filedialog_t *filedialog, int focus);
+
+/* Close `popup` and then run `repaint` (the dialog underneath).
+   `repaint` may be NULL.  Does nothing when the popup is not open. */
+void    vwm_popup_close(vk_popup_t **popup, void (*repaint)(void));
+
+/* Extra keys, and two windows-dialog exceptions, for the notice and
+   two-button handlers.  Settings, Hotkeys and Apps pass 0. */
+#define VWM_POPUP_KEY_ENTER     (1 << 0)    /* 1: keypad Enter counts */
+#define VWM_POPUP_KEY_BTAB      (1 << 1)    /* 2: Shift-Tab moves buttons */
+#define VWM_POPUP_QUIET_FIRST   (1 << 2)    /* 4: first button does not repaint */
+#define VWM_POPUP_QUIET_MOVE    (1 << 3)    /* 8: button move does not redraw */
+
+/* Keys for a one-button notice (error, warning, saved).  Esc, Enter or
+   Space closes `popup` and runs `repaint`.  Every other key is swallowed.
+   VWM_POPUP_KEY_ENTER also accepts the keypad Enter. */
+int     vwm_notice_popup_kmio(vk_popup_t **popup, int32_t keystroke,
+            void (*repaint)(void), int flags);
+
+/* Keys for a popup with two buttons.  Esc closes and repaints.  Tab,
+   Left and Right move to the other button (Shift-Tab too, when
+   VWM_POPUP_KEY_BTAB is set).  Enter or Space presses the focused
+   button (keypad Enter too, when VWM_POPUP_KEY_ENTER is set).
+   `on_first` runs when the first button is pressed, after the popup
+   has been destroyed.  VWM_POPUP_QUIET_FIRST skips the repaint on that
+   button.  VWM_POPUP_QUIET_MOVE refreshes the screen without redrawing
+   the popup. */
+int     vwm_two_button_kmio(vk_popup_t **popup, int *active,
+            int32_t keystroke, void (*on_first)(void),
+            void (*repaint)(void), int flags);
+
+/* How a load popup treats Tab, an empty selection, and a directory.
+   Settings passes 0: every key goes to the file dialog, an empty
+   selection leaves the popup open, and OK does not itself refuse a
+   directory.  Hotkeys and Apps set all three. */
+#define VWM_LOAD_TAB_CYCLES     (1 << 0)    /* 1: Tab walks file/OK/Cancel */
+#define VWM_LOAD_CLOSE_EMPTY    (1 << 1)    /* 2: NULL path or selection closes */
+#define VWM_LOAD_REJECT_DIR     (1 << 2)    /* 4: OK ignores a directory */
+
+/* Take the load popup down, drop the caller's filedialog pointer, and
+   repaint the dialog.  Does nothing when the popup is not open. */
+void    vwm_load_popup_close(vk_popup_t **popup,
+            vk_filedialog_t **filedialog, void (*repaint)(void));
+
+/* Build the selected file's path, destroy the popup, then call
+   `on_file` with that path.  See VWM_LOAD_CLOSE_EMPTY and
+   VWM_LOAD_REJECT_DIR for the two cases that do not load a file. */
+void    vwm_load_popup_ok(vk_popup_t **popup, vk_filedialog_t **filedialog,
+            void (*on_file)(const char *path), void (*repaint)(void),
+            int flags);
+
+/* Keys for the load popup.  Esc closes it.  With VWM_LOAD_TAB_CYCLES,
+   Tab moves `focus` (a VWM_LOAD_FOCUS_* value) between the file list,
+   OK and Cancel, and Enter or Space on a button runs that button.
+   Otherwise every key is given to the file dialog.  Enter on a plain
+   file loads it.  `repaint_popup` redraws the popup when it stays open. */
+int     vwm_load_popup_kmio(vk_popup_t **popup,
+            vk_filedialog_t **filedialog, int *focus, int32_t keystroke,
+            void (*on_file)(const char *path), void (*repaint_dialog)(void),
+            void (*repaint_popup)(void), int flags);
 
 #endif

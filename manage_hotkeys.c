@@ -1,4 +1,3 @@
-#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
@@ -29,7 +28,7 @@
 #define INTERIOR_WIDTH      (DIALOG_WIDTH - 2)
 #define INTERIOR_HEIGHT     (DIALOG_HEIGHT - 2)
 
-#define NUM_HOTKEYS         14
+#define NUM_HOTKEYS         VWM_HOTKEY_COUNT
 #define ITEM_WIDTH          (INTERIOR_WIDTH - 4)
 
 enum
@@ -40,58 +39,37 @@ enum
 };
 
 /*
-    One row per hotkey: what the dialog calls it, its default, the group
-    it is listed under, its name in the config file, and where vwm keeps
-    the live value (the offset of its field in vwm_t).  The offset is
-    what lets loading, applying and comparing all be one loop over this
-    table instead of a line per hotkey in each.
+    What the dialog calls each hotkey, and the group it is listed under.
+    The config name, the offset into vwm_t and the default live in
+    vwm_hotkeys, in this same order.
 */
 static const struct
 {
     const char  *label;
-    int32_t     default_value;
     int         category;
-    const char  *config_path;
-    size_t      offset;
 }
-hotkey_defs[NUM_HOTKEYS] =
+hotkey_ui[] =
 {
-    { "Main Menu",       (27 | (96 << 8)),   CAT_MENU,  "menu",       
-        offsetof(vwm_t, hotkey_menu) },
-    { "Toggle WM",       (27 | (119 << 8)),  CAT_WM,    "wm",         
-        offsetof(vwm_t, hotkey_wm) },
-    { "Close Window",    17,                 CAT_WM,    "close",      
-        offsetof(vwm_t, hotkey_close) },
-    { "Cycle Windows",   9,                  CAT_WM,    "cycle",      
-        offsetof(vwm_t, hotkey_cycle) },
-    { "Move Up",         KEY_UP,             CAT_WM,    "move_up",    
-        offsetof(vwm_t, hotkey_move_up) },
-    { "Move Down",       KEY_DOWN,           CAT_WM,    "move_down",  
-        offsetof(vwm_t, hotkey_move_down) },
-    { "Move Left",       KEY_LEFT,           CAT_WM,    "move_left",  
-        offsetof(vwm_t, hotkey_move_left) },
-    { "Move Right",      KEY_RIGHT,          CAT_WM,    "move_right", 
-        offsetof(vwm_t, hotkey_move_right) },
-    { "Increase Height", '+',                CAT_WM,    "grow_h",     
-        offsetof(vwm_t, hotkey_grow_h) },
-    { "Decrease Height", '-',                CAT_WM,    "shrink_h",   
-        offsetof(vwm_t, hotkey_shrink_h) },
-    { "Increase Width",  '>',                CAT_WM,    "grow_w",     
-        offsetof(vwm_t, hotkey_grow_w) },
-    { "Decrease Width",  '<',                CAT_WM,    "shrink_w",   
-        offsetof(vwm_t, hotkey_shrink_w) },
-    { "Switch Desktop",  (27 | (100 << 8)),  CAT_NAV,   "desktop",    
-        offsetof(vwm_t, hotkey_desktop) },
-    { "Detach",          28,                 CAT_NAV,   "detach",     
-        offsetof(vwm_t, hotkey_detach) },
+    { "Main Menu",       CAT_MENU },
+    { "Toggle WM",       CAT_WM },
+    { "Close Window",    CAT_WM },
+    { "Cycle Windows",   CAT_WM },
+    { "Move Up",         CAT_WM },
+    { "Move Down",       CAT_WM },
+    { "Move Left",       CAT_WM },
+    { "Move Right",      CAT_WM },
+    { "Increase Height", CAT_WM },
+    { "Decrease Height", CAT_WM },
+    { "Increase Width",  CAT_WM },
+    { "Decrease Width",  CAT_WM },
+    { "Switch Desktop",  CAT_NAV },
+    { "Detach",          CAT_NAV },
 };
 
-/* the live value of hotkey `i`, inside `vwm` */
-static int32_t *
-hotkey_field(vwm_t *vwm, int i)
-{
-    return (int32_t *)((char *)vwm + hotkey_defs[i].offset);
-}
+/* the dialog rows and vwm_hotkeys are the same list */
+_Static_assert(
+    sizeof(hotkey_ui) / sizeof(hotkey_ui[0]) == VWM_HOTKEY_COUNT,
+    "hotkey dialog rows and vwm_hotkeys");
 
 enum
 {
@@ -149,6 +127,13 @@ enum
     HL_COUNT
 };
 static int                   hk_load_focus = HL_FILEDIALOG;
+
+/* these values are what the shared load controller switches on */
+_Static_assert((int)HL_FILEDIALOG == (int)VWM_LOAD_FOCUS_FILEDIALOG,
+    "hotkeys load focus");
+_Static_assert((int)HL_OKAY == (int)VWM_LOAD_FOCUS_OK, "hotkeys load focus");
+_Static_assert((int)HL_CANCEL == (int)VWM_LOAD_FOCUS_CANCEL,
+    "hotkeys load focus");
 
 static vk_popup_t           *error_popup = NULL;
 static vk_popup_t           *confirm_popup = NULL;
@@ -260,7 +245,7 @@ model_load_from_vwm(vwm_t *vwm)
     int i;
 
     for(i = 0; i < NUM_HOTKEYS; i++)
-        model->values[i] = *hotkey_field(vwm, i);
+        model->values[i] = *vwm_hotkey_field(vwm, i);
 }
 
 /* vwm takes the dialog's working copy */
@@ -270,7 +255,7 @@ model_apply_to_vwm(vwm_t *vwm)
     int i;
 
     for(i = 0; i < NUM_HOTKEYS; i++)
-        *hotkey_field(vwm, i) = model->values[i];
+        *vwm_hotkey_field(vwm, i) = model->values[i];
 }
 
 static void
@@ -289,7 +274,7 @@ model_load_from_config(const char *path)
 
     for(i = 0; i < NUM_HOTKEYS; i++)
     {
-        value = vwm_json_str(hotkeys, hotkey_defs[i].config_path, NULL);
+        value = vwm_json_str(hotkeys, vwm_hotkeys[i].name, NULL);
         if(value != NULL && sscanf(value, "%x", &keystroke) == 1)
             model->values[i] = keystroke;
     }
@@ -312,17 +297,17 @@ rebuild_listbox(void)
 
     for(i = 0; i < NUM_HOTKEYS; i++)
     {
-        if(hotkey_defs[i].category != last_cat)
+        if(hotkey_ui[i].category != last_cat)
         {
             vk_listbox_add_separator(hotkey_listbox, VK_SEPARATOR_SINGLE);
             lb_idx++;
-            last_cat = hotkey_defs[i].category;
+            last_cat = hotkey_ui[i].category;
         }
 
         hotkey_format(model->values[i], keybuf, sizeof(keybuf));
 
         snprintf(display, sizeof(display), "  %-20s  %s",
-            hotkey_defs[i].label, keybuf);
+            hotkey_ui[i].label, keybuf);
 
         vk_listbox_add_item(hotkey_listbox, display, NULL, NULL);
         entry_to_lb[i] = lb_idx;
@@ -383,20 +368,7 @@ update_button_highlights(void)
 static void
 error_popup_close(void)
 {
-    vwm_t *vwm;
-
-    if(error_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(error_popup));
-
-    vk_popup_destroy(error_popup);
-    error_popup = NULL;
-
-    refresh_dialog();
+    vwm_popup_close(&error_popup, refresh_dialog);
 }
 
 static int
@@ -404,13 +376,8 @@ error_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        error_popup_close();
-        return 0;
-    }
-
-    return 0;
+    return vwm_notice_popup_kmio(&error_popup, keystroke,
+        refresh_dialog, 0);
 }
 
 static void
@@ -427,20 +394,7 @@ error_popup_show(const char *msg)
 static void
 saved_popup_close(void)
 {
-    vwm_t *vwm;
-
-    if(saved_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(saved_popup));
-
-    vk_popup_destroy(saved_popup);
-    saved_popup = NULL;
-
-    refresh_dialog();
+    vwm_popup_close(&saved_popup, refresh_dialog);
 }
 
 static int
@@ -448,13 +402,8 @@ saved_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        saved_popup_close();
-        return 0;
-    }
-
-    return 0;
+    return vwm_notice_popup_kmio(&saved_popup, keystroke,
+        refresh_dialog, 0);
 }
 
 static void
@@ -471,20 +420,7 @@ saved_popup_show(void)
 static void
 warning_popup_close(void)
 {
-    vwm_t *vwm;
-
-    if(warning_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(warning_popup));
-
-    vk_popup_destroy(warning_popup);
-    warning_popup = NULL;
-
-    refresh_dialog();
+    vwm_popup_close(&warning_popup, refresh_dialog);
 }
 
 static int
@@ -492,13 +428,8 @@ warning_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        warning_popup_close();
-        return 0;
-    }
-
-    return 0;
+    return vwm_notice_popup_kmio(&warning_popup, keystroke,
+        refresh_dialog, 0);
 }
 
 static void
@@ -525,7 +456,7 @@ check_duplicates(char *errbuf, int errlen)
             {
                 snprintf(errbuf, errlen,
                     "Duplicate: %s and %s use the same key",
-                    hotkey_defs[i].label, hotkey_defs[j].label);
+                    hotkey_ui[i].label, hotkey_ui[j].label);
                 return true;
             }
         }
@@ -545,7 +476,7 @@ has_changes(void)
 
     for(i = 0; i < NUM_HOTKEYS; i++)
     {
-        if(model->values[i] != *hotkey_field(vwm, i)) return true;
+        if(model->values[i] != *vwm_hotkey_field(vwm, i)) return true;
     }
 
     return false;
@@ -556,20 +487,7 @@ has_changes(void)
 static void
 confirm_popup_close(void)
 {
-    vwm_t *vwm;
-
-    if(confirm_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(confirm_popup));
-
-    vk_popup_destroy(confirm_popup);
-    confirm_popup = NULL;
-
-    refresh_dialog();
+    vwm_popup_close(&confirm_popup, refresh_dialog);
 }
 
 static int
@@ -577,60 +495,9 @@ confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27)
-    {
-        confirm_popup_close();
-        return 0;
-    }
-
-    if(keystroke == '\t' || keystroke == KEY_RIGHT || keystroke == KEY_LEFT)
-    {
-        int count = vk_popup_get_button_count(confirm_popup);
-        confirm_active_btn = (confirm_active_btn + 1) % count;
-
-        for(int i = 0; i < count; i++)
-        {
-            vk_button_t *btn = vk_popup_get_button(confirm_popup, i);
-            vk_button_release(btn);
-
-            if(i == confirm_active_btn)
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_YELLOW, COLOR_WHITE);
-                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            }
-            else
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_BLACK, COLOR_WHITE);
-                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            }
-
-        }
-
-        vk_popup_redraw(confirm_popup);
-
-        vwm_t *vwm = vwm_get_instance();
-        vk_screen_refresh(vwm->screen);
-        return 0;
-    }
-
-    if(keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        if(confirm_active_btn == 0)
-        {
-            confirm_popup_close();
-            vwm_manage_hotkeys_close();
-        }
-        else
-        {
-            confirm_popup_close();
-        }
-
-        return 0;
-    }
-
-    return 0;
+    /* Discard closes the dialog; Cancel only closes this popup */
+    return vwm_two_button_kmio(&confirm_popup, &confirm_active_btn,
+        keystroke, vwm_manage_hotkeys_close, refresh_dialog, 0);
 }
 
 static void
@@ -645,56 +512,16 @@ confirm_popup_show(void)
 
 /* ── load popup ────────────────────────────────────────────── */
 
+/* Tab cycles, an empty selection closes, and OK ignores a directory */
+#define HK_LOAD_FLAGS \
+    (VWM_LOAD_TAB_CYCLES | VWM_LOAD_CLOSE_EMPTY | VWM_LOAD_REJECT_DIR)
+
+/* a file was chosen: take those hotkeys and highlight the first row */
 static void
-hk_load_popup_close(void)
+hk_load_on_file(const char *path)
 {
-    vwm_t *vwm;
-
-    if(load_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(load_popup));
-
-    vk_popup_destroy(load_popup);
-    load_popup = NULL;
-    load_filedialog = NULL;
-
-    refresh_dialog();
-}
-
-static void
-hk_load_popup_ok(void)
-{
-    const char  *path;
-    const char  *selected;
-    char        fullpath[PATH_MAX];
-
-    if(load_filedialog == NULL) return;
-
-    path = vk_filedialog_get_path(load_filedialog);
-    selected = vk_filedialog_get_selected(load_filedialog);
-
-    if(path == NULL || selected == NULL)
-    {
-        hk_load_popup_close();
-        return;
-    }
-
-    if(selected[strlen(selected) - 1] == '/')
-        return;
-
-    if(strcmp(path, "/") == 0)
-        snprintf(fullpath, sizeof(fullpath), "/%s", selected);
-    else
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", path, selected);
-
-    strncpy(model->file_path, fullpath, PATH_MAX - 1);
+    strncpy(model->file_path, path, PATH_MAX - 1);
     model->file_path[PATH_MAX - 1] = '\0';
-
-    hk_load_popup_close();
 
     model_load_from_config(model->file_path);
     model->selected = 0;
@@ -704,6 +531,19 @@ hk_load_popup_ok(void)
     vk_listbox_set_curr(hotkey_listbox, entry_to_lb[0]);
 
     refresh_dialog();
+}
+
+static void
+hk_load_popup_close(void)
+{
+    vwm_load_popup_close(&load_popup, &load_filedialog, refresh_dialog);
+}
+
+static void
+hk_load_popup_ok(void)
+{
+    vwm_load_popup_ok(&load_popup, &load_filedialog, hk_load_on_file,
+        refresh_dialog, HK_LOAD_FLAGS);
 }
 
 /*
@@ -721,54 +561,10 @@ hk_load_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27)
-    {
-        hk_load_popup_close();
-        return 0;
-    }
-
-    if(keystroke == '\t')
-    {
-        hk_load_focus = (hk_load_focus + 1) % HL_COUNT;
-        update_hk_load_focus();
-        refresh_load_popup();
-        return 0;
-    }
-
-    if(hk_load_focus == HL_OKAY)
-    {
-        if(keystroke == KEY_CRLF || keystroke == ' ')
-            hk_load_popup_ok();
-        return 0;
-    }
-
-    if(hk_load_focus == HL_CANCEL)
-    {
-        if(keystroke == KEY_CRLF || keystroke == ' ')
-            hk_load_popup_close();
-        return 0;
-    }
-
-    /* HL_FILEDIALOG: forward to the dialog (existing behavior) */
-    vk_object_push_keystroke(VK_OBJECT(load_filedialog), keystroke);
-
-    if(keystroke == KEY_CRLF)
-    {
-        const char *selected = vk_filedialog_get_selected(load_filedialog);
-        if(selected != NULL && selected[0] != '\0')
-        {
-            int len = strlen(selected);
-            if(selected[len - 1] != '/' && strcmp(selected, "..") != 0)
-            {
-                hk_load_popup_ok();
-                return 0;
-            }
-        }
-    }
-
-    refresh_load_popup();
-
-    return 0;
+    /* Tab walks the file list and the buttons; Shift-Tab does not */
+    return vwm_load_popup_kmio(&load_popup, &load_filedialog,
+        &hk_load_focus, keystroke, hk_load_on_file, refresh_dialog,
+        refresh_load_popup, HK_LOAD_FLAGS);
 }
 
 static void
@@ -819,7 +615,7 @@ on_reset(void)
     if(model->selected < 0 || model->selected >= NUM_HOTKEYS) return;
 
     model->values[model->selected] =
-        hotkey_defs[model->selected].default_value;
+        vwm_hotkeys[model->selected].default_value;
 
     rebuild_listbox();
     vk_listbox_set_curr(hotkey_listbox, entry_to_lb[model->selected]);

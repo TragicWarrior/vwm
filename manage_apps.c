@@ -231,6 +231,13 @@ enum
 };
 static int                 load_focus = LF_FILEDIALOG;
 
+/* these values are what the shared load controller switches on */
+_Static_assert((int)LF_FILEDIALOG == (int)VWM_LOAD_FOCUS_FILEDIALOG,
+    "apps load focus");
+_Static_assert((int)LF_OK == (int)VWM_LOAD_FOCUS_OK, "apps load focus");
+_Static_assert((int)LF_CANCEL == (int)VWM_LOAD_FOCUS_CANCEL,
+    "apps load focus");
+
 static void listbox_rebuild(void);
 static void refresh_dialog(void);
 static void refresh_edit_popup(void);
@@ -1193,56 +1200,16 @@ edit_popup_open(void)
 
 /* ── load popup ─────────────────────────────────────────────── */
 
+/* Tab cycles, an empty selection closes, and OK ignores a directory */
+#define APP_LOAD_FLAGS \
+    (VWM_LOAD_TAB_CYCLES | VWM_LOAD_CLOSE_EMPTY | VWM_LOAD_REJECT_DIR)
+
+/* a file was chosen: take those apps and show the first one */
 static void
-load_popup_close(void)
+load_on_file(const char *path)
 {
-    vwm_t *vwm;
-
-    if(load_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(load_popup));
-
-    vk_popup_destroy(load_popup);
-    load_popup = NULL;
-    load_filedialog = NULL;
-
-    refresh_dialog();
-}
-
-static void
-load_popup_ok(void)
-{
-    const char  *path;
-    const char  *selected;
-    char        fullpath[PATH_MAX];
-
-    if(load_filedialog == NULL) return;
-
-    path = vk_filedialog_get_path(load_filedialog);
-    selected = vk_filedialog_get_selected(load_filedialog);
-
-    if(path == NULL || selected == NULL)
-    {
-        load_popup_close();
-        return;
-    }
-
-    if(selected[strlen(selected) - 1] == '/')
-        return;
-
-    if(strcmp(path, "/") == 0)
-        snprintf(fullpath, sizeof(fullpath), "/%s", selected);
-    else
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", path, selected);
-
-    strncpy(model->file_path, fullpath, PATH_MAX - 1);
+    strncpy(model->file_path, path, PATH_MAX - 1);
     model->file_path[PATH_MAX - 1] = '\0';
-
-    load_popup_close();
 
     model_load_from_config(model->file_path);
     model->selected = 0;
@@ -1259,6 +1226,19 @@ load_popup_ok(void)
     refresh_dialog();
 }
 
+static void
+load_popup_close(void)
+{
+    vwm_load_popup_close(&load_popup, &load_filedialog, refresh_dialog);
+}
+
+static void
+load_popup_ok(void)
+{
+    vwm_load_popup_ok(&load_popup, &load_filedialog, load_on_file,
+        refresh_dialog, APP_LOAD_FLAGS);
+}
+
 /* highlight the focused OK/Cancel button (the buttons live in the
    filedialog's button bar, reached via the public box getter) */
 static void
@@ -1272,54 +1252,10 @@ load_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27)
-    {
-        load_popup_close();
-        return 0;
-    }
-
-    if(keystroke == '\t')
-    {
-        load_focus = (load_focus + 1) % LF_COUNT;
-        update_load_focus();
-        refresh_load_popup();
-        return 0;
-    }
-
-    if(load_focus == LF_OK)
-    {
-        if(keystroke == KEY_CRLF || keystroke == ' ')
-            load_popup_ok();
-        return 0;
-    }
-
-    if(load_focus == LF_CANCEL)
-    {
-        if(keystroke == KEY_CRLF || keystroke == ' ')
-            load_popup_close();
-        return 0;
-    }
-
-    /* LF_FILEDIALOG: drive the file browser */
-    vk_object_push_keystroke(VK_OBJECT(load_filedialog), keystroke);
-
-    if(keystroke == KEY_CRLF)
-    {
-        const char *selected = vk_filedialog_get_selected(load_filedialog);
-        if(selected != NULL && selected[0] != '\0')
-        {
-            int len = strlen(selected);
-            if(selected[len - 1] != '/' && strcmp(selected, "..") != 0)
-            {
-                load_popup_ok();
-                return 0;
-            }
-        }
-    }
-
-    refresh_load_popup();
-
-    return 0;
+    /* Tab walks the file list and the buttons; Shift-Tab does not */
+    return vwm_load_popup_kmio(&load_popup, &load_filedialog, &load_focus,
+        keystroke, load_on_file, refresh_dialog, refresh_load_popup,
+        APP_LOAD_FLAGS);
 }
 
 static void
@@ -1448,20 +1384,7 @@ on_cancel(void)
 static void
 warning_popup_close(void)
 {
-    vwm_t *vwm;
-
-    if(warning_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(warning_popup));
-
-    vk_popup_destroy(warning_popup);
-    warning_popup = NULL;
-
-    refresh_dialog();
+    vwm_popup_close(&warning_popup, refresh_dialog);
 }
 
 static int
@@ -1469,13 +1392,8 @@ warning_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        warning_popup_close();
-        return 0;
-    }
-
-    return 0;
+    return vwm_notice_popup_kmio(&warning_popup, keystroke,
+        refresh_dialog, 0);
 }
 
 static void
@@ -1492,20 +1410,7 @@ warning_popup_show(void)
 static void
 saved_popup_close(void)
 {
-    vwm_t *vwm;
-
-    if(saved_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(saved_popup));
-
-    vk_popup_destroy(saved_popup);
-    saved_popup = NULL;
-
-    refresh_dialog();
+    vwm_popup_close(&saved_popup, refresh_dialog);
 }
 
 static int
@@ -1513,13 +1418,8 @@ saved_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27 || keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        saved_popup_close();
-        return 0;
-    }
-
-    return 0;
+    return vwm_notice_popup_kmio(&saved_popup, keystroke,
+        refresh_dialog, 0);
 }
 
 static void
@@ -1536,20 +1436,7 @@ saved_popup_show(void)
 static void
 confirm_popup_close(void)
 {
-    vwm_t *vwm;
-
-    if(confirm_popup == NULL) return;
-
-    vwm = vwm_get_instance();
-
-    vk_screen_detach_widget(vwm->screen,
-        vk_screen_get_active_surface(vwm->screen),
-        VK_WIDGET(confirm_popup));
-
-    vk_popup_destroy(confirm_popup);
-    confirm_popup = NULL;
-
-    refresh_dialog();
+    vwm_popup_close(&confirm_popup, refresh_dialog);
 }
 
 static int
@@ -1557,60 +1444,9 @@ confirm_popup_kmio(vk_object_t *object, int32_t keystroke)
 {
     (void)object;
 
-    if(keystroke == 27)
-    {
-        confirm_popup_close();
-        return 0;
-    }
-
-    if(keystroke == '\t' || keystroke == KEY_RIGHT || keystroke == KEY_LEFT)
-    {
-        int count = vk_popup_get_button_count(confirm_popup);
-        confirm_active_btn = (confirm_active_btn + 1) % count;
-
-        for(int i = 0; i < count; i++)
-        {
-            vk_button_t *btn = vk_popup_get_button(confirm_popup, i);
-            vk_button_release(btn);
-
-            if(i == confirm_active_btn)
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_YELLOW, COLOR_WHITE);
-                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            }
-            else
-            {
-                vk_widget_set_colors(VK_WIDGET(btn),
-                    COLOR_BLACK, COLOR_WHITE);
-                vk_widget_set_attrs(VK_WIDGET(btn), A_BOLD);
-            }
-
-        }
-
-        vk_popup_redraw(confirm_popup);
-
-        vwm_t *vwm = vwm_get_instance();
-        vk_screen_refresh(vwm->screen);
-        return 0;
-    }
-
-    if(keystroke == KEY_CRLF || keystroke == ' ')
-    {
-        if(confirm_active_btn == 0)
-        {
-            confirm_popup_close();
-            vwm_manage_apps_close();
-        }
-        else
-        {
-            confirm_popup_close();
-        }
-
-        return 0;
-    }
-
-    return 0;
+    /* Discard closes the dialog; Cancel only closes this popup */
+    return vwm_two_button_kmio(&confirm_popup, &confirm_active_btn,
+        keystroke, vwm_manage_apps_close, refresh_dialog, 0);
 }
 
 static void
