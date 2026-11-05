@@ -110,6 +110,11 @@ int main(int argc,char **argv)
     vwm_sched_ctx_t         *ctx_poll_input;
     MEVENT                  mouse_event;
 
+    /* started from a terminal of another vwm, this one carries that
+       terminal's VWM_WINDOW; it means nothing here, so drop it before
+       anything of ours is started (each of our terminals gets its own) */
+    unsetenv("VWM_WINDOW");
+
     /* answer probes before ncurses or the control socket exist.  a
        piped `vwm --version` must not walk on to vwm_ctl_init() and
        become a second window manager -- that process would unlink the

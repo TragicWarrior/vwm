@@ -87,6 +87,12 @@ resolve_font(const char *override, const char *const *candidates,
 int
 vwm_screenshot_save(int target, const char *path)
 {
+    return vwm_screenshot_save_deck(target, path, NULL);
+}
+
+int
+vwm_screenshot_save_deck(int target, const char *path, vk_deck_t *deck)
+{
     vwm_t           *vwm;
     WINDOW          *src = NULL;
     vk_widget_t     *capwin;
@@ -134,7 +140,7 @@ vwm_screenshot_save(int target, const char *path)
 
     if(target == VWM_SHOT_TOP)
     {
-        capwin = vk_deck_get_top(vwm->deck);
+        capwin = vk_deck_get_top((deck != NULL) ? deck : vwm->deck);
         if(capwin != NULL)
             src = vk_widget_get_canvas(capwin);
     }

@@ -231,6 +231,15 @@ vwm_mod_init(const char *modpath)
 	return 0;
 }
 
+/*
+    Each terminal's program is started with VWM_WINDOW set to a number
+    that is this terminal's alone, its ticket.  vwm-msg run anywhere
+    below it -- the shell, an LLM, a command the LLM runs in a session
+    of its own -- inherits it and sends it with launch requests, so the
+    new window can go on the desktop of the terminal that asked.
+*/
+static unsigned int     vwmterm_next_ticket = 0;
+
 vk_window_t*
 vwmterm_main(vwm_module_t *mod)
 {
@@ -240,6 +249,7 @@ vwmterm_main(vwm_module_t *mod)
     vtty_t                  *vterm;
     vk_window_t             *window;
     vk_widget_t             *content;
+    unsigned int            ticket;
 	int		      	        width, height;
     int                     scr_width, scr_height;
 
@@ -289,7 +299,20 @@ vwmterm_main(vwm_module_t *mod)
         if(mod->start_home)
             flags |= VTTY_FLAG_START_HOME;
 
-        vtty_init(vterm, width, height, flags);
+        /* the program is forked inside vtty_init and takes a copy of
+           vwm's environment then: put this terminal's ticket there for
+           that moment only, so nothing else of vwm's carries it */
+        {
+            char    buf[16];
+
+            ticket = ++vwmterm_next_ticket;
+            snprintf(buf, sizeof(buf), "%u", ticket);
+            setenv("VWM_WINDOW", buf, 1);
+
+            vtty_init(vterm, width, height, flags);
+
+            unsetenv("VWM_WINDOW");
+        }
     }
     vtty_set_pair_selector(vterm, vwmterm_pair_selector);
     vtty_set_colors(vterm, COLOR_WHITE, COLOR_BLACK);
@@ -342,6 +365,7 @@ vwmterm_main(vwm_module_t *mod)
 
     vwmterm_data = (vwmterm_data_t*)calloc(1, sizeof(vwmterm_data_t));
     vwmterm_data->wake_fd = -1;         /* nothing registered yet */
+    vwmterm_data->ticket = ticket;
     ctx_vwmterm = calloc(1, sizeof(vwm_sched_ctx_t));
     vwmterm_data->sched_ctx = ctx_vwmterm;
 

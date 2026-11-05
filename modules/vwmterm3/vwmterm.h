@@ -15,6 +15,7 @@ struct _vwmterm_data_s
 {
     vk_window_t     *window;
     vtty_t          *vterm;
+    unsigned int    ticket;         /* VWM_WINDOW its program was given */
     vk_scroller_t   *scroller;
     char            app_title[64];  /* the app's own name, a space each side */
     char            osc_title[128]; /* what the program asked for (OSC 0 / 2),

@@ -131,6 +131,8 @@ json_escape(char *dst, size_t dst_sz, const char *src)
 #define VWM_MSG_MAX_REPLY   (2 * 1024 * 1024)
 #define VWM_MSG_MAX_FILE    (200 * 1024)
 
+static unsigned long caller_window(void);
+
 static int
 transact(const char *req)
 {
@@ -171,8 +173,19 @@ transact(const char *req)
     {
         size_t  len = strlen(req);
         char    nl = '\n';
+        char    from[40] = "";
+
+        /* from a vwm terminal: name it, as "from", in every request.
+           vwm answers as seen from that terminal's desktop. */
+        if(caller_window() != 0 && len > 2 && req[len - 1] == '}')
+        {
+            snprintf(from, sizeof(from), ",\"from\":%lu}", caller_window());
+            len--;
+        }
 
         if(write(fd, req, len) != (ssize_t)len ||
+            (from[0] != '\0' &&
+                write(fd, from, strlen(from)) != (ssize_t)strlen(from)) ||
             write(fd, &nl, 1) != 1)
         {
             fprintf(stderr, "vwm-msg: write: %s\n", strerror(errno));
@@ -367,6 +380,28 @@ need(int argc, int i, const char *what)
     }
 
     return 0;
+}
+
+/*
+    The VWM_WINDOW of the terminal this runs under: a vwm terminal starts
+    its program with it, and everything below inherits it.  Sent with
+    every request: vwm puts launched windows on that terminal's desktop
+    and shows the caller only the windows there.  0 when it is not set
+    or is not a number.
+*/
+static unsigned long
+caller_window(void)
+{
+    const char      *env = getenv("VWM_WINDOW");
+    char            *end;
+    unsigned long   n;
+
+    if(env == NULL || *env == '\0') return 0;
+
+    n = strtoul(env, &end, 10);
+    if(*end != '\0' || n > 0xFFFFFFFFUL) return 0;
+
+    return n;
 }
 
 int
@@ -634,6 +669,7 @@ main(int argc, char **argv)
             strncat(req, ",\"start_home\":1", sizeof(req) - 1);
         if(attention)
             strncat(req, ",\"attention\":true", sizeof(req) - 1);
+
         if(args_json[0] != '\0')
         {
             strncat(req, ",\"args\":[", sizeof(req) - 1);
