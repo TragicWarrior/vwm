@@ -640,7 +640,25 @@ vwm_poll_input(void * const env)
                                 VK_WIDGET(p->task_label),
                                 &tk_w, &tk_h);
 
-                            if(mouse_event->x >= ck_x &&
+                            /* the desktop selector: go to that desktop */
+                            int desk = vwm_panel_desktop_at(p,
+                                mouse_event->x);
+
+                            if(desk >= 0)
+                            {
+                                if(bs & BUTTON1_PRESSED)
+                                    menubar_ate_press = true;
+
+                                vwm_calendar_close();
+
+                                if(desk != vk_screen_get_active_surface(
+                                    vwm->screen))
+                                {
+                                    vk_screen_set_surface(vwm->screen,
+                                        desk);
+                                }
+                            }
+                            else if(mouse_event->x >= ck_x &&
                                mouse_event->x < ck_x + ck_w)
                             {
                                 if(bs & BUTTON1_PRESSED)
