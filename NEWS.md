@@ -1,5 +1,11 @@
 2026-11-04
 
+The task count in the top panel is one cell wider on the left and sits
+right against the desktop selector, so " T3 " no longer looks lopsided.
+
+
+2026-11-04
+
 vwm 10.0.0.  vwm-msg run inside a vwm terminal now works on that
 terminal's desktop only (this arrived in 9.6.0; the new major number
 marks it).  A script or agent running in a vwm terminal sees and acts
