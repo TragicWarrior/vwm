@@ -1,3 +1,11 @@
+2026-11-06
+
+vwm 10.0.5.  vwm can be installed as a Debian package:  "make package"
+builds one, and the release carries it.  vwm now looks for its plugins
+wherever it was installed rather than always in /usr/local, and the
+terminal plugin finds libvtty with only the runtime package installed.
+
+
 2026-11-05
 
 vwm 10.0.4.  Startup reads the config file once.  Colour, wallpaper

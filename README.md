@@ -146,6 +146,25 @@ On Linux the install ends by running ldconfig, so vwm finds a libviper or
 libvtty that was installed just before it.  A staged install (DESTDIR)
 skips that step.
 
+vwm looks for its plugins where it installs them, so build with the
+prefix you will install to (-DCMAKE_INSTALL_PREFIX=...).
+
+Debian package
+--------------
+
+To build a .deb for Debian or a Debian-based system (Ubuntu, etc.):
+
+cmake -DCMAKE_INSTALL_PREFIX=/usr CMakeLists.txt
+make
+make package
+
+That needs no root and produces vwm_<version>_<arch>.deb, which installs
+to /usr.  It depends on the libvdk12 and libvtty11 packages (from the
+libviper and libvtty releases) and on fonts-dejavu-core, whose fonts it
+uses instead of the copies bundled here.  Install it with
+
+sudo apt install ./vwm_*.deb
+
 CONFIGURATION
 =============
 

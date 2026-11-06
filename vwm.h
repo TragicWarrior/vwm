@@ -23,7 +23,7 @@
 #include "screenshot.h"
 
 
-#define VWM_VERSION					"10.0.4"
+#define VWM_VERSION					"10.0.5"
 
 /* the narrowest window that shows its title-bar buttons: a corner, the
    3 columns of [v], the 3 of [X], and the 2-column margin to the right
