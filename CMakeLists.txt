@@ -2,6 +2,16 @@ cmake_minimum_required(VERSION 3.10.2)
 
 project(vwm LANGUAGES C)
 
+# The version is kept in one place, VWM_VERSION in vwm.h, and read from
+# there so the program and its package always carry the same number.
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/vwm.h" _vwm_version_line
+    REGEX "^#define[ \t]+VWM_VERSION[ \t]+\"[0-9]+\\.[0-9]+\\.[0-9]+\"")
+string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" PROJECT_VERSION
+    "${_vwm_version_line}")
+if(NOT PROJECT_VERSION)
+    message(FATAL_ERROR "could not read VWM_VERSION from vwm.h")
+endif()
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 set(PROJECT_DESCRIPTION "A window manager for the console.")
 
@@ -11,6 +21,11 @@ endif()
 
 # the following is until we learn how to reorder the gcc arguments to correctly link on Ubuntu
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-as-needed")
+
+# whether the compiler can record source file names relative to a tree
+# (used below, once the source trees are known)
+include(CheckCCompilerFlag)
+check_c_compiler_flag("-ffile-prefix-map=/a=b" VWM_HAS_FILE_PREFIX_MAP)
 
 add_definitions("-D_REENTRANT")
 add_definitions("-D_GNU_SOURCE")
@@ -51,6 +66,13 @@ if(NOT EXISTS "${PROTOTHREAD_SOURCE_DIR}/protothread.h")
   message(FATAL_ERROR
     "protothread.h not found at ${PROTOTHREAD_SOURCE_DIR}/protothread.h. "
     "Check out protothread next to vwm, or pass -DPROTOTHREAD_SOURCE_DIR=<path>.")
+endif()
+
+# Source file names (__FILE__) are recorded relative to the source trees,
+# so where vwm was built does not end up inside the program.
+if(VWM_HAS_FILE_PREFIX_MAP)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffile-prefix-map=${PROJECT_SOURCE_DIR}/=")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffile-prefix-map=${PROTOTHREAD_SOURCE_DIR}/=")
 endif()
 
 include_directories(BEFORE
@@ -156,7 +178,11 @@ set_target_properties(vwm PROPERTIES ENABLE_EXPORTS ON)
 
 target_link_libraries(vwm -lutil -lm -lrt ${CURSES_LIBRARIES} ${CMAKE_DL_LIBS} "${VDK_LIBRARY}" "${VTTY_LIBRARY}" ${FREETYPE_LIBRARIES})
 target_include_directories(vwm PRIVATE ${FREETYPE_INCLUDE_DIRS})
+# where vwm looks for its plugins:  where they are installed.  it was
+# fixed at /usr/local/lib/vwm, so a vwm installed elsewhere (the Debian
+# package installs to /usr) found none of its modules.
 target_compile_definitions(vwm PRIVATE
+    "_VWM_SHARED_MODULES=\"${CMAKE_INSTALL_PREFIX}/lib/vwm/\""
     "VWM_FONTDIR=\"${CMAKE_INSTALL_FULL_DATADIR}/vwm/fonts\""
     "VWM_FONTS_SRCDIR=\"${PROJECT_SOURCE_DIR}/fonts\"")
 if(VWM_SCREENSHOT_FONT)
@@ -181,31 +207,42 @@ add_test(NAME test_viewfile COMMAND test_viewfile)
 add_custom_target(core)
 add_dependencies(core vwm vwmterm)
 
-# set the subst vars that configure_file() will use
-set(PROJECT_VERSION 1.0)
 
-set(PKG_CONFIG_LIBS
-    "-lvdk"
-)
-
-
-install (TARGETS vwm DESTINATION bin)
-install (TARGETS vwm-msg DESTINATION bin)
-install (TARGETS vwmterm DESTINATION lib/vwm/)
-install (TARGETS vwmprint DESTINATION lib/vwm/)
-install (TARGETS vwmfont DESTINATION lib/vwm/)
+# Every file belongs to a component.  "main" is what the Debian package
+# holds; "fonts" is the bundled DejaVu copy, which "make install" installs
+# but the package leaves out in favour of the system's fonts-dejavu-core
+# (screenshots look for that copy first).
+install (TARGETS vwm DESTINATION bin COMPONENT main)
+install (TARGETS vwm-msg DESTINATION bin COMPONENT main)
+install (TARGETS vwmterm DESTINATION lib/vwm/ COMPONENT main)
+install (TARGETS vwmprint DESTINATION lib/vwm/ COMPONENT main)
+install (TARGETS vwmfont DESTINATION lib/vwm/ COMPONENT main)
 
 # session commands -- PROGRAMS installs them with the execute bit
 # set, alongside the vwm binary so they share its PATH (and tab-complete
 # together as vwm-*)
-install (PROGRAMS scripts/vwm-start scripts/vwm-resume scripts/vwm-stop DESTINATION bin)
+install (PROGRAMS scripts/vwm-start scripts/vwm-resume scripts/vwm-stop
+    DESTINATION bin COMPONENT main)
 install (FILES
     fonts/DejaVuSansMono.ttf
     fonts/DejaVuSansMono-Bold.ttf
     fonts/LICENSE
     fonts/AUTHORS
     fonts/README
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/vwm/fonts)
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/vwm/fonts COMPONENT fonts)
+
+# Debian wants a copyright file (in its machine-readable format) and a
+# compressed changelog in the package's doc directory.  NEWS.md is the
+# project's running record.  gzip -n leaves the time stamp out.
+if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    execute_process(
+        COMMAND gzip -9 -n -c "${CMAKE_CURRENT_SOURCE_DIR}/NEWS.md"
+        OUTPUT_FILE "${CMAKE_CURRENT_BINARY_DIR}/changelog.gz")
+
+    install (FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/copyright"
+        "${CMAKE_CURRENT_BINARY_DIR}/changelog.gz"
+        DESTINATION share/doc/vwm COMPONENT main)
+endif()
 
 # Refresh the dynamic linker's cache after installing.  vwm installs no
 # library the cache serves -- its modules go to lib/vwm/ and are loaded
@@ -243,3 +280,51 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         endif()
     ]])
 endif()
+
+#
+# Debian package:  "make package" builds vwm_<version>_<arch>.deb, no root
+# needed.  Configure with -DCMAKE_INSTALL_PREFIX=/usr first:  the package
+# installs to the prefix vwm was built for, because vwm looks for its
+# plugins there.
+#
+# libvdk and libvtty are named in Depends by hand:  vwm is usually built
+# against copies in /usr/local or a source tree, which dpkg-shlibdeps
+# cannot trace to a package.  It works out the rest.
+#
+set(CPACK_GENERATOR "DEB")
+set(CPACK_PACKAGE_NAME "vwm")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGING_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
+set(CPACK_PACKAGE_CONTACT "Bryan Christ <bryan.christ@gmail.com>")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/TragicWarrior/vwm")
+set(CPACK_STRIP_FILES ON)
+
+# directories the package creates are 0755, whatever the builder's umask
+set(CMAKE_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
+    OWNER_READ OWNER_WRITE OWNER_EXECUTE
+    GROUP_READ GROUP_EXECUTE
+    WORLD_READ WORLD_EXECUTE)
+
+# one package, made from the "main" component only
+set(CPACK_DEB_COMPONENT_INSTALL ON)
+set(CPACK_COMPONENTS_ALL main)
+set(CPACK_DEBIAN_MAIN_PACKAGE_NAME "vwm")
+set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "${CPACK_PACKAGE_CONTACT}")
+set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+set(CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION ON)
+set(CPACK_DEBIAN_PACKAGE_DEPENDS
+    "libvdk12 (>= 12.4.0), libvtty11 (>= 11.2.0), fonts-dejavu-core")
+
+# the first line is the synopsis, a blank line separates paragraphs
+set(CPACK_DEBIAN_MAIN_DESCRIPTION
+"window manager for the console
+vwm runs inside a single terminal or on the Linux console and presents
+a multi-desktop, mouse-aware window manager with embedded terminals,
+menus and dialog-driven configuration.  A session keeps running when
+its terminal goes away and can be resumed elsewhere, and vwm-msg
+drives it from scripts.")
+
+include(CPack)
+

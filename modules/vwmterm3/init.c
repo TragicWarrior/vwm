@@ -17,6 +17,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *----------------------------------------------------------------------*/
 
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dlfcn.h>
@@ -199,11 +200,29 @@ vwm_mod_init(const char *modpath)
         return -1;
     }
 
-    dynlib = dlopen("libvtty.so", RTLD_LAZY | RTLD_GLOBAL);
-    if(dynlib == NULL)
+    /*
+        load libvtty by its soname, libvtty.so.<major>.  the bare
+        libvtty.so is a link for the linker that only the development
+        package installs, so a dlopen() of that name fails on a system
+        with just the runtime library.  vwm itself is linked against
+        libvtty, so if neither name loads the symbols may already be
+        here:  accept that, as for forkpty above.
+    */
     {
-        fprintf(stderr, "[EE] Could not load libvtty.so\n\r");
-        return -1;
+        char    soname[32];
+
+        snprintf(soname, sizeof(soname), "libvtty.so.%d",
+            atoi(LIBVTTY_VERSION));
+
+        dynlib = dlopen(soname, RTLD_LAZY | RTLD_GLOBAL);
+        if(dynlib == NULL)
+            dynlib = dlopen("libvtty.so", RTLD_LAZY | RTLD_GLOBAL);
+
+        if(dynlib == NULL && dlsym(RTLD_DEFAULT, "vtty_init") == NULL)
+        {
+            fprintf(stderr, "[EE] Could not load %s\n\r", soname);
+            return -1;
+        }
     }
 
     /* one module per kind of terminal: they share every hook and

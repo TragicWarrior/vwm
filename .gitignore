@@ -14,3 +14,10 @@ install_manifest.txt
 /test_viewfile
 CTestTestfile.cmake
 Testing/
+
+# Debian package ("make package") and what CPack leaves behind
+*.deb
+_CPack_Packages/
+CPackConfig.cmake
+CPackSourceConfig.cmake
+changelog.gz
