@@ -1,5 +1,12 @@
 2026-11-05
 
+vwm 10.0.4.  Startup reads the config file once.  Colour, wallpaper
+and clipboard names share one lookup, and an Apps menu entry is
+decoded in one place.  Nothing on screen changes.
+
+
+2026-11-05
+
 vwm 10.0.3.  The clock tick repaints only the panel cell that changed,
 and a mouse move no longer redraws the whole screen.  The control
 socket is serviced when a client is waiting, or on the regular tick.

@@ -20,4 +20,11 @@ void    vwm_hostname_cache_orphan(void);
 
 bool    vwm_has_utf8(void);
 
+/*
+    Index of `name` in `table`, or -1 when `name` is NULL or not one
+    of the `count` entries.  Comparison is case-sensitive (strcmp).
+*/
+int     vwm_name_index(const char * const *table, int count,
+            const char *name);
+
 #endif

@@ -5,6 +5,7 @@
 #include "cJSON.h"
 #include "config.h"
 #include "vwm.h"
+#include "bkgd.h"
 #include "settings.h"
 #include "profile.h"
 #include "private.h"
@@ -42,53 +43,57 @@ vwm_hotkey_field(vwm_t *vwm, int index)
     return (int32_t *)((char *)vwm + vwm_hotkeys[index].offset);
 }
 
-int
-vwm_settings_load(vwm_t *vwm)
-{
-    if(vwm_settings_load_hotkeys(vwm) != 0) return -1;
-
-    vwm_settings_load_general(vwm);
-
-    return 0;
-}
-
 /*
-    Read the hotkeys from the config file into the running session.  A
-    key the file does not name keeps the value it has.
+    Apply the "hotkeys" object of a tree the caller parsed.  The caller
+    frees `root`.  A key the file does not name, or a value sscanf does
+    not parse, keeps the value it has.
 */
 int
-vwm_settings_load_hotkeys(vwm_t *vwm)
+vwm_settings_load_hotkeys_from_json(vwm_t *vwm, const cJSON *root)
 {
-    cJSON       *root;
     cJSON       *hotkeys;
     const char  *value;
     int32_t     keystroke;
     int         i;
-    int         count;
 
     if(vwm == NULL) return -1;
     if(vwm->profile == NULL) return -1;
     if(vwm->profile->rc_file == NULL) return -1;
 
-    count = VWM_HOTKEY_COUNT;
+    /* no file: keep the values currently in effect */
+    if(root == NULL) return 0;
 
-    root = vwm_config_load(vwm->profile->rc_file);
-    if(root != NULL)
+    hotkeys = cJSON_GetObjectItemCaseSensitive(root, "hotkeys");
+
+    /* a name the file leaves out keeps the value it already has */
+    for(i = 0; i < VWM_HOTKEY_COUNT; i++)
     {
-        hotkeys = cJSON_GetObjectItemCaseSensitive(root, "hotkeys");
-
-        /* a name the file leaves out keeps the value it already has */
-        for(i = 0; i < count; i++)
-        {
-            value = vwm_json_str(hotkeys, vwm_hotkeys[i].name, NULL);
-            if(value != NULL && sscanf(value, "%x", &keystroke) == 1)
-                *vwm_hotkey_field(vwm, i) = keystroke;
-        }
-
-        cJSON_Delete(root);
+        value = vwm_json_str(hotkeys, vwm_hotkeys[i].name, NULL);
+        if(value != NULL && sscanf(value, "%x", &keystroke) == 1)
+            *vwm_hotkey_field(vwm, i) = keystroke;
     }
 
     return 0;
+}
+
+/*
+    Read the hotkeys from the config file into the running session.
+*/
+int
+vwm_settings_load_hotkeys(vwm_t *vwm)
+{
+    cJSON   *root;
+    int     status;
+
+    if(vwm == NULL) return -1;
+    if(vwm->profile == NULL) return -1;
+    if(vwm->profile->rc_file == NULL) return -1;
+
+    root = vwm_config_load(vwm->profile->rc_file);
+    status = vwm_settings_load_hotkeys_from_json(vwm, root);
+    if(root != NULL) cJSON_Delete(root);
+
+    return status;
 }
 
 int
@@ -124,10 +129,15 @@ vwm_settings_save(vwm_t *vwm)
     return 0;
 }
 
+/*
+    Apply the "settings" object of a tree the caller parsed.  The
+    caller frees `root`.  A missing object leaves every value as it
+    is: the json helpers then return defaults that fail the range
+    checks below.
+*/
 void
-vwm_settings_load_general(vwm_t *vwm)
+vwm_settings_load_general_from_json(vwm_t *vwm, const cJSON *root)
 {
-    cJSON       *root;
     cJSON       *settings;
     const char  *str;
     int         val;
@@ -136,7 +146,7 @@ vwm_settings_load_general(vwm_t *vwm)
     if(vwm->profile == NULL) return;
     if(vwm->profile->rc_file == NULL) return;
 
-    root = vwm_config_load(vwm->profile->rc_file);
+    /* no file: keep the values currently in effect */
     if(root == NULL) return;
 
     settings = cJSON_GetObjectItemCaseSensitive(root, "settings");
@@ -171,20 +181,17 @@ vwm_settings_load_general(vwm_t *vwm)
         vwm->screensaver_timeout = val;
 
     /* Host clipboard sync mode, stored under the display name
-       ("Never"/"OSC 52"/"xclip"/"Both").  Unknown or missing values
-       keep whatever vwm_init seeded. */
+       ("Never"/"OSC 52"/"xclip"/"Both").  An unknown or missing value
+       keeps the mode currently in effect. */
     str = vwm_json_str(settings, "clipboard", NULL);
     if(str != NULL)
     {
         int j;
-        for(j = 0; j < VWM_CLIPBOARD_COUNT; j++)
-        {
-            if(strcmp(str, vwm_clipboard_mode_names[j]) == 0)
-            {
-                vwm->clipboard_mode = (short)j;
-                break;
-            }
-        }
+
+        /* an unknown name keeps the current mode */
+        j = vwm_name_index(vwm_clipboard_mode_names,
+            VWM_CLIPBOARD_COUNT, str);
+        if(j >= 0) vwm->clipboard_mode = (short)j;
     }
 
     /* bottom-left hostname label: on/off flag plus its fg/bg colors
@@ -197,18 +204,20 @@ vwm_settings_load_general(vwm_t *vwm)
     if(str != NULL)
     {
         int j;
-        for(j = 0; j < 16; j++)
-            if(strcmp(str, vwm_color_names[j]) == 0)
-            { vwm->hostname_fg = (short)j; break; }
+
+        /* an unknown colour name keeps the current foreground */
+        j = vwm_name_index(vwm_color_names, 16, str);
+        if(j >= 0) vwm->hostname_fg = (short)j;
     }
 
     str = vwm_json_str(settings, "hostname_bg", NULL);
     if(str != NULL)
     {
         int j;
-        for(j = 0; j < 16; j++)
-            if(strcmp(str, vwm_color_names[j]) == 0)
-            { vwm->hostname_bg = (short)j; break; }
+
+        /* an unknown colour name keeps the current background */
+        j = vwm_name_index(vwm_color_names, 16, str);
+        if(j >= 0) vwm->hostname_bg = (short)j;
     }
 
     /* big-font hostname: font is a vwmfont size index (-1 = Basic), fill
@@ -220,8 +229,8 @@ vwm_settings_load_general(vwm_t *vwm)
     if(val >= 0 && val <= 2) vwm->hostname_fill = (short)val;
 
     /* per-desktop colors and wallpapers -- both stored as string arrays
-       (color and pattern names).  Missing or malformed entries keep
-       whatever vwm_init seeded.  Unknown names also keep the default. */
+       (color and pattern names).  A missing, malformed, or unknown
+       entry keeps the value currently in effect. */
     {
         cJSON *arr = cJSON_GetObjectItemCaseSensitive(settings,
             "desktop_colors");
@@ -235,14 +244,10 @@ vwm_settings_load_general(vwm_t *vwm)
                 cJSON *item = cJSON_GetArrayItem(arr, i);
                 int    j;
                 if(!cJSON_IsString(item)) continue;
-                for(j = 0; j < 16; j++)
-                {
-                    if(strcmp(item->valuestring, vwm_color_names[j]) == 0)
-                    {
-                        vwm->desktop_color[i] = (short)j;
-                        break;
-                    }
-                }
+
+                /* an unknown name keeps this desktop's current colour */
+                j = vwm_name_index(vwm_color_names, 16, item->valuestring);
+                if(j >= 0) vwm->desktop_color[i] = (short)j;
             }
         }
     }
@@ -259,14 +264,10 @@ vwm_settings_load_general(vwm_t *vwm)
                 cJSON *item = cJSON_GetArrayItem(arr, i);
                 int    j;
                 if(!cJSON_IsString(item)) continue;
-                for(j = 0; j < 16; j++)
-                {
-                    if(strcmp(item->valuestring, vwm_color_names[j]) == 0)
-                    {
-                        vwm->desktop_fg[i] = (short)j;
-                        break;
-                    }
-                }
+
+                /* an unknown name keeps this desktop's current foreground */
+                j = vwm_name_index(vwm_color_names, 16, item->valuestring);
+                if(j >= 0) vwm->desktop_fg[i] = (short)j;
             }
         }
     }
@@ -283,20 +284,14 @@ vwm_settings_load_general(vwm_t *vwm)
                 cJSON *item = cJSON_GetArrayItem(arr, i);
                 int    j;
                 if(!cJSON_IsString(item)) continue;
-                for(j = 0; j < VWM_WALLPAPER_COUNT; j++)
-                {
-                    if(strcmp(item->valuestring,
-                        vwm_wallpaper_names[j]) == 0)
-                    {
-                        vwm->desktop_wallpaper[i] = (short)j;
-                        break;
-                    }
-                }
+
+                /* an unknown name keeps this desktop's current pattern */
+                j = vwm_name_index(vwm_wallpaper_names,
+                    VWM_WALLPAPER_COUNT, item->valuestring);
+                if(j >= 0) vwm->desktop_wallpaper[i] = (short)j;
             }
         }
     }
-
-    cJSON_Delete(root);
 }
 
 void
