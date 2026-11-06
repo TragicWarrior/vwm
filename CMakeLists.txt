@@ -327,4 +327,3 @@ its terminal goes away and can be resumed elsewhere, and vwm-msg
 drives it from scripts.")
 
 include(CPack)
-
