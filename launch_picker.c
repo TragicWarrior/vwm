@@ -387,5 +387,7 @@ vwm_launch_picker_open(vwm_module_t *module)
     vwm->tool_window = (vk_window_t *)picker;
 
     vk_popup_redraw(picker);
-    vk_screen_refresh(vwm->screen);
+
+    /* opened from a key or a click: the step hook composites once */
+    if(!vwm_is_headless()) vwm->screen_dirty = 1;
 }

@@ -130,8 +130,9 @@ void            vwm_sched_run(vwm_sched_t *sched, vwm_shutdown_t *shutdown);
     vwm uses it to coalesce screen composites: tasks mark the screen
     dirty and the callback issues a single vk_screen_refresh per step
     instead of one per busy terminal.  it also services the control
-    socket.  pass cb = NULL to disable.  the scheduler stays
-    vdk-agnostic -- it only invokes the hook.
+    socket when vwm_sched_take_ctl_pending() says to.  pass cb = NULL
+    to disable.  the scheduler stays vdk-agnostic -- it only invokes
+    the hook.
 */
 typedef void    (*vwm_sched_step_cb_t)(void *arg);
 void            vwm_sched_set_step_cb(vwm_sched_t *sched,
@@ -155,6 +156,22 @@ void            vwm_sched_set_step_cb(vwm_sched_t *sched,
 int             vwm_sched_wake_fd_add(vwm_sched_t *sched, int fd,
                     vwm_sched_ctx_t *ctx);
 void            vwm_sched_wake_fd_del(vwm_sched_t *sched, int fd);
+
+/*
+    Mark a wake descriptor as a control-socket fd (the listen socket,
+    or the client waiting on an attach).  When that fd is readable or
+    hung up, the step hook is told to service the socket.  A viewer
+    also registers a descriptor with no task; that one is not a
+    control fd, so the mark is by descriptor, not by a NULL task.
+*/
+void            vwm_sched_wake_fd_ctl(vwm_sched_t *sched, int fd);
+
+/*
+    1 when this step should service the control socket: a marked fd
+    was ready (POLLIN, POLLHUP or POLLERR), or the heartbeat fired so
+    a half-closed attach is noticed within one tick.  Clears the flag.
+*/
+int             vwm_sched_take_ctl_pending(vwm_sched_t *sched);
 
 /*
     wake a task now, for work that arrived some other way than through a

@@ -62,11 +62,13 @@ typedef struct
 vwm_sched_slot_t;
 
 /* one wake descriptor: when fd is readable, wake ctx's task (ctx NULL:
-   just end the sleep) */
+   just end the sleep).  ctl: the step hook should service the control
+   socket when this fd is ready. */
 typedef struct
 {
     int                     fd;
     vwm_sched_ctx_t         *ctx;
+    uint8_t                 ctl;
 }
 vwm_sched_wake_t;
 
@@ -82,6 +84,11 @@ struct _vwm_sched_s
        sleeps only when both are clear. */
     int                     ready_normal;
     int                     ready_high;
+
+    /* a control fd was ready, or the heartbeat fired.  the step hook
+       consumes it.  not cleared here, so a busy terminal's extra steps
+       do not each accept() on the control socket. */
+    int                     ctl_pending;
 
     vwm_sched_step_cb_t     step_cb;
     void                    *step_cb_arg;
@@ -177,9 +184,41 @@ vwm_sched_wake_fd_add(vwm_sched_t *sched, int fd, vwm_sched_ctx_t *ctx)
 
     sched->wake[sched->n_wake].fd = fd;
     sched->wake[sched->n_wake].ctx = ctx;
+    sched->wake[sched->n_wake].ctl = 0;
     sched->n_wake++;
 
     return 0;
+}
+
+/* see sched.h */
+void
+vwm_sched_wake_fd_ctl(vwm_sched_t *sched, int fd)
+{
+    int     i;
+
+    if(sched == NULL || fd < 0) return;
+
+    for(i = 0; i < sched->n_wake; i++)
+    {
+        if(sched->wake[i].fd != fd) continue;
+
+        sched->wake[i].ctl = 1;
+        return;
+    }
+}
+
+/* see sched.h */
+int
+vwm_sched_take_ctl_pending(vwm_sched_t *sched)
+{
+    int     pending;
+
+    if(sched == NULL) return 0;
+
+    pending = sched->ctl_pending;
+    sched->ctl_pending = 0;
+
+    return pending;
 }
 
 /* see sched.h */
@@ -284,6 +323,7 @@ vwm_sched_run(vwm_sched_t *sched, vwm_shutdown_t *shutdown)
     struct timespec     timeout;
     struct pollfd       pfds[VWM_SCHED_MAX_WAKE_FDS];
     vwm_sched_ctx_t     *pctx[VWM_SCHED_MAX_WAKE_FDS];
+    uint8_t             pctl[VWM_SCHED_MAX_WAKE_FDS];
     nfds_t              n_pfds;
     sigset_t            pollmask;
     long                elapsed_ms;
@@ -349,6 +389,7 @@ vwm_sched_run(vwm_sched_t *sched, vwm_shutdown_t *shutdown)
             pfds[n_pfds].events = POLLIN;
             pfds[n_pfds].revents = 0;
             pctx[n_pfds] = sched->wake[i].ctx;
+            pctl[n_pfds] = sched->wake[i].ctl;
             n_pfds++;
         }
 
@@ -375,9 +416,15 @@ vwm_sched_run(vwm_sched_t *sched, vwm_shutdown_t *shutdown)
                 }
 
                 /* readable, or hung up (a terminal whose program
-                   exited): its task has something to do */
+                   exited, or a control client that dropped): its task
+                   has something to do.  a control fd has no task; the
+                   step hook accepts or checks it instead. */
                 if(pfds[i].revents & (POLLIN | POLLHUP | POLLERR))
+                {
                     vwm_sched_wake(sched, pctx[i]);
+
+                    if(pctl[i]) sched->ctl_pending = 1;
+                }
             }
         }
 
@@ -397,7 +444,14 @@ vwm_sched_run(vwm_sched_t *sched, vwm_shutdown_t *shutdown)
         /* shutting down: tasks only see the flag when they run */
         if(*shutdown) heartbeat = 1;
 
-        if(heartbeat) vwm_sched_wake_all(sched);
+        /* the heartbeat is also how a half-closed attach is noticed
+           when its hang-up was missed: within one tick, not on every
+           step a busy terminal takes. */
+        if(heartbeat)
+        {
+            sched->ctl_pending = 1;
+            vwm_sched_wake_all(sched);
+        }
 
         /*
             one step: one ready HIGH task (keyboard and mouse), then one

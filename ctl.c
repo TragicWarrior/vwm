@@ -907,6 +907,7 @@ op_attach(int fd, cJSON *req)
     attach_fd = fd;
     ctl_keep_fd = 1;
     vwm_sched_wake_fd_add(sched, attach_fd, NULL);
+    vwm_sched_wake_fd_ctl(sched, attach_fd);
 }
 
 /*

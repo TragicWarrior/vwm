@@ -229,7 +229,7 @@ menu_dismiss(vwm_t *vwm)
 {
     vwm_menubar_close_dropdown();
     vk_menubar_set_focused(vwm->menubar, false);
-    vk_menubar_redraw(vwm->menubar);
+    vwm_panel_sync_menubar();
 }
 
 /* Left / Right walk the menu bar.  Returns true when `keystroke` was
@@ -244,7 +244,7 @@ menubar_step(vwm_t *vwm, int32_t keystroke)
     else
         return false;
 
-    vk_menubar_redraw(vwm->menubar);
+    vwm_panel_sync_menubar();
 
     return true;
 }
@@ -1011,7 +1011,7 @@ vwm_menubar_fit(const char *windows_label)
     if(cur_w == width) return;
 
     vk_widget_resize(VK_WIDGET(vwm->menubar), width, 1);
-    vk_menubar_redraw(vwm->menubar);
+    vwm_panel_sync_menubar();
 }
 
 /*
@@ -1073,7 +1073,7 @@ vwm_menubar_hotkey(void)
 
     vk_menubar_set_curr(vwm->menubar, 0);
     vk_menubar_set_focused(vwm->menubar, true);
-    vk_menubar_redraw(vwm->menubar);
+    vwm_panel_sync_menubar();
 
     return 0;
 }

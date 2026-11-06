@@ -45,10 +45,11 @@ struct _vwm_s
     vk_deck_t               *deck;
     int                     surface_count;
 
-    /* coalesced-refresh flag.  vterm drain tasks set this instead of
-       compositing per tile; the scheduler's per-step hook
-       (vwm_sched_render in vwm.c) issues one vk_screen_refresh per step
-       and clears it.  see modules/vwmterm3/pt_thread.c. */
+    /* coalesced-refresh flag.  vterm drains, the clock tick and mouse
+       handling set this instead of compositing themselves.  the
+       scheduler's per-step hook (vwm_sched_render in vwm.c) issues one
+       vk_screen_refresh per step and clears it.  while headless the
+       hook leaves it set, so the first attached step paints. */
     int                     screen_dirty;
 
     vk_window_t             *menu;
