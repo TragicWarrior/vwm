@@ -95,6 +95,26 @@ const char *vwm_color_names[16] =
 };
 
 /*
+    Index of `name` in `table`, or -1 when `name` is NULL or not one
+    of the `count` entries.  Comparison is case-sensitive, the same
+    strcmp the settings loaders used before this helper.
+*/
+int
+vwm_name_index(const char * const *table, int count, const char *name)
+{
+    int i;
+
+    if(name == NULL) return -1;
+
+    for(i = 0; i < count; i++)
+    {
+        if(strcmp(name, table[i]) == 0) return i;
+    }
+
+    return -1;
+}
+
+/*
     Build a cchar_t from a WACS_* source using the given color pair.
     The source's own wide chars are preserved; only the pair is
     swapped in (so e.g. WACS_HLINE keeps its '─' glyph but renders

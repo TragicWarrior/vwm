@@ -393,22 +393,6 @@ model_load_from_vwm(vwm_t *vwm)
 }
 
 /*
-    Is `name` one of the `count` names in `names`?
-*/
-static bool
-name_in(const char *name, const char * const *names, int count)
-{
-    int i;
-
-    if(name == NULL) return false;
-
-    for(i = 0; i < count; i++)
-        if(strcmp(name, names[i]) == 0) return true;
-
-    return false;
-}
-
-/*
     Fill the per-desktop rows of the model from a loaded config's
     "settings" object: "desktop_fgs" and "desktop_colors" (the two
     halves of a row's "Fg/Bg" value) and "desktop_wallpapers".
@@ -461,13 +445,15 @@ model_load_desktops(cJSON *settings)
 
         /* either half may come from the file */
         item = cJSON_IsArray(fgs) ? cJSON_GetArrayItem(fgs, d) : NULL;
+        /* an unknown or missing name leaves this half of the row */
         if(cJSON_IsString(item)
-            && name_in(item->valuestring, vwm_color_names, 16))
+            && vwm_name_index(vwm_color_names, 16, item->valuestring) >= 0)
             fg = item->valuestring;
 
         item = cJSON_IsArray(bgs) ? cJSON_GetArrayItem(bgs, d) : NULL;
+        /* an unknown or missing name leaves this half of the row */
         if(cJSON_IsString(item)
-            && name_in(item->valuestring, vwm_color_names, 16))
+            && vwm_name_index(vwm_color_names, 16, item->valuestring) >= 0)
             bg = item->valuestring;
 
         {
@@ -481,9 +467,10 @@ model_load_desktops(cJSON *settings)
 
         /* the wallpaper row */
         item = cJSON_IsArray(wps) ? cJSON_GetArrayItem(wps, d) : NULL;
+        /* an unknown or missing name leaves the wallpaper row */
         if(cJSON_IsString(item)
-            && name_in(item->valuestring, vwm_wallpaper_names,
-                VWM_WALLPAPER_COUNT))
+            && vwm_name_index(vwm_wallpaper_names, VWM_WALLPAPER_COUNT,
+                item->valuestring) >= 0)
         {
             snprintf(model->values[wp_base + d], NAME_MAX, "%s",
                 item->valuestring);
@@ -593,15 +580,11 @@ commit_to_vwm(void)
 
     {
         int j;
-        for(j = 0; j < VWM_CLIPBOARD_COUNT; j++)
-        {
-            if(strcmp(model->values[SETTING_CLIPBOARD],
-                vwm_clipboard_mode_names[j]) == 0)
-            {
-                vwm->clipboard_mode = (short)j;
-                break;
-            }
-        }
+
+        /* an unknown clipboard name keeps the mode already in effect */
+        j = vwm_name_index(vwm_clipboard_mode_names, VWM_CLIPBOARD_COUNT,
+            model->values[SETTING_CLIPBOARD]);
+        if(j >= 0) vwm->clipboard_mode = (short)j;
     }
 
     vwm->show_hostname =
@@ -664,14 +647,13 @@ commit_to_vwm(void)
                     fg_name[len] = '\0';
                     bg_name = slash + 1;
 
-                    for(i = 0; i < 16; i++)
-                        if(strcmp(fg_name, vwm_color_names[i]) == 0)
-                        { fg_i = i; break; }
+                    /* a miss leaves fg_i at -1, so the old foreground stays */
+                    fg_i = vwm_name_index(vwm_color_names, 16, fg_name);
                 }
 
-                for(i = 0; i < 16; i++)
-                    if(strcmp(bg_name, vwm_color_names[i]) == 0)
-                    { bg_i = i; break; }
+                /* a miss leaves bg_i at -1, so the old background stays.
+                   with no slash, bg_name is the whole string. */
+                bg_i = vwm_name_index(vwm_color_names, 16, bg_name);
 
                 if(fg_i >= 0 && vwm->desktop_fg[d] != (short)fg_i)
                 {
@@ -685,17 +667,14 @@ commit_to_vwm(void)
                 }
                 if(color_changed) vwm_apply_desktop_bkgd(d);
             }
-            for(i = 0; i < VWM_WALLPAPER_COUNT; i++)
+            /* a miss leaves this desktop's wallpaper as it is */
+            i = vwm_name_index(vwm_wallpaper_names, VWM_WALLPAPER_COUNT,
+                model->values[wp_base + d]);
+            if(i >= 0)
             {
-                if(strcmp(
-                    model->values[wp_base + d],
-                    vwm_wallpaper_names[i]) == 0)
-                {
-                    if(vwm->desktop_wallpaper[d] != (short)i)
-                        pattern_changed = true;
-                    vwm->desktop_wallpaper[d] = (short)i;
-                    break;
-                }
+                if(vwm->desktop_wallpaper[d] != (short)i)
+                    pattern_changed = true;
+                vwm->desktop_wallpaper[d] = (short)i;
             }
 
             /* drop the cached wallpaper bitmap whenever the source
@@ -936,11 +915,15 @@ parse_fg_bg(const char *val, int *fg_out, int *bg_out)
         memcpy(fg_name, val, len);
         fg_name[len] = '\0';
         bg_name = slash + 1;
-        for(i = 0; i < 16; i++)
-            if(strcmp(fg_name, vwm_color_names[i]) == 0) { fg = i; break; }
+
+        /* a miss keeps the Black default, not the previous colour */
+        i = vwm_name_index(vwm_color_names, 16, fg_name);
+        if(i >= 0) fg = i;
     }
-    for(i = 0; i < 16; i++)
-        if(strcmp(bg_name, vwm_color_names[i]) == 0) { bg = i; break; }
+
+    /* a miss keeps the Blue default, not the previous colour */
+    i = vwm_name_index(vwm_color_names, 16, bg_name);
+    if(i >= 0) bg = i;
 
     *fg_out = fg;
     *bg_out = bg;

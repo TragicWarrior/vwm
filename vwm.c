@@ -53,6 +53,7 @@
 #include "panel.h"
 #include "modules.h"
 #include "settings.h"
+#include "config.h"
 #include "signals.h"
 #include "winman.h"
 #include "list.h"
@@ -294,17 +295,38 @@ int main(int argc,char **argv)
 
     vwm_modules_preload(vwm);
     vwm_menubar_init();
-    vwm_settings_load(vwm);
-    vwm_apply_surface_count(vwm->surface_count);
-    /* settings + surfaces are now both live; seed each desktop's bkgd */
-    vwm_apply_desktop_bkgd_all();
-    /* the first vk_screen_refresh above cached the active desktop's
-       wallpaper using the built-in defaults, before settings_load
-       supplied the saved pattern/color.  Drop that stale cache so the
-       refresh below rebuilds it from the loaded settings -- otherwise
-       the real wallpaper does not appear until the first resize. */
-    vwm_invalidate_wallpaper_cache_all();
-    vwm_programs_load(vwm);
+
+    /* one parse for hotkeys, general settings and the Apps menu.
+       a missing or unparsable file is a NULL root; each loader then
+       keeps the same defaults it kept when it parsed the file itself.
+       wallpaper invalidation stays between general and programs: the
+       refresh above cached the default pattern, and programs do not
+       change it. */
+    {
+        cJSON *root;
+
+        if(vwm->profile != NULL && vwm->profile->rc_file != NULL)
+            root = vwm_config_load(vwm->profile->rc_file);
+        else
+            root = NULL;
+
+        vwm_settings_load_hotkeys_from_json(vwm, root);
+        vwm_settings_load_general_from_json(vwm, root);
+
+        vwm_apply_surface_count(vwm->surface_count);
+        /* settings + surfaces are now both live; seed each desktop's bkgd */
+        vwm_apply_desktop_bkgd_all();
+        /* the first vk_screen_refresh above cached the active desktop's
+           wallpaper using the built-in defaults, before the saved
+           pattern and colour were applied.  Drop that stale cache so the
+           refresh below rebuilds it from the loaded settings -- otherwise
+           the real wallpaper does not appear until the first resize. */
+        vwm_invalidate_wallpaper_cache_all();
+
+        vwm_programs_load_from_json(vwm, root);
+
+        if(root != NULL) cJSON_Delete(root);
+    }
 
     vk_screen_refresh(vwm->screen);
 

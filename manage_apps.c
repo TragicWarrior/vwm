@@ -282,7 +282,6 @@ model_load_from_config(const char *path)
     cJSON               *root;
     cJSON               *programs;
     cJSON               *entry;
-    const char          *str;
 
     model->count = 0;
 
@@ -298,42 +297,35 @@ model_load_from_config(const char *path)
 
     cJSON_ArrayForEach(entry, programs)
     {
-        manage_app_entry_t *e;
+        manage_app_entry_t  *e;
+        vwm_program_fields_t fields;
 
+        /* the dialog stops at 128.  the menu loader does not. */
         if(model->count >= MAX_ENTRIES) break;
-        if(!cJSON_IsObject(entry)) continue;
+        if(vwm_program_from_json(entry, &fields) != 0) continue;
 
         e = &model->entries[model->count];
         memset(e, 0, sizeof(*e));
 
-        str = vwm_json_str(entry, "title", NULL);
-        if(str != NULL) strncpy(e->title, str, NAME_MAX - 1);
+        /* copy only when the key was present.  title and bin come back
+           as "" when missing, and copying that into the zeroed buffer
+           leaves it empty.  each copy stops one short of the field so
+           the byte memset left at the end stays the terminator. */
+        if(fields.title != NULL)
+            strncpy(e->title, fields.title, NAME_MAX - 1);
+        if(fields.bin != NULL)
+            strncpy(e->bin, fields.bin, PATH_MAX - 1);
+        if(fields.params != NULL)
+            strncpy(e->params, fields.params, MAX_PARAMS - 1);
+        if(fields.requires != NULL)
+            strncpy(e->requires, fields.requires, NAME_MAX - 1);
 
-        str = vwm_json_str(entry, "bin", NULL);
-        if(str != NULL) strncpy(e->bin, str, PATH_MAX - 1);
-
-        str = vwm_json_str(entry, "params", NULL);
-        if(str != NULL) strncpy(e->params, str, MAX_PARAMS - 1);
-
-        str = vwm_json_str(entry, "requires", NULL);
-        if(str != NULL) strncpy(e->requires, str, NAME_MAX - 1);
-
-        str = vwm_json_str(entry, "type", NULL);
-        if(str != NULL)
-        {
-            int val = vwm_module_type_value((char *)str);
-            e->type = (val == -1) ? VWM_MOD_TYPE_MISC : val;
-        }
-        else
-        {
-            e->type = VWM_MOD_TYPE_MISC;
-        }
-
-        e->hidden = (vwm_json_bool(entry, "hidden", 0) != 0);
-        e->scrollback = vwm_json_int(entry, "scrollback", 0);
-        e->start_home = (vwm_json_bool(entry, "start_home", 0) != 0);
-        e->term_width   = vwm_json_int(entry, "width", 80);
-        e->term_height  = vwm_json_int(entry, "height", 25);
+        e->type = fields.type;
+        e->hidden = fields.hidden;
+        e->scrollback = fields.scrollback;
+        e->start_home = fields.start_home;
+        e->term_width = fields.term_width;
+        e->term_height = fields.term_height;
 
         model->count++;
     }
