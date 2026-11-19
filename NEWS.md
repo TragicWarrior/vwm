@@ -1,3 +1,9 @@
+2026-11-19
+
+vwm 10.0.6.  The task count on the panel ("T3") is black on magenta
+instead of white, so it reads better.
+
+
 2026-11-06
 
 vwm 10.0.5.  vwm can be installed as a Debian package:  "make package"

@@ -243,7 +243,7 @@ vwm_panel_init(vwm_t *vwm)
        T keeps the count from reading as one more desktop beside it */
     vwm_panel->task_label = vk_label_create(6);
     vk_widget_set_colors(VK_WIDGET(vwm_panel->task_label),
-        COLOR_WHITE, COLOR_MAGENTA);
+        COLOR_BLACK, COLOR_MAGENTA);
     vwm_panel_update_taskcount(vwm_panel);
 
     vwm_panel->clock_label = vk_label_create(21);
